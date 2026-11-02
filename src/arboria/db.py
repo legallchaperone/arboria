@@ -1,0 +1,330 @@
+"""SQLite ledger: schema, migrations, validation, locking and git backup."""
+
+from __future__ import annotations
+
+import fcntl
+import json
+import os
+import re
+import sqlite3
+import sys
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Iterator
+
+from . import gitutil
+from .errors import ArbError
+
+CONFIDENCE = ("guess", "prelim", "confirmed", "rejected")
+IDEA_STATUS = ("open", "merged", "dropped")
+RUN_STATUS = (
+    "draft",
+    "awaiting_approval",
+    "approved",
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+)
+SUBJECT_TYPES = ("run", "idea")
+
+# Events after which the db is dumped to .arboria/backup/ledger.sql and committed.
+BACKUP_EVENTS = frozenset({"idea_new", "idea_close", "note", "run_new", "decision"})
+
+# Limits for the free-text fields an LLM is allowed to write.
+LIMITS = {"hypothesis": 300, "metric": 200, "change_reason": 300, "note": 1000, "summary": 1500}
+SUMMARY_MAX_LINES = 10
+
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+
+
+def _in(values: tuple[str, ...]) -> str:
+    return "(" + ", ".join(f"'{v}'" for v in values) + ")"
+
+
+SCHEMA_V1 = f"""
+CREATE TABLE ideas (
+    id            INTEGER PRIMARY KEY,
+    name          TEXT NOT NULL UNIQUE,
+    hypothesis    TEXT NOT NULL,
+    metric        TEXT NOT NULL,
+    parent_id     INTEGER REFERENCES ideas(id),
+    confidence    TEXT NOT NULL DEFAULT 'guess' CHECK (confidence IN {_in(CONFIDENCE)}),
+    status        TEXT NOT NULL DEFAULT 'open' CHECK (status IN {_in(IDEA_STATUS)}),
+    branch        TEXT NOT NULL,
+    worktree_path TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    closed_at     TEXT
+);
+CREATE TABLE runs (
+    id              TEXT PRIMARY KEY,
+    idea_id         INTEGER NOT NULL REFERENCES ideas(id),
+    snapshot_commit TEXT NOT NULL,
+    tree_hash       TEXT NOT NULL,
+    config_json     TEXT,
+    change_reason   TEXT NOT NULL,
+    machine         TEXT,
+    "partition"     TEXT,
+    gpus            INTEGER,
+    walltime        TEXT,
+    est_cost        REAL,
+    actual_cost     REAL,
+    status          TEXT NOT NULL DEFAULT 'draft' CHECK (status IN {_in(RUN_STATUS)}),
+    review_json     TEXT,
+    wandb_url       TEXT,
+    summary         TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE INDEX runs_tree_hash ON runs(tree_hash);
+CREATE INDEX runs_idea ON runs(idea_id);
+CREATE TABLE decisions (
+    id           TEXT PRIMARY KEY,
+    subject_type TEXT NOT NULL CHECK (subject_type IN {_in(SUBJECT_TYPES)}),
+    subject_id   TEXT NOT NULL,
+    question     TEXT NOT NULL,
+    options_json TEXT NOT NULL DEFAULT '[]',
+    choice       TEXT,
+    decided_by   TEXT,
+    created_at   TEXT NOT NULL
+);
+CREATE TABLE notes (
+    id         INTEGER PRIMARY KEY,
+    idea_id    INTEGER NOT NULL REFERENCES ideas(id),
+    run_id     TEXT REFERENCES runs(id),
+    text       TEXT NOT NULL,
+    confidence TEXT CHECK (confidence IS NULL OR confidence IN {_in(CONFIDENCE)}),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX notes_idea ON notes(idea_id);
+CREATE TABLE events (
+    id           INTEGER PRIMARY KEY,
+    ts           TEXT NOT NULL,
+    kind         TEXT NOT NULL,
+    subject      TEXT,
+    payload_json TEXT
+);
+"""
+
+# MIGRATIONS[i] upgrades user_version i -> i+1.
+MIGRATIONS: list[str] = [SCHEMA_V1]
+SCHEMA_VERSION = len(MIGRATIONS)
+
+
+def now() -> str:
+    """Current time as ISO-8601 UTC, e.g. 2026-11-02T21:24:00Z."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# ---------------------------------------------------------------- validation
+
+
+def validate_text(field: str, value: str | None, *, required: bool = True) -> str | None:
+    """Check an LLM-writable free-text field against its length limit."""
+    if value is None:
+        if required:
+            raise ArbError(f"{field} is required")
+        return None
+    value = value.strip()
+    if not value:
+        if required:
+            raise ArbError(f"{field} must not be empty")
+        return None
+    limit = LIMITS[field]
+    if len(value) > limit:
+        raise ArbError(f"{field} is too long: {len(value)} chars (max {limit}); shorten it")
+    if field == "summary":
+        lines = value.count("\n") + 1
+        if lines > SUMMARY_MAX_LINES:
+            raise ArbError(f"summary has {lines} lines (max {SUMMARY_MAX_LINES}); shorten it")
+    return value
+
+
+def validate_name(name: str) -> str:
+    if not NAME_RE.match(name or ""):
+        raise ArbError(
+            f"invalid idea name {name!r}: use lowercase letters, digits and '-' "
+            "(must start with a letter or digit, max 63 chars)"
+        )
+    return name
+
+
+def validate_choice(field: str, value: str | None, allowed: tuple[str, ...]) -> str | None:
+    if value is None:
+        return None
+    if value not in allowed:
+        raise ArbError(f"invalid {field} {value!r}; choose one of: {', '.join(allowed)}")
+    return value
+
+
+# ---------------------------------------------------------------- connection
+
+
+def connect(path: Path) -> sqlite3.Connection:
+    """Open the db in autocommit mode (we issue BEGIN/COMMIT explicitly)."""
+    conn = sqlite3.connect(str(path), isolation_level=None, timeout=5.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def migrate(conn: sqlite3.Connection) -> int:
+    """Apply pending migrations; return the resulting schema version."""
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version > SCHEMA_VERSION:
+        raise ArbError(
+            f"ledger schema version {version} is newer than this arb ({SCHEMA_VERSION}); upgrade arb"
+        )
+    for target in range(version + 1, SCHEMA_VERSION + 1):
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            for stmt in _split_sql(MIGRATIONS[target - 1]):
+                conn.execute(stmt)
+            conn.execute(f"PRAGMA user_version = {target}")
+            conn.execute("COMMIT")
+        except BaseException:
+            conn.execute("ROLLBACK")
+            raise
+    return SCHEMA_VERSION
+
+
+def _split_sql(script: str) -> list[str]:
+    return [s.strip() for s in script.split(";") if s.strip()]
+
+
+def row_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    return dict(row) if row is not None else None
+
+
+class Ledger:
+    """The ledger db in a state dir. Use `with ledger.write():` for every write."""
+
+    def __init__(self, state_dir: Path):
+        self.state_dir = Path(state_dir)
+        self.path = self.state_dir / "ledger.db"
+        self.lock_path = self.state_dir / "ledger.lock"
+        self._pending: list[tuple[str, str]] = []
+        self._in_write = False
+        with self._lock():
+            self.conn = connect(self.path)
+            migrate(self.conn)
+
+    def close(self) -> None:
+        self.conn.close()
+
+    def __enter__(self) -> "Ledger":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+    # -- locking / transactions
+
+    @contextmanager
+    def _lock(self) -> Iterator[None]:
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        with open(self.lock_path, "a+") as fh:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(fh, fcntl.LOCK_UN)
+
+    @contextmanager
+    def write(self) -> Iterator[sqlite3.Connection]:
+        """Exclusive file lock + IMMEDIATE transaction; backup afterwards if needed."""
+        if self._in_write:
+            raise RuntimeError("nested Ledger.write()")
+        with self._lock():
+            self._in_write = True
+            self._pending = []
+            self.conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield self.conn
+                self.conn.execute("COMMIT")
+            except BaseException:
+                self.conn.execute("ROLLBACK")
+                self._pending = []
+                raise
+            finally:
+                self._in_write = False
+            events, self._pending = self._pending, []
+            backup_events = [e for e in events if e[0] in BACKUP_EVENTS]
+            if backup_events:
+                message = "; ".join(f"{kind} {subject}".strip() for kind, subject in backup_events)
+                try:
+                    self.backup(message)
+                except ArbError as exc:  # the ledger itself is committed; only warn
+                    print(f"warning: ledger backup failed: {exc}", file=sys.stderr)
+
+    def event(self, kind: str, subject: str = "", payload: dict[str, Any] | None = None) -> None:
+        """Append to the events table (call inside `write()`)."""
+        if not self._in_write:
+            raise RuntimeError("Ledger.event() outside of write()")
+        self.conn.execute(
+            "INSERT INTO events (ts, kind, subject, payload_json) VALUES (?, ?, ?, ?)",
+            (now(), kind, subject, json.dumps(payload or {}, ensure_ascii=False, sort_keys=True)),
+        )
+        self._pending.append((kind, subject))
+
+    def next_id(self, table: str, prefix: str) -> str:
+        """Next sequential text id like r001 / d001 (call inside `write()`)."""
+        rows = self.conn.execute(f"SELECT id FROM {table}").fetchall()
+        nums = [int(r[0][len(prefix):]) for r in rows if r[0][len(prefix):].isdigit()]
+        return f"{prefix}{max(nums, default=0) + 1:03d}"
+
+    # -- backup
+
+    def backup(self, message: str) -> bool:
+        """Dump the db to backup/ledger.sql and commit it in the state-dir repo."""
+        backup_dir = self.state_dir / "backup"
+        backup_dir.mkdir(exist_ok=True)
+        version = self.conn.execute("PRAGMA user_version").fetchone()[0]
+        lines = [f"PRAGMA user_version = {version};", *self.conn.iterdump()]
+        target = backup_dir / "ledger.sql"
+        tmp = target.with_suffix(".sql.tmp")
+        tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        os.replace(tmp, target)
+        return commit_backup(self.state_dir, message)
+
+    # -- small query helpers
+
+    def one(self, sql: str, params: tuple = ()) -> dict[str, Any] | None:
+        return row_dict(self.conn.execute(sql, params).fetchone())
+
+    def all(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        return [dict(r) for r in self.conn.execute(sql, params).fetchall()]
+
+
+# ---------------------------------------------------------------- backup repo
+
+BACKUP_GITIGNORE = "# Only the SQL dump is versioned here.\n/*\n!/.gitignore\n!/backup/\n/backup/*\n!/backup/ledger.sql\n"
+
+
+def _backup_git(args: list[str], state_dir: Path) -> str:
+    cfg = ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null"]
+    return gitutil.out([*cfg, *args], state_dir, env=gitutil.FALLBACK_IDENTITY)
+
+
+def init_backup_repo(state_dir: Path) -> None:
+    """Make `.arboria/` a git repo (idempotent)."""
+    if not (state_dir / ".git").exists():
+        _backup_git(["init", "-q"], state_dir)
+    gi = state_dir / ".gitignore"
+    if not gi.exists():
+        gi.write_text(BACKUP_GITIGNORE)
+
+
+def commit_backup(state_dir: Path, message: str) -> bool:
+    """Commit backup/ledger.sql if it changed. Returns True if a commit was made."""
+    _backup_git(["add", "--", ".gitignore", "backup/ledger.sql"], state_dir)
+    if gitutil.ok(["diff", "--cached", "--quiet"], state_dir) and gitutil.ok(
+        ["rev-parse", "--verify", "--quiet", "HEAD"], state_dir
+    ):
+        return False
+    _backup_git(["commit", "-q", "--no-verify", "-m", f"arboria backup: {message}"], state_dir)
+    return True

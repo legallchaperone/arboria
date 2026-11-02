@@ -1,0 +1,24 @@
+[project]
+name = "arboria"
+version = "0.1.0"
+description = "Local ledger of ML research ideas, runs and notes for working with Claude Code"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12",
+]
+
+[project.scripts]
+arb = "arboria.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

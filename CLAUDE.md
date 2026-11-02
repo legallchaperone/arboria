@@ -22,16 +22,17 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 已完成 1b 中不需要真集群的部分（全部用 FakeSlurm 和 mock 的 subprocess 测试）：
   - schema v3（runs 加 `rejected`、`request_json`、`card_hash`；`jobs` 表每段一行），v1/v2→v3 原地迁移。
   - `clusters`（`~/.config/arboria/clusters.toml`，`ARBORIA_CONFIG_DIR` 可覆盖，示例 `examples/clusters.toml`）、`config`（arboria.toml）、`slurm`（纯函数：walltime、DeltaAI 计费、分段、sbatch 渲染、审核单哈希）。
-  - `backends/`：`Backend` 接口、`FakeSlurm`（本地模拟、可编排结果、手动时钟）、`SshSlurm`（`ssh -O check` 门禁 + `NeedLogin`、BatchMode、只读路径限制在 runs/out 下）。
+  - `backends/`：`Backend` 接口、`FakeSlurm`（本地模拟、可编排结果、手动时钟）、`SshSlurm`（`ssh -O check` 门禁 + `NeedLogin`、BatchMode、读取和发送路径限制在本项目的 `<runs>/<project>`、`<out>/<project>` 下）。
   - `submission`：`arb submit`（纯本地）/`card`/`approve`/`reject`。`_guarded_submit` 是 `Backend.submit` 唯一的调用点，提交前再查账本里人的批准 Decision；`tests/test_submit.py` 用源码扫描和 spy 守住这一点。
-  - `monitor`：`arb poll`/`cancel`/`watch`（观察期 NaN / CUDA OOM 取消，NeedLogin 时暂停该机器）/`logs`/`remote ls`。
+  - `monitor`：`arb poll`/`cancel`/`watch`（观察期内日志匹配 `arboria.toml [watch] fail_patterns` 就取消，通知里写明正则和那一行；NeedLogin 时暂停该机器）/`logs`/`remote ls`。
+  - 项目 id（`arboria.toml [project] id`，`arb init` 生成/补上）：作业名 `arb-<project>-<run>-s<k>`，远程目录 `<runs>/<project>/<run>`，ckpt/out 同理。项目 id 存在 request_json 里、算进审核单哈希；后端绑定一个项目，只认本项目的作业名和路径。
   - install-claude 的 deny 规则（sbatch/srun/salloc/scancel/ssh/scp/rsync），CLAUDE.md 区块和 hook 文案更新。
 - 1b 剩下的部分必须在用户本机上做（会碰真集群和 Duo）：
   1. 确认 profile 的值：`cpus_per_gpu`、`mem_per_gpu_gb`（决定计费卡数 = 申请卡数）、`account`（来自 `accounts`）、各 `paths`、登录节点架构、计算节点能否上网；`jobcharge` 的输出格式（`SshSlurm.parse_charge` 目前是猜的，解析不了就按 elapsed × 计费卡数 × 倍率本地估算）。
   2. `arb machine init deltaai` 和 `arb doctor`（都还没写）：ssh host `deltaai` 配 ControlMaster/ControlPersist；连接断了只提示用户重新登录，绝不循环重试。
   3. 环境：在 NGC PyTorch arm64 容器 + uv 和 pixi 之间实测选一个，用短作业在计算节点上构建（缓存 key = lockfile 哈希 + 架构 + CUDA 版本，放在 /projects 下），定下 profile 的 `prelude` / `env_activate`。
   4. 通过 `SshSlurm` 跑通第一个真实 run：submit → approve → watch → 拉回 `ARBORIA_OUT`，核对命令行、`%u` 日志路径、`sacct` 状态和花费。
-- 已知限制：作业名和远程目录不带仓库名，一个机器配置只能给一个仓库用（README 有说明）；`find_job` 用 `sacct --starttime=now-30days`。
+- 已知限制：`find_job` 用 `sacct --starttime=now-30days`；加入项目 id 之前提交的 run 不能再 approve，要重新 submit。
 - 之后：第 2 步做提交前检查、审核包和独立 AI 审稿人、基于历史的估计（以及提交前的排队估计）；第 3 步做 marimo 面板。
 
 ## 使用 arboria 的训练代码要遵守的约定

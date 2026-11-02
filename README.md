@@ -39,7 +39,7 @@ arb idea close --merge               # 或 --drop（先存档最终快照再删�
 
 | 命令 | 说明 |
 | --- | --- |
-| `arb init` | 初始化（幂等）：`.arboria/`（SQLite 账本 + 备份用 git 仓库）、`arboria.toml` 模板（已存在则不覆盖）、在 `.git/info/exclude` 中排除 `.arboria/` |
+| `arb init` | 初始化（幂等）：`.arboria/`（SQLite 账本 + 备份用 git 仓库）、`arboria.toml` 模板（已存在则不覆盖，只在缺 `[project] id` 时补上这一项，其余内容一个字节都不动）、在 `.git/info/exclude` 中排除 `.arboria/` |
 | `arb idea new NAME --hypothesis T --metric T [--parent NAME]` | 从主 worktree 的 HEAD（或父 idea 的分支）创建分支 `idea/NAME` 和 worktree，输出 worktree 路径 |
 | `arb idea list [--json]` | 列出所有 idea |
 | `arb idea close [NAME] (--merge \| --drop) [--confidence X] [--allow-large]` | 关闭 idea（NAME 默认取当前目录所属的 idea）。`--drop`：最终快照存到 `refs/arboria/ideas/NAME/final` 并打标签 `arboria/archive/NAME`，然后删除 worktree 和分支。`--merge`：要求 worktree 没有未提交改动，在主 worktree 中 `git merge --no-ff`，冲突时自动 `git merge --abort` 并报告 |
@@ -50,7 +50,7 @@ arb idea close --merge               # 或 --drop（先存档最终快照再删�
 | `arb reject RUN [--reason T]` | 拒绝一个待批准的 run（理由存为该 run 的笔记），不连接集群 |
 | `arb cancel RUN` | 取消已提交 run 的所有作业 |
 | `arb poll [RUN] [--json]` | 查询一次作业状态，更新 run 状态和花费；结束后把 `ARBORIA_OUT` 拉回 `.arboria/runs/RUN/out/` |
-| `arb watch [--once] [--interval 60] [--window 10]` | 常驻轮询所有活跃 run；作业开跑后的观察期内日志出现 NaN 或 `CUDA out of memory`、或作业失败，就取消剩余作业并通知（`.arboria/notifications.log`） |
+| `arb watch [--once] [--interval 60] [--window MIN]` | 常驻轮询所有活跃 run；作业开跑后的观察期（默认 `[watch] observation_minutes` = 10 分钟）内日志某行匹配 `[watch] fail_patterns`（默认：loss 为 NaN、CUDA OOM），或作业失败，就取消剩余作业并通知（`.arboria/notifications.log`，写明匹配的正则和那一行日志） |
 | `arb logs RUN [--segment K] [-n 100]` | 看集群上某段作业的日志末尾（代替 ssh） |
 | `arb remote ls RUN [SUBPATH] [--out]` | 列出集群上 run 目录（或 `ARBORIA_OUT`）里的文件（代替 ssh） |
 | `arb run summary RUN_ID TEXT` | 为 run 写结果总结（≤10 行 / 1500 字符） |
@@ -127,9 +127,9 @@ arb watch              # 或 arb poll / arb logs r003 / arb remote ls r003
 - **审核单**分为 检查 / 资源 / 估计 / 预算 / 审稿（第 2 步加入，暂无）。批准绑定在审核单哈希上：哈希覆盖快照 commit、命令、资源（含账户和计费卡数）、机器、分区、分段计划和环境（prelude、env_activate、路径）。`arb approve` 按存下的请求和**当前**机器配置重算，对不上就拒绝（“审核单已变化，请重新 arb submit”）。
 - **计费**（DeltaAI 规则）：计费卡数 = max(GPU 数, ⌈内存 / 每卡内存份额⌉, ⌈CPU / 每卡 CPU 份额⌉)。默认按卡数配内存和 CPU，所以计费卡数 = 申请卡数；手动用 `--mem` / `--cpus` 多要时，审核单上会出现 ⚠ 和实际计费卡数。估计上限 = 计费卡数 × 时长（小时）× 分区倍率，按各段累加。
 - **分段**：时长超过分区上限（`ghx4` 48h，`ghx4-interactive` 2h）就拆成 ⌈T/M⌉ 段，用 `--dependency=afterany:<上一段>` 串起来，训练代码必须能从 `ARBORIA_CKPT_DIR` 续训；段数超过 `max_segments` 拒绝。某段失败时其余段会被取消；只有最后一段 `COMPLETED` 才算成功。
-- **幂等**：每段 `sbatch` 之前先在账本里记一行 `submitting`，并先按作业名 `arboria-<run>-s<k>` 在集群上查找；已存在就直接采用，不重复提交。
+- **幂等**：每段 `sbatch` 之前先在账本里记一行 `submitting`，并先按完整作业名 `arb-<project>-<run>-s<k>` 在集群上查找（只认自己的作业、名字完全相同的）；已存在就直接采用，不重复提交。
 - **Duo**：`SshSlurm` 每次远程调用前先运行 `ssh -O check <host>`；没有活着的主连接就报“请先在终端运行 `ssh <host>` 完成 Duo 认证，然后重试”，绝不自动重试。远程命令都带 `-o BatchMode=yes`，不会弹出密码或推送 Duo。`arb watch` 遇到这种情况只通知一次，然后暂停对该机器的远程调用，直到你重新启动 `arb watch`。
-- 作业里可用的环境变量：`ARBORIA_RUN_ID`、`ARBORIA_IDEA`、`ARBORIA_SEGMENT`、`ARBORIA_DATA`、`ARBORIA_CACHE`（`HF_HOME=$ARBORIA_CACHE/hf`）、`ARBORIA_CKPT_DIR=<ckpt>/<run>`、`ARBORIA_OUT=<out>/<run>`。命令在 `<runs>/<run>/code`（快照内容）里运行，日志在 `<runs>/<run>/logs/s<k>.<jobid>.out`。命令按参数逐个加引号，不经过 shell 展开；多节点时请在命令里自己写 `srun`。
+- 作业里可用的环境变量：`ARBORIA_RUN_ID`、`ARBORIA_IDEA`、`ARBORIA_SEGMENT`、`ARBORIA_DATA`、`ARBORIA_CACHE`（`HF_HOME=$ARBORIA_CACHE/hf`）、`ARBORIA_CKPT_DIR=<ckpt>/<project>/<run>`、`ARBORIA_OUT=<out>/<project>/<run>`。命令在 `<runs>/<project>/<run>/code`（快照内容）里运行，日志在 `<runs>/<project>/<run>/logs/s<k>.<jobid>.out`。命令按参数逐个加引号，不经过 shell 展开；多节点时请在命令里自己写 `srun`。
 
 ### 机器配置
 
@@ -167,7 +167,8 @@ out  = "/projects/<proj>/$USER/arboria/out"
 - 标着“待确认”的值（0、`<…>` 占位符）会被拒绝，并提示是哪一项。路径必须是绝对路径，只能用字母、数字、`._-/` 和 `$USER`（`#SBATCH` 行里会换成 `%u`）。
 - `kind = "fake"` 时还需要 `root = "/某个本地目录"`：`FakeSlurm` 把“集群”模拟在本地，路径就是本地路径，适合演练整个流程。
 - 预算读 `arboria.toml` 的 `[budget] total_su`；默认机器读 `default_machine`。
-- **一个机器配置只给一个仓库用。** run id 在每个仓库里都从 `r001` 开始，作业名 `arboria-<run>-s<k>` 和远程目录 `<runs>/<run>` 不带仓库名；两个仓库共用同一组路径会互相覆盖，续交时还可能把另一个仓库的同名作业当成自己的。多个仓库请各用一个机器名（`host` 可以相同），各配不同的 `paths`。
+- **几个仓库可以共用一个机器配置。** run id 在每个仓库里都从 `r001` 开始，所以作业名和远程目录都带上 `arboria.toml` 的 `[project] id`（`arb init` 生成：主 worktree 目录名的 slug + `-` + 其绝对路径 sha256 的前 4 个十六进制字符，例如 `myproj-3f2a`）：作业名 `arb-<project>-<run>-s<k>`，远程目录 `<runs>/<project>/<run>`。`arb logs`、`arb remote ls` 和拉回 `ARBORIA_OUT` 只能读当前项目的 `<runs>/<project>`、`<out>/<project>`。项目 id 记在每个 run 的请求里（也算进审核单哈希），已提交的 run 一直用提交时的名字；有 run 在集群上时不要改它。
+- 旧版本建的 `arboria.toml` 没有 `[project] id`：`submit`/`approve`/`poll`/`watch`/`logs`/`remote`/`cancel` 会拒绝并提示运行 `arb init` 补上。加入项目 id 之前提交的 run 不能再 `approve`（包括续交），请重新 `arb submit`；它们已有的作业仍可 `poll`、`cancel`。
 
 ## 状态存放位置
 
@@ -175,4 +176,12 @@ out  = "/projects/<proj>/$USER/arboria/out"
 - `.arboria/ledger.db`：SQLite（WAL 模式），schema 版本记录在 `PRAGMA user_version`。
 - `.arboria/` 本身是一个只用于备份的小 git 仓库：在 idea 新建/关闭、笔记、新 run、决策、经验提出/接受/拒绝/退役之后，以及 run 的提交、批准、进入队列、拒绝、取消和结束之后，会把数据库导出到 `.arboria/backup/ledger.sql` 并提交（轮询这类心跳更新只写数据库，不提交）。
 - `.arboria/runs/<run>/out/`：拉回来的 `ARBORIA_OUT`；`.arboria/notifications.log`：watch/poll 的通知。
-- `arboria.toml` 位于主 worktree 根目录，应由你提交到仓库（`default_machine`、`[budget] total_su`、`[claudemd] autocommit` 已生效；review 检查清单尚未被读取）。
+- `arboria.toml` 位于主 worktree 根目录，应由你提交到仓库（`[project] id`、`default_machine`、`[budget] total_su`、`[claudemd] autocommit`、`[watch]` 已生效；review 检查清单尚未被读取）。观察期设置：
+
+  ```toml
+  [watch]
+  observation_minutes = 10
+  fail_patterns = ['(?i)\bloss\b[^\n]{0,40}\bnan\b', '(?i)\bnan\b[^\n]{0,40}\bloss\b', 'CUDA out of memory', 'torch\.OutOfMemoryError']
+  ```
+
+  没有这个表时就用上面的默认值；写了 `fail_patterns` 就完全替换默认列表。正则按 Python `re` 语法逐行匹配日志末尾 50 行，加载时就检查，写错了会直接报出是第几条。

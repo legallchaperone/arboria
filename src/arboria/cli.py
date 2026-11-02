@@ -10,6 +10,7 @@ from typing import Annotated, Any, Callable, Optional
 
 import typer
 
+from . import claudemd
 from . import hook as hook_mod
 from . import ideas as ideas_mod
 from . import install as install_mod
@@ -29,9 +30,11 @@ app = typer.Typer(
 idea_app = typer.Typer(help="Create, list and close research ideas.", no_args_is_help=True)
 run_app = typer.Typer(help="Record experiment runs.", no_args_is_help=True)
 hook_app = typer.Typer(help="Claude Code hooks.", no_args_is_help=True)
+claudemd_app = typer.Typer(help="The arb-managed block in the main CLAUDE.md.", no_args_is_help=True)
 app.add_typer(idea_app, name="idea")
 app.add_typer(run_app, name="run")
 app.add_typer(hook_app, name="hook")
+app.add_typer(claudemd_app, name="claudemd")
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
 ConfidenceOpt = Annotated[
@@ -74,7 +77,7 @@ def _open() -> tuple[RepoContext, Ledger]:
 def init() -> None:
     """Set up arboria for this repository (idempotent)."""
     ctx = locate()
-    actions = init_state(ctx)
+    actions = init_state(ctx, warn=_warn)
     for a in actions:
         typer.echo(a)
     typer.echo(f"arboria ready: state in {ctx.state_dir}" if actions else "already initialized")
@@ -250,8 +253,13 @@ def install_claude(
     """Add the SessionStart hook and permission rules to .claude/settings.json."""
     if main and user:
         raise ArbError("use only one of --main / --user")
+    ctx: RepoContext | None = None
     if user:
         root = Path.home()
+        try:
+            ctx = locate()
+        except ArbError:  # --user works outside any repository
+            ctx = None
     else:
         ctx = locate()
         root = ctx.main if main else ctx.toplevel
@@ -264,3 +272,32 @@ def install_claude(
         typer.echo(f"updated {path}")
     else:
         typer.echo(f"{path} already up to date")
+    _sync_claudemd_after(ctx, quiet_if_unchanged=True)
+
+
+def _sync_claudemd_after(ctx: RepoContext | None, *, quiet_if_unchanged: bool = False) -> None:
+    """Sync CLAUDE.md as a follow-up step; a failure only warns (the main action succeeded)."""
+    if ctx is None or not ctx.initialized:
+        return
+    try:
+        with Ledger(ctx.state_dir) as ledger:
+            result = claudemd.sync(ctx, ledger)
+    except ArbError as exc:
+        _warn(f"CLAUDE.md not updated: {exc}")
+        return
+    if result.changed or not quiet_if_unchanged:
+        for line in result.messages():
+            typer.echo(line)
+
+
+@claudemd_app.command("sync")
+@handle_errors
+def claudemd_sync(
+    no_commit: Annotated[bool, typer.Option("--no-commit", help="Write CLAUDE.md but do not commit it.")] = False,
+) -> None:
+    """Write the arboria block (rules + accepted lessons) into the main worktree's CLAUDE.md."""
+    ctx, ledger = _open()
+    with ledger:
+        result = claudemd.sync(ctx, ledger, commit=not no_commit)
+    for line in result.messages():
+        typer.echo(line)

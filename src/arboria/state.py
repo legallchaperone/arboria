@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
+from . import claudemd
 from .db import Ledger, init_backup_repo
+from .errors import ArbError
 from .paths import RepoContext, ensure_excluded
 
 CONFIG_TEMPLATE = """\
@@ -23,10 +26,15 @@ checklist = [
     "Compare against a named baseline run that uses the same data split, metric and seed policy.",
     "Evaluate at the same frequency (every N steps/epochs) as the baseline so curves are comparable.",
 ]
+
+[claudemd]
+# After `arb` updates its block in the main worktree's CLAUDE.md, commit that file
+# (and only that file) with message "arboria: update CLAUDE.md".
+autocommit = true
 """
 
 
-def init_state(ctx: RepoContext) -> list[str]:
+def init_state(ctx: RepoContext, warn: Callable[[str], None] | None = None) -> list[str]:
     """Idempotently set up arboria for the repo. Returns a list of actions taken."""
     actions: list[str] = []
     state = ctx.state_dir
@@ -49,4 +57,13 @@ def init_state(ctx: RepoContext) -> list[str]:
     if not config.exists():
         config.write_text(CONFIG_TEMPLATE, encoding="utf-8")
         actions.append(f"wrote config template {config} (commit it)")
+    try:
+        with Ledger(state) as ledger:
+            result = claudemd.sync(ctx, ledger)
+    except ArbError as exc:  # e.g. malformed markers: init itself still succeeded
+        if warn:
+            warn(f"CLAUDE.md not updated: {exc}")
+    else:
+        if result.changed:
+            actions.extend(result.messages())
     return actions

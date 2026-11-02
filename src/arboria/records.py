@@ -17,6 +17,36 @@ def run_ref(run_id: str) -> str:
     return f"refs/arboria/runs/{run_id}"
 
 
+def insert_run(
+    ledger: Ledger,
+    idea: dict[str, Any],
+    reason: str,
+    *,
+    allow_large: bool = False,
+    warn: Callable[[str], None] | None = None,
+    file_limit: int | None = None,
+    total_limit: int | None = None,
+) -> tuple[str, snapshot.SnapshotResult]:
+    """Snapshot the idea's worktree and insert a draft run; call inside `ledger.write()`."""
+    reason = validate_text("change_reason", reason)
+    worktree = Path(idea["worktree_path"])
+    if not worktree.is_dir():
+        raise ArbError(f"idea worktree {worktree} is missing")
+    run_id = ledger.next_id("runs", "r")
+    snap = snapshot.snapshot(
+        worktree, ledger.conn, f"arboria snapshot {run_id}",
+        allow_large=allow_large, warn=warn, file_limit=file_limit, total_limit=total_limit,
+    )
+    snapshot.update_ref(worktree, run_ref(run_id), snap.commit, f"arboria: run {run_id}")
+    ts = now()
+    ledger.conn.execute(
+        "INSERT INTO runs (id, idea_id, snapshot_commit, tree_hash, change_reason,"
+        " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (run_id, idea["id"], snap.commit, snap.tree, reason, ts, ts),
+    )
+    return run_id, snap
+
+
 def new_run(
     ledger: Ledger,
     idea: dict[str, Any],
@@ -29,22 +59,9 @@ def new_run(
 ) -> dict[str, Any]:
     """Snapshot the idea's worktree and record a draft run with ref refs/arboria/runs/<id>."""
     reason = validate_text("change_reason", reason)
-    worktree = Path(idea["worktree_path"])
-    if not worktree.is_dir():
-        raise ArbError(f"idea worktree {worktree} is missing")
-    with ledger.write() as conn:
-        run_id = ledger.next_id("runs", "r")
-        snap = snapshot.snapshot(
-            worktree, conn, f"arboria snapshot {run_id}",
-            allow_large=allow_large, warn=warn, file_limit=file_limit, total_limit=total_limit,
-        )
-        snapshot.update_ref(worktree, run_ref(run_id), snap.commit, f"arboria: run {run_id}")
-        ts = now()
-        conn.execute(
-            "INSERT INTO runs (id, idea_id, snapshot_commit, tree_hash, change_reason,"
-            " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (run_id, idea["id"], snap.commit, snap.tree, reason, ts, ts),
-        )
+    with ledger.write():
+        run_id, snap = insert_run(ledger, idea, reason, allow_large=allow_large, warn=warn,
+                                  file_limit=file_limit, total_limit=total_limit)
         ledger.event("run_new", run_id, {"idea": idea["name"], "commit": snap.commit,
                                           "tree": snap.tree, "reused": snap.reused})
     run = get_run(ledger, run_id)
@@ -97,7 +114,7 @@ def add_note(
 
 
 # ---------------------------------------------------------------- decisions
-# No CLI for run/idea decisions yet (approval flow is a later step); lessons use them.
+# Lessons and run approvals (see submission) create and decide these.
 
 
 def insert_decision(

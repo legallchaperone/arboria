@@ -27,7 +27,16 @@ RUN_STATUS = (
     "succeeded",
     "failed",
     "cancelled",
+    "rejected",
 )
+# Run statuses before schema v3 (the v1 CHECK constraint).
+RUN_STATUS_V1 = RUN_STATUS[:-1]
+# Runs whose jobs may still be on the cluster.
+RUN_ACTIVE = ("approved", "queued", "running")
+RUN_FINAL = ("succeeded", "failed", "cancelled")
+JOB_STATES = ("submitting", "pending", "running", "completed", "failed", "cancelled", "timeout",
+              "unknown")
+JOB_TERMINAL = ("completed", "failed", "cancelled", "timeout")
 SUBJECT_TYPES = ("run", "idea", "lesson")
 LESSON_STATUS = ("proposed", "accepted", "retired")
 LESSON_SOURCES = ("idea", "run", "none")
@@ -36,6 +45,7 @@ LESSON_SOURCES = ("idea", "run", "none")
 BACKUP_EVENTS = frozenset({
     "idea_new", "idea_close", "note", "run_new", "decision",
     "lesson_propose", "lesson_accept", "lesson_reject", "lesson_retire",
+    "run_submit", "run_approve", "run_queued", "run_reject", "run_cancel", "run_final",
 })
 
 # Limits for the free-text fields an LLM is allowed to write.
@@ -77,7 +87,7 @@ CREATE TABLE runs (
     walltime        TEXT,
     est_cost        REAL,
     actual_cost     REAL,
-    status          TEXT NOT NULL DEFAULT 'draft' CHECK (status IN {_in(RUN_STATUS)}),
+    status          TEXT NOT NULL DEFAULT 'draft' CHECK (status IN {_in(RUN_STATUS_V1)}),
     review_json     TEXT,
     wandb_url       TEXT,
     summary         TEXT,
@@ -146,8 +156,62 @@ DROP TABLE decisions;
 ALTER TABLE decisions_v2 RENAME TO decisions;
 """
 
+_RUN_COLUMNS_V1 = (
+    "id, idea_id, snapshot_commit, tree_hash, config_json, change_reason, machine, \"partition\","
+    " gpus, walltime, est_cost, actual_cost, status, review_json, wandb_url, summary,"
+    " created_at, updated_at"
+)
+
+# v3: cluster submission. runs.status gains 'rejected' (table rebuilt, rows kept; foreign
+# keys are switched off during migrations so `notes.run_id` survives the swap), runs get
+# the submitted request + approval card hash, and `jobs` holds one row per Slurm segment.
+MIGRATION_V3 = f"""
+CREATE TABLE runs_v3 (
+    id              TEXT PRIMARY KEY,
+    idea_id         INTEGER NOT NULL REFERENCES ideas(id),
+    snapshot_commit TEXT NOT NULL,
+    tree_hash       TEXT NOT NULL,
+    config_json     TEXT,
+    change_reason   TEXT NOT NULL,
+    machine         TEXT,
+    "partition"     TEXT,
+    gpus            INTEGER,
+    walltime        TEXT,
+    est_cost        REAL,
+    actual_cost     REAL,
+    status          TEXT NOT NULL DEFAULT 'draft' CHECK (status IN {_in(RUN_STATUS)}),
+    review_json     TEXT,
+    wandb_url       TEXT,
+    summary         TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    request_json    TEXT,
+    card_hash       TEXT
+);
+INSERT INTO runs_v3 ({_RUN_COLUMNS_V1}) SELECT {_RUN_COLUMNS_V1} FROM runs;
+DROP TABLE runs;
+ALTER TABLE runs_v3 RENAME TO runs;
+CREATE INDEX runs_tree_hash ON runs(tree_hash);
+CREATE INDEX runs_idea ON runs(idea_id);
+CREATE INDEX runs_status ON runs(status);
+CREATE TABLE jobs (
+    id           INTEGER PRIMARY KEY,
+    run_id       TEXT NOT NULL REFERENCES runs(id),
+    segment      INTEGER NOT NULL CHECK (segment >= 1),
+    job_name     TEXT NOT NULL,
+    job_id       TEXT,
+    state        TEXT NOT NULL DEFAULT 'submitting' CHECK (state IN {_in(JOB_STATES)}),
+    elapsed_s    INTEGER,
+    billed_su    REAL,
+    submitted_at TEXT,
+    updated_at   TEXT NOT NULL,
+    UNIQUE (run_id, segment)
+);
+CREATE INDEX jobs_run ON jobs(run_id);
+"""
+
 # MIGRATIONS[i] upgrades user_version i -> i+1. Never edit a released migration.
-MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2]
+MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3]
 SCHEMA_VERSION = len(MIGRATIONS)
 
 
@@ -222,16 +286,30 @@ def migrate(conn: sqlite3.Connection) -> int:
         raise ArbError(
             f"ledger schema version {version} is newer than this arb ({SCHEMA_VERSION}); upgrade arb"
         )
-    for target in range(version + 1, SCHEMA_VERSION + 1):
-        conn.execute("BEGIN IMMEDIATE")
-        try:
-            for stmt in _split_sql(MIGRATIONS[target - 1]):
-                conn.execute(stmt)
-            conn.execute(f"PRAGMA user_version = {target}")
-            conn.execute("COMMIT")
-        except BaseException:
-            conn.execute("ROLLBACK")
-            raise
+    if version == SCHEMA_VERSION:
+        return SCHEMA_VERSION
+    # Table rebuilds (the documented SQLite procedure) need foreign keys off; it cannot be
+    # changed inside a transaction. Integrity is re-checked before each COMMIT.
+    fk_was_on = conn.execute("PRAGMA foreign_keys").fetchone()[0]
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        for target in range(version + 1, SCHEMA_VERSION + 1):
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                for stmt in _split_sql(MIGRATIONS[target - 1]):
+                    conn.execute(stmt)
+                bad = conn.execute("PRAGMA foreign_key_check").fetchall()
+                if bad:
+                    raise ArbError(f"migration to schema v{target} broke foreign keys: "
+                                   f"{[tuple(r) for r in bad][:5]}")
+                conn.execute(f"PRAGMA user_version = {target}")
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
+    finally:
+        if fk_was_on:
+            conn.execute("PRAGMA foreign_keys = ON")
     return SCHEMA_VERSION
 
 

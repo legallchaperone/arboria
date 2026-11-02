@@ -188,12 +188,12 @@ def _make_v1_db(path: Path) -> None:
     conn.close()
 
 
-def test_migration_v1_to_v2_preserves_data(tmp_path: Path) -> None:
+def test_migration_v1_to_current_preserves_data(tmp_path: Path) -> None:
     state = tmp_path / "state"
     state.mkdir()
     _make_v1_db(state / "ledger.db")
     with Ledger(state) as ledger:  # opening migrates in place
-        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 2
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 3
         decs = ledger.all("SELECT * FROM decisions ORDER BY id")
         assert [(d["id"], d["subject_type"], d["subject_id"], d["question"], d["options_json"],
                  d["choice"], d["decided_by"], d["created_at"]) for d in decs] == [
@@ -234,3 +234,62 @@ def test_lesson_text_validation() -> None:
         validate_text("lesson", "a\nb")
     with pytest.raises(ArbError, match="comment markers"):
         validate_text("lesson", "<!-- arboria:end -->")
+
+
+def _make_db_at(path: Path, version: int) -> sqlite3.Connection:
+    conn = db.connect(path)
+    for script in db.MIGRATIONS[:version]:
+        for stmt in db._split_sql(script):
+            conn.execute(stmt)
+    conn.execute(f"PRAGMA user_version = {version}")
+    return conn
+
+
+@pytest.mark.parametrize("version", [1, 2])
+def test_migration_to_v3_keeps_runs_and_notes(tmp_path: Path, version: int) -> None:
+    state = tmp_path / "state"
+    state.mkdir()
+    conn = _make_db_at(state / "ledger.db", version)
+    conn.execute("INSERT INTO ideas (name, hypothesis, metric, branch, worktree_path, created_at)"
+                 " VALUES ('exp1', 'h', 'm', 'idea/exp1', '/w', 't')")
+    for rid, status in (("r001", "draft"), ("r002", "succeeded")):
+        conn.execute(
+            "INSERT INTO runs (id, idea_id, snapshot_commit, tree_hash, change_reason, machine,"
+            " \"partition\", gpus, walltime, est_cost, actual_cost, status, summary, created_at,"
+            " updated_at) VALUES (?, 1, 'c' || ?, 't' || ?, 'why ' || ?, 'm', 'p', 4, '1h', 1.5,"
+            " 2.5, ?, 'sum', 't1', 't2')", (rid, rid, rid, rid, status))
+    conn.execute("INSERT INTO notes (idea_id, run_id, text, created_at) VALUES (1, 'r002', 'n', 't')")
+    with pytest.raises(sqlite3.IntegrityError):  # 'rejected' is new in v3
+        conn.execute("UPDATE runs SET status = 'rejected' WHERE id = 'r001'")
+    conn.close()
+
+    with Ledger(state) as ledger:
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert ledger.conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        runs = ledger.all("SELECT * FROM runs ORDER BY id")
+        assert [(r["id"], r["status"], r["snapshot_commit"], r["change_reason"], r["gpus"],
+                 r["est_cost"], r["actual_cost"], r["summary"], r["request_json"], r["card_hash"])
+                for r in runs] == [
+            ("r001", "draft", "cr001", "why r001", 4, 1.5, 2.5, "sum", None, None),
+            ("r002", "succeeded", "cr002", "why r002", 4, 1.5, 2.5, "sum", None, None),
+        ]
+        assert ledger.one("SELECT run_id FROM notes")["run_id"] == "r002"
+        assert ledger.conn.execute("PRAGMA foreign_key_check").fetchall() == []
+        indexes = {r[0] for r in ledger.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'runs'")}
+        assert {"runs_tree_hash", "runs_idea", "runs_status"} <= indexes
+        with ledger.write() as c:
+            c.execute("UPDATE runs SET status = 'rejected' WHERE id = 'r001'")
+            c.execute("INSERT INTO jobs (run_id, segment, job_name, updated_at)"
+                      " VALUES ('r002', 1, 'arboria-r002-s1', 't')")
+        job = ledger.one("SELECT * FROM jobs")
+        assert job["state"] == "submitting" and job["job_id"] is None
+        for bad in ("INSERT INTO jobs (run_id, segment, job_name, updated_at)"
+                    " VALUES ('r002', 1, 'dup', 't')",  # UNIQUE(run_id, segment)
+                    "INSERT INTO jobs (run_id, segment, job_name, state, updated_at)"
+                    " VALUES ('r002', 2, 'x', 'exploded', 't')",
+                    "INSERT INTO jobs (run_id, segment, job_name, updated_at)"
+                    " VALUES ('r999', 1, 'x', 't')"):  # foreign key
+            with pytest.raises(sqlite3.IntegrityError):
+                with ledger.write() as c:
+                    c.execute(bad)

@@ -11,7 +11,9 @@ from .paths import RepoContext
 
 BRIEF_FOOTER = (
     "Ledger rules: experiment state lives in the arboria ledger, written only by `arb`. "
-    "Use `arb status`, `arb note \"...\"`, `arb run new --reason \"...\"`; never edit .arboria/ by hand. "
+    "Use `arb status`, `arb note \"...\"`, `arb submit --reason \"...\" --gpus N --time T -- CMD`; "
+    "never edit .arboria/ by hand. Approval is the human's: never run `arb approve`. "
+    "Read cluster logs with `arb logs RUN` / `arb remote ls RUN`, not ssh. "
     "Propose reusable pitfalls with `arb lesson propose \"...\"` (never `arb lesson accept`)."
 )
 # Accepted lessons shown in status / the hook (CLAUDE.md in an idea worktree may be stale).
@@ -30,12 +32,40 @@ def _open_decisions(ledger: Ledger, idea_id: int | None = None) -> list[dict[str
     )
 
 
+def _jobs(ledger: Ledger, run_id: str) -> list[dict[str, Any]]:
+    return ledger.all("SELECT segment, job_name, job_id, state, elapsed_s, billed_su FROM jobs"
+                      " WHERE run_id = ? ORDER BY segment", (run_id,))
+
+
 def _runs(ledger: Ledger, idea_id: int) -> list[dict[str, Any]]:
-    return ledger.all(
+    runs = ledger.all(
         "SELECT id, status, change_reason, snapshot_commit, tree_hash, summary, wandb_url,"
+        " machine, \"partition\", gpus, walltime, est_cost, actual_cost,"
         " created_at, updated_at FROM runs WHERE idea_id = ? ORDER BY id",
         (idea_id,),
     )
+    for r in runs:
+        r["jobs"] = _jobs(ledger, r["id"])
+    return runs
+
+
+def pending_approvals(ledger: Ledger) -> int:
+    return ledger.one("SELECT COUNT(*) AS n FROM runs WHERE status = 'awaiting_approval'")["n"]
+
+
+def jobs_line(run: dict[str, Any]) -> str | None:
+    """`s1 1001 completed, s2 1002 running; 3.20 SU` (None for runs never submitted)."""
+    jobs = run.get("jobs") or []
+    if not jobs and run.get("est_cost") is None:
+        return None
+    parts = [f"s{j['segment']} {j['job_id'] or '-'} {j['state']}" for j in jobs]
+    cost = run.get("actual_cost")
+    money = f"{cost:.2f} SU" if cost is not None else "0 SU"
+    if run.get("est_cost") is not None:
+        money += f"（估计上限 {run['est_cost']:.2f}）"
+    where = f"{run['machine']}/{run['partition']} {run['gpus']} GPU {run['walltime']}" \
+        if run.get("machine") else ""
+    return "; ".join(x for x in (where, ", ".join(parts), money) if x)
 
 
 def _notes(ledger: Ledger, idea_id: int, limit: int | None = None) -> list[dict[str, Any]]:
@@ -59,7 +89,8 @@ def _lesson_data(ledger: Ledger) -> dict[str, Any]:
 
 
 def status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
-    return _status_data(ctx, ledger) | _lesson_data(ledger)
+    return (_status_data(ctx, ledger) | _lesson_data(ledger)
+            | {"pending_approvals": pending_approvals(ledger)})
 
 
 def _status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
@@ -143,6 +174,9 @@ def status_parts(data: dict[str, Any], brief: bool = False) -> tuple[str, str]:
         for r in shown:
             line = f"- {r['id']} [{r['status']}] {_clip(r['change_reason'], clip)} @{r['snapshot_commit'][:10]}"
             lines.append(line)
+            jl = jobs_line(r)
+            if jl:
+                lines.append(f"    jobs: {jl}")
             if r["summary"]:
                 lines.append(f"    summary: {_clip(r['summary'], 240 if brief else 10_000)}")
         notes = data["notes"]
@@ -168,6 +202,9 @@ def status_parts(data: dict[str, Any], brief: bool = False) -> tuple[str, str]:
     lines.append("Open decisions" + (":" if decisions else ": none"))
     lines.extend(_decision_lines(decisions))
     tail = lesson_lines(data)
+    if data.get("pending_approvals"):
+        tail.insert(0, f"待你批准的 run：{data['pending_approvals']} 个"
+                       "（`arb card RUN` 看审核单，由你运行 `arb approve RUN`）")
     if brief:
         tail.append(BRIEF_FOOTER)
     return "\n".join(lines), "\n".join(tail)
@@ -218,6 +255,9 @@ def export_markdown(ctx: RepoContext, ledger: Ledger) -> str:
         for r in runs:
             out.append(f"- **{r['id']}** [{r['status']}] {r['created_at']}, "
                        f"snapshot `{r['snapshot_commit'][:10]}` — {r['change_reason']}")
+            jl = jobs_line(r | {"jobs": _jobs(ledger, r["id"])})
+            if jl:
+                out.append(f"  - jobs: {jl}")
             if r["summary"]:
                 for line in r["summary"].splitlines():
                     out.append(f"  > {line}")

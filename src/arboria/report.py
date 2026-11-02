@@ -4,14 +4,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from .claudemd import accepted_lessons, lesson_line
 from .db import Ledger, now
 from .ideas import current_idea
 from .paths import RepoContext
 
 BRIEF_FOOTER = (
     "Ledger rules: experiment state lives in the arboria ledger, written only by `arb`. "
-    "Use `arb status`, `arb note \"...\"`, `arb run new --reason \"...\"`; never edit .arboria/ by hand."
+    "Use `arb status`, `arb note \"...\"`, `arb run new --reason \"...\"`; never edit .arboria/ by hand. "
+    "Propose reusable pitfalls with `arb lesson propose \"...\"` (never `arb lesson accept`)."
 )
+# Accepted lessons shown in status / the hook (CLAUDE.md in an idea worktree may be stale).
+STATUS_LESSONS = 10
 
 
 def _open_decisions(ledger: Ledger, idea_id: int | None = None) -> list[dict[str, Any]]:
@@ -47,7 +51,18 @@ def _idea_public(idea: dict[str, Any]) -> dict[str, Any]:
     return {k: idea[k] for k in keys}
 
 
+def _lesson_data(ledger: Ledger) -> dict[str, Any]:
+    total = ledger.one("SELECT COUNT(*) AS n FROM lessons WHERE status = 'accepted'")["n"]
+    proposed = ledger.one("SELECT COUNT(*) AS n FROM lessons WHERE status = 'proposed'")["n"]
+    return {"lessons": accepted_lessons(ledger, limit=STATUS_LESSONS),
+            "accepted_lessons": total, "proposed_lessons": proposed}
+
+
 def status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
+    return _status_data(ctx, ledger) | _lesson_data(ledger)
+
+
+def _status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
     idea = current_idea(ctx, ledger)
     if idea is not None:
         parent = ledger.one("SELECT name FROM ideas WHERE id = ?", (idea["parent_id"],)) \
@@ -87,6 +102,28 @@ def _decision_lines(decisions: list[dict[str, Any]]) -> list[str]:
 
 def format_status(data: dict[str, Any], brief: bool = False) -> str:
     """Human/LLM-readable status. `brief` is the compact form injected by the hook."""
+    head, tail = status_parts(data, brief=brief)
+    return "\n".join(part for part in (head, tail) if part)
+
+
+def lesson_lines(data: dict[str, Any]) -> list[str]:
+    """Accepted lessons (newest first) and the count awaiting the human."""
+    lines: list[str] = []
+    lessons = data.get("lessons") or []
+    if lessons:
+        lines.append(f"经验（已确认，最新 {len(lessons)} 条）:")
+        lines.extend(lesson_line(l) for l in lessons)
+        more = data.get("accepted_lessons", len(lessons)) - len(lessons)
+        if more > 0:
+            lines.append(f"  … 另有 {more} 条，见 `arb lesson list`")
+    pending = data.get("proposed_lessons") or 0
+    if pending:
+        lines.append(f"待你确认的经验：{pending} 条，用 `arb lesson list` 查看")
+    return lines
+
+
+def status_parts(data: dict[str, Any], brief: bool = False) -> tuple[str, str]:
+    """(state, lessons + footer): the hook truncates the first part, never the second."""
     clip = 160 if brief else 10_000
     lines: list[str] = []
     if data["scope"] == "idea":
@@ -130,9 +167,10 @@ def format_status(data: dict[str, Any], brief: bool = False) -> str:
     decisions = data["open_decisions"]
     lines.append("Open decisions" + (":" if decisions else ": none"))
     lines.extend(_decision_lines(decisions))
+    tail = lesson_lines(data)
     if brief:
-        lines.append(BRIEF_FOOTER)
-    return "\n".join(lines)
+        tail.append(BRIEF_FOOTER)
+    return "\n".join(lines), "\n".join(tail)
 
 
 def export_markdown(ctx: RepoContext, ledger: Ledger) -> str:
@@ -142,6 +180,12 @@ def export_markdown(ctx: RepoContext, ledger: Ledger) -> str:
         " ORDER BY i.created_at DESC, i.id DESC"
     )
     out = [f"# Arboria research log: {ctx.main.name}", "", f"_Exported {now()} — {len(ideas)} idea(s), newest first._", ""]
+    out += ["## 经验", ""]
+    out += [lesson_line(l) for l in accepted_lessons(ledger)] or ["_暂无_"]
+    pending = ledger.all("SELECT * FROM lessons WHERE status = 'proposed' ORDER BY id DESC")
+    if pending:
+        out += ["", "待确认：", *(f"- {l['id']}: {l['text']}" for l in pending)]
+    out.append("")
     for idea in ideas:
         out.append(f"## {idea['name']} — {idea['status']}, confidence: {idea['confidence']}")
         out.append("")

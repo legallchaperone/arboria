@@ -14,6 +14,7 @@ from . import claudemd
 from . import hook as hook_mod
 from . import ideas as ideas_mod
 from . import install as install_mod
+from . import lessons as lessons_mod
 from . import records, report
 from .db import Ledger
 from .errors import ArbError
@@ -31,15 +32,19 @@ idea_app = typer.Typer(help="Create, list and close research ideas.", no_args_is
 run_app = typer.Typer(help="Record experiment runs.", no_args_is_help=True)
 hook_app = typer.Typer(help="Claude Code hooks.", no_args_is_help=True)
 claudemd_app = typer.Typer(help="The arb-managed block in the main CLAUDE.md.", no_args_is_help=True)
+lesson_app = typer.Typer(help="Reusable project lessons (proposed by Claude, accepted by you).",
+                         no_args_is_help=True)
 app.add_typer(idea_app, name="idea")
 app.add_typer(run_app, name="run")
 app.add_typer(hook_app, name="hook")
 app.add_typer(claudemd_app, name="claudemd")
+app.add_typer(lesson_app, name="lesson")
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
 ConfidenceOpt = Annotated[
     Optional[str], typer.Option("--confidence", help="guess | prelim | confirmed | rejected")
 ]
+IDEA_CLOSE_HINT = '如果这次有可复用的教训，用 arb lesson propose "..." 提出。'
 
 
 def handle_errors(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -146,6 +151,7 @@ def idea_close(
     else:
         typer.echo(f"dropped {idea['name']}: final snapshot {info['final_commit'][:12]} "
                    f"tagged {info['tag']}; removed {idea['worktree_path']}")
+    typer.echo(IDEA_CLOSE_HINT)
 
 
 # ---------------------------------------------------------------- runs
@@ -181,6 +187,88 @@ def run_summary(
         idea = ideas_mod.require_current_idea(ctx, ledger)
         records.set_run_summary(ledger, idea, run_id, text)
     typer.echo(f"summary saved for {run_id}")
+
+
+# ---------------------------------------------------------------- lessons
+
+
+def _lesson_line(l: dict[str, Any]) -> str:
+    source = l["source_id"] or "-"
+    return f"{l['id']:<5} {l['status']:<9} {l['created_at'][:10]}  {source:<16} {l['text']}"
+
+
+def _echo_lesson_result(result: lessons_mod.LessonResult, verb: str) -> None:
+    typer.echo(f"{verb} {result.lesson['id']}")
+    if result.sync is not None:
+        for line in result.sync.messages():
+            typer.echo(line)
+    if result.warning:
+        _warn(result.warning + "; then run `arb claudemd sync`")
+
+
+@lesson_app.command("propose")
+@handle_errors
+def lesson_propose(
+    text: Annotated[str, typer.Argument(help="One line, ≤200 chars: a reusable project pitfall.")],
+    idea: Annotated[Optional[str], typer.Option("--idea", help="Source idea (default: current idea).")] = None,
+    run: Annotated[Optional[str], typer.Option("--run", help="Source run id.")] = None,
+) -> None:
+    """Propose a lesson; it only goes into CLAUDE.md after the human accepts it."""
+    ctx, ledger = _open()
+    with ledger:
+        lesson = lessons_mod.propose(ctx, ledger, text, idea=idea, run=run)
+    typer.echo(f"proposed {lesson['id']} (decision {lesson['decision_id']}); "
+               f"the human accepts it with `arb lesson accept {lesson['id']}`")
+
+
+@lesson_app.command("list")
+@handle_errors
+def lesson_list(
+    show_all: Annotated[bool, typer.Option("--all", help="Include retired/rejected lessons.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """List lessons (default: proposed + accepted), newest first."""
+    _, ledger = _open()
+    with ledger:
+        rows = lessons_mod.list_lessons(ledger, include_retired=show_all)
+    if as_json:
+        _echo_json(rows)
+        return
+    if not rows:
+        typer.echo("no lessons yet")
+        return
+    for r in rows:
+        typer.echo(_lesson_line(r))
+
+
+@lesson_app.command("accept")
+@handle_errors
+def lesson_accept(lesson_id: Annotated[str, typer.Argument(help="Lesson id, e.g. l001.")]) -> None:
+    """(Human only) accept a proposed lesson and update CLAUDE.md."""
+    ctx, ledger = _open()
+    with ledger:
+        result = lessons_mod.accept(ctx, ledger, lesson_id)
+    _echo_lesson_result(result, "accepted")
+
+
+@lesson_app.command("reject")
+@handle_errors
+def lesson_reject(lesson_id: Annotated[str, typer.Argument(help="Lesson id, e.g. l001.")]) -> None:
+    """Reject a proposed lesson."""
+    ctx, ledger = _open()
+    with ledger:
+        result = lessons_mod.reject(ctx, ledger, lesson_id)
+    _echo_lesson_result(result, "rejected")
+
+
+@lesson_app.command("retire")
+@handle_errors
+def lesson_retire(lesson_id: Annotated[str, typer.Argument(help="Lesson id, e.g. l001.")]) -> None:
+    """Retire an accepted lesson and remove it from CLAUDE.md."""
+    ctx, ledger = _open()
+    with ledger:
+        result = lessons_mod.retire(ctx, ledger, lesson_id)
+    _echo_lesson_result(result, "retired")
 
 
 # ---------------------------------------------------------------- notes / status / export

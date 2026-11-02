@@ -87,7 +87,7 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     assert data["hooks"]["SessionStart"] == [
         {"hooks": [{"type": "command", "command": "arb hook session-start"}]}
     ]
-    assert data["permissions"]["ask"] == ["Bash(arb approve:*)"]
+    assert data["permissions"]["ask"] == ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
     assert data["permissions"]["deny"] == ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"]
     assert not (initialized / ".claude").exists()
 
@@ -103,7 +103,8 @@ def test_install_claude_preserves_existing(initialized: Path, arb) -> None:
         "model": "opus",
         "hooks": {"SessionStart": [{"matcher": "startup", "hooks": [{"type": "command", "command": "echo hi"}]}],
                   "Stop": [{"hooks": [{"type": "command", "command": "x"}]}]},
-        "permissions": {"allow": ["Bash(ls:*)"], "deny": ["Bash(sbatch:*)"]},
+        "permissions": {"allow": ["Bash(ls:*)"], "deny": ["Bash(sbatch:*)"],
+                        "ask": ["Bash(rm:*)", "Bash(arb lesson accept:*)"]},
     }
     path.write_text(json.dumps(existing))
     arb(initialized, "install-claude", "--main")
@@ -113,6 +114,8 @@ def test_install_claude_preserves_existing(initialized: Path, arb) -> None:
     assert data["hooks"]["SessionStart"][0] == existing["hooks"]["SessionStart"][0]
     assert data["permissions"]["allow"] == ["Bash(ls:*)"]
     assert data["permissions"]["deny"] == ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"]
+    assert data["permissions"]["ask"] == ["Bash(rm:*)", "Bash(arb lesson accept:*)",
+                                          "Bash(arb approve:*)"]
     arb(initialized, "install-claude", "--main")
     assert json.loads(path.read_text()) == data
 

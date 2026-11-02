@@ -10,7 +10,7 @@ from typing import IO
 
 from .db import Ledger, now
 from .paths import locate
-from .report import format_status, status_data
+from .report import status_data, status_parts
 
 MAX_CONTEXT_CHARS = 4000
 
@@ -42,9 +42,12 @@ def build_output(cwd: Path) -> str | None:
     if not ctx.initialized:
         return None
     with Ledger(ctx.state_dir) as ledger:
-        text = format_status(status_data(ctx, ledger), brief=True)
+        head, tail = status_parts(status_data(ctx, ledger), brief=True)
+    # Lessons + rules (tail) are kept whole; the state part is truncated to fit.
+    budget = max(MAX_CONTEXT_CHARS - len(tail) - 1, 500)
+    text = cap(cap(head, budget) + "\n" + tail)
     return json.dumps(
-        {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": cap(text)}},
+        {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}},
         ensure_ascii=False,
     )
 

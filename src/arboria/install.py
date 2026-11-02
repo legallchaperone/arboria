@@ -9,7 +9,7 @@ from typing import Any
 from .errors import ArbError
 
 HOOK_COMMAND = "arb hook session-start"
-ASK_RULES = ["Bash(arb approve:*)"]
+ASK_RULES = ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
 DENY_RULES = ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"]
 
 

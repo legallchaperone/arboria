@@ -16,7 +16,9 @@ from .backends import Backend, BackendError, NeedLogin
 from .db import JOB_TERMINAL, RUN_FINAL, Ledger, now
 from .errors import ArbError
 from .paths import RepoContext
-from .submission import jobs_of, local_run_dir, request_of, run_lock
+from .config import require_project_id
+from .submission import LEGACY_RUN, check_same_project, jobs_of, local_run_dir, request_of, \
+    run_lock, run_project
 
 NOTIFICATIONS = "notifications.log"
 OBSERVE_S = 600
@@ -36,8 +38,9 @@ def notify(ctx: RepoContext, message: str) -> str:
     return line
 
 
-def backend_for(run: dict[str, Any]) -> Backend:
-    return backends.get_backend(clusters.load_profile(run["machine"]))
+def backend_for(ctx: RepoContext, run: dict[str, Any]) -> Backend:
+    """A backend bound to the current project (arboria.toml [project] id)."""
+    return backends.get_backend(clusters.load_profile(run["machine"]), require_project_id(ctx))
 
 
 def derive_status(states: list[str], n_segments: int, current: str) -> str:
@@ -104,9 +107,12 @@ def _record(ledger: Ledger, run: dict[str, Any], updates: dict[int, dict[str, An
 
 def fetch_out(ctx: RepoContext, run: dict[str, Any], backend: Backend) -> Path:
     """Copy the run's ARBORIA_OUT into .arboria/runs/<run>/out/."""
+    project = run_project(run)
+    if project is None:
+        raise ArbError(LEGACY_RUN.format(run=run["id"]))
     paths = request_of(run)["env"]["paths"]
     local = local_run_dir(ctx, run["id"])
-    backend.fetch(slurm.out_dir(paths, run["id"]), local / "out")
+    backend.fetch(slurm.out_dir(paths, project, run["id"]), local / "out")
     (local / FETCHED_MARKER).write_text(now() + "\n")
     return local / "out"
 
@@ -132,8 +138,9 @@ def poll_run(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend | N
     run = records.get_run(ledger, run_id)
     out = PollOutcome(run_id, run["status"], run["status"])
     if run["status"] in RUN_FINAL:
-        if jobs_of(ledger, run_id) and not (local_run_dir(ctx, run_id) / FETCHED_MARKER).exists():
-            backend = backend or backend_for(run)
+        if (jobs_of(ledger, run_id) and run_project(run) is not None
+                and not (local_run_dir(ctx, run_id) / FETCHED_MARKER).exists()):
+            backend = backend or backend_for(ctx, run)
             dest = fetch_out(ctx, run, backend)
             out.messages.append(f"{run_id}: fetched ARBORIA_OUT into {dest}")
         return out
@@ -143,7 +150,7 @@ def poll_run(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend | N
         jobs = [j for j in jobs_of(ledger, run_id) if j["job_id"]]
         if not jobs:
             return out
-        backend = backend or backend_for(run)
+        backend = backend or backend_for(ctx, run)
         request = request_of(run)
         active = [j["job_id"] for j in jobs if j["state"] not in JOB_TERMINAL]
         result = backend.poll(active) if active else {}
@@ -169,10 +176,14 @@ def poll_run(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend | N
         cost = run["actual_cost"] or 0
         label = {"succeeded": "成功", "failed": "失败", "cancelled": "已取消"}[status]
         out.messages.append(notify(ctx, f"{run_id} {label}（{cost:.2f} SU）"))
+        if run_project(run) is None:
+            out.messages.append(f"{run_id}: ARBORIA_OUT not fetched (run predates project ids; "
+                                "copy it by hand)")
+            return out
         try:
             dest = fetch_out(ctx, run, backend)
             out.messages.append(f"{run_id}: fetched ARBORIA_OUT into {dest}")
-        except BackendError as exc:
+        except ArbError as exc:
             out.messages.append(f"{run_id}: ARBORIA_OUT not fetched ({exc}); "
                                 f"retry with `arb poll {run_id}`")
     return out
@@ -191,8 +202,9 @@ def _stop(ctx: RepoContext, ledger: Ledger, run: dict[str, Any], backend: Backen
     run_id = run["id"]
     jobs = jobs_of(ledger, run_id)
     updates: dict[int, dict[str, Any]] = {}
-    for j in jobs:  # adopt jobs whose sbatch reply was lost
-        if not j["job_id"] and j["state"] == "submitting":
+    for j in jobs:  # adopt jobs whose sbatch reply was lost (only this project's names)
+        if (not j["job_id"] and j["state"] == "submitting"
+                and slurm.job_project(j["job_name"]) == backend.project):
             found = backend.find_job(j["job_name"])
             if found:
                 updates[j["segment"]] = {"job_id": found}
@@ -210,7 +222,7 @@ def cancel(ctx: RepoContext, ledger: Ledger, run_id: str) -> tuple[dict[str, Any
     if run["status"] not in ("approved", "queued", "running"):
         raise ArbError(f"run {run_id} is {run['status']}; nothing to cancel")
     with run_lock(ctx, run_id):
-        backend = backend_for(run)
+        backend = backend_for(ctx, run)
         cancelled = _stop(ctx, ledger, run, backend, "cancelled", {"by": "arb cancel"},
                           extra_event="run_cancel")
     notify(ctx, f"{run_id} 已取消（arb cancel）")
@@ -218,15 +230,18 @@ def cancel(ctx: RepoContext, ledger: Ledger, run_id: str) -> tuple[dict[str, Any
 
 
 def log_path_for(run: dict[str, Any], job: dict[str, Any]) -> str:
+    project = run_project(run)
+    if project is None:
+        raise ArbError(LEGACY_RUN.format(run=run["id"]))
     paths = request_of(run)["env"]["paths"]
-    return slurm.log_path(paths, run["id"], job["segment"], job["job_id"])
+    return slurm.log_path(paths, project, run["id"], job["segment"], job["job_id"])
 
 
 def observe(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend,
             window_s: int = OBSERVE_S) -> str | None:
     """Observation window: tail fresh jobs' logs; NaN / CUDA OOM -> cancel + fail the run."""
     run = records.get_run(ledger, run_id)
-    if run["status"] not in ("queued", "running", "approved"):
+    if run["status"] not in ("queued", "running", "approved") or run_project(run) is None:
         return None
     for job in jobs_of(ledger, run_id):
         if job["state"] != "running" or not job["job_id"] or (job["elapsed_s"] or 0) > window_s:
@@ -259,6 +274,7 @@ def watch(ctx: RepoContext, ledger: Ledger, *, once: bool = False, interval: flo
           sleep: Callable[[float], None] = time_mod.sleep, max_iterations: int | None = None) -> int:
     """Poll all active runs every `interval` s. NeedLogin pauses that machine for good
     (until `arb watch` is started again): no automatic retries, one notification."""
+    require_project_id(ctx)
     paused: dict[str, str] = {}
     iterations = 0
     while True:
@@ -268,7 +284,7 @@ def watch(ctx: RepoContext, ledger: Ledger, *, once: bool = False, interval: flo
             if machine in paused:
                 continue
             try:
-                backend = backend_for(run)
+                backend = backend_for(ctx, run)
                 outcome = poll_run(ctx, ledger, run["id"], backend)
                 for m in outcome.messages:
                     echo(m)
@@ -296,6 +312,7 @@ def logs(ctx: RepoContext, ledger: Ledger, run_id: str, segment: int | None = No
     jobs = [j for j in jobs_of(ledger, run_id) if j["job_id"]]
     if not jobs:
         raise ArbError(f"run {run_id} has no submitted jobs yet")
+    check_same_project(ctx, run)
     if segment is None:
         started = [j for j in jobs if j["state"] not in ("pending", "submitting")]
         job = (started or jobs)[-1]
@@ -305,7 +322,7 @@ def logs(ctx: RepoContext, ledger: Ledger, run_id: str, segment: int | None = No
             raise ArbError(f"run {run_id} has no submitted segment {segment}")
     if not 1 <= n <= 10_000:
         raise ArbError("-n must be between 1 and 10000")
-    return backend_for(run).tail(log_path_for(run, job), n)
+    return backend_for(ctx, run).tail(log_path_for(run, job), n)
 
 
 _SUBPATH_RE = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
@@ -314,11 +331,13 @@ _SUBPATH_RE = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
 def remote_ls(ctx: RepoContext, ledger: Ledger, run_id: str, subpath: str | None = None,
               out: bool = False) -> tuple[str, list[str]]:
     run = records.get_run(ledger, run_id)
+    project = check_same_project(ctx, run)
     paths = request_of(run)["env"]["paths"]
-    base = slurm.out_dir(paths, run_id) if out else slurm.run_dir(paths, run_id)
+    base = (slurm.out_dir(paths, project, run_id) if out
+            else slurm.run_dir(paths, project, run_id))
     if subpath:
         sub = subpath.strip("/")
         if not _SUBPATH_RE.match(sub) or any(p in (".", "..") for p in sub.split("/")):
             raise ArbError(f"invalid subpath {subpath!r}")
         base = f"{base}/{sub}"
-    return base, backend_for(run).list_dir(base)
+    return base, backend_for(ctx, run).list_dir(base)

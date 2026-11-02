@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ..clusters import Profile
 from ..errors import ArbError
+from ..slurm import check_project, parse_job_name
 
 JOB_ID_RE = re.compile(r"^[0-9]+(?:_[0-9]+)?$")
 _SEGMENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -33,24 +34,38 @@ def check_job_ids(job_ids: list[str]) -> list[str]:
     return ids
 
 
-def restrict_path(profile: Profile, path: str) -> str:
-    """Only paths under the profile's runs/ or out/ dirs may be read (they reach Claude)."""
+def restrict_path(profile: Profile, project: str, path: str) -> str:
+    """Only paths under this project's runs/ or out/ dirs may be read (they reach Claude)."""
+    check_project(project)
     path = path.rstrip("/") or "/"
     for role in ("runs", "out"):
-        root = profile.paths[role]
+        root = f"{profile.paths[role]}/{project}"
         if path == root or path.startswith(root + "/"):
             rest = path[len(root):].strip("/")
             parts = rest.split("/") if rest else []
             if all(p not in (".", "..") and _SEGMENT_RE.match(p) for p in parts):
                 return path
-    raise ArbError(f"remote path {path!r} is outside this machine's runs/ and out/ dirs; refused")
+    raise ArbError(f"remote path {path!r} is outside project {project}'s runs/ and out/ dirs "
+                   "on this machine; refused")
 
 
 class Backend(ABC):
-    """Remote operations used by arb. Only `arb approve` may call `submit`."""
+    """Remote operations used by arb. Only `arb approve` may call `submit`.
 
-    def __init__(self, profile: Profile):
+    A backend is bound to one project (arboria.toml [project] id): it only submits and
+    looks up job names of that project and only reads paths under its dirs."""
+
+    def __init__(self, profile: Profile, project: str):
         self.profile = profile
+        self.project = check_project(project)
+
+    def own_job(self, job_name: str) -> tuple[str, int]:
+        """(run id, segment) of a job name of this project; anything else is refused."""
+        project, run_id, segment = parse_job_name(job_name)
+        if project != self.project:
+            raise BackendError(f"job {job_name} belongs to project {project}, not "
+                               f"{self.project}; refused")
+        return run_id, segment
 
     @abstractmethod
     def ship(self, repo_path: Path, commit: str, remote_code_dir: str) -> None:

@@ -18,7 +18,7 @@ from typing import Any, Callable, Iterator
 from . import backends, clusters, records, slurm
 from .backends import Backend, BackendError
 from .clusters import Profile
-from .config import project_config
+from .config import project_config, require_project_id
 from .db import Ledger, now, validate_text
 from .errors import ArbError
 from .paths import RepoContext
@@ -27,6 +27,8 @@ from .slurm import Ask, Plan
 QUESTION = "批准这个 run 上集群吗？"
 OPTIONS = ["approve", "reject", "revise"]
 CARD_CHANGED = "审核单已变化，请重新 arb submit"
+LEGACY_RUN = ("run {run} 是在加入项目 id 之前提交的（request 里没有 project），作业名和远程目录"
+              "可能与其他仓库冲突；请重新 arb submit")
 REVIEW_PLACEHOLDER = "审稿（第 2 步加入，暂无）"
 
 
@@ -55,11 +57,32 @@ def request_of(run: dict[str, Any]) -> dict[str, Any]:
     return json.loads(run["request_json"])
 
 
+def run_project(run: dict[str, Any]) -> str | None:
+    """The project id the run was submitted under (None for runs from before project ids)."""
+    project = request_of(run).get("project")
+    return None if project is None else slurm.check_project(project)
+
+
 def replan(run: dict[str, Any]) -> tuple[Profile, Plan]:
     """Re-derive the plan from the stored request and the *current* profile."""
+    project = run_project(run)
+    if project is None:
+        raise ArbError(LEGACY_RUN.format(run=run["id"]))
     ask = Ask.from_dict(request_of(run)["ask"])
     profile = clusters.load_profile(ask.machine)
-    return profile, slurm.build_plan(profile, ask)
+    return profile, slurm.build_plan(profile, ask, project)
+
+
+def check_same_project(ctx: RepoContext, run: dict[str, Any]) -> str:
+    """The current project id, refusing runs that were submitted under another one."""
+    current = require_project_id(ctx)
+    project = run_project(run)
+    if project is None:
+        raise ArbError(LEGACY_RUN.format(run=run["id"]))
+    if project != current:
+        raise ArbError(f"run {run['id']} was submitted for project {project}, but "
+                       f"{ctx.config_path} [project] id is {current}; refused")
+    return current
 
 
 def approval_decision(ledger: Ledger, run_id: str) -> dict[str, Any] | None:
@@ -153,6 +176,9 @@ def build_card(ctx: RepoContext, ledger: Ledger, run: dict[str, Any], idea: dict
            "，分段 " + " + ".join(slurm.slurm_time(s) for s in plan.segments)
            + "（--dependency=afterany 串联）"),
         f"命令 {' '.join(a.command)}",
+        f"项目 {plan.project}：作业名 {slurm.job_name(plan.project, run['id'], 1)}"
+        + ("" if len(plan.segments) == 1 else " …")
+        + f"，远程目录 {slurm.run_dir(plan.env['paths'], plan.project, run['id'])}",
     ]
     card.estimate.append(
         f"上限 {plan.billed_gpus} 卡 × {a.walltime_s / 3600:.2f} h × {plan.charge:g} = "
@@ -204,6 +230,7 @@ def submit(
 ) -> tuple[dict[str, Any], Card]:
     """Snapshot + request + card + open Decision. Never touches a backend."""
     reason = validate_text("change_reason", reason)
+    project = require_project_id(ctx)
     machine = machine or project_config(ctx).default_machine
     if not machine:
         raise ArbError("no machine: pass --machine or set default_machine in arboria.toml")
@@ -212,7 +239,7 @@ def submit(
               walltime_s=slurm.parse_walltime(time),
               partition=partition or profile.default_partition, machine=machine,
               mem_gb=mem_gb, cpus=cpus)
-    plan = slurm.build_plan(profile, ask)  # refuses before anything is written
+    plan = slurm.build_plan(profile, ask, project)  # refuses before anything is written
 
     warnings: list[str] = []
 
@@ -278,11 +305,11 @@ def submit_segments(ctx: RepoContext, ledger: Ledger, run: dict[str, Any], plan:
     paths = plan.env["paths"]
     rows = {j["segment"]: j for j in jobs_of(ledger, run_id)}
     if not any(j["job_id"] for j in rows.values()):
-        backend.ship(ctx.main, run["snapshot_commit"], slurm.code_dir(paths, run_id))
+        backend.ship(ctx.main, run["snapshot_commit"], slurm.code_dir(paths, plan.project, run_id))
     done: list[tuple[int, str, bool]] = []
     prev: str | None = None
     for k in range(1, len(plan.segments) + 1):
-        name = slurm.job_name(run_id, k)
+        name = slurm.job_name(plan.project, run_id, k)
         row = rows.get(k)
         if row and row["job_id"]:
             prev = row["job_id"]
@@ -309,6 +336,7 @@ def approve(ctx: RepoContext, ledger: Ledger, run_id: str) -> ApproveResult:
         if run["status"] not in ("awaiting_approval", "approved"):
             raise ArbError(f"run {run_id} is {run['status']}; only awaiting_approval runs can be "
                            "approved")
+        project = check_same_project(ctx, run)
         profile, plan = replan(run)
         if slurm.card_hash(run["snapshot_commit"], plan) != run["card_hash"]:
             raise ArbError(CARD_CHANGED)
@@ -331,7 +359,7 @@ def approve(ctx: RepoContext, ledger: Ledger, run_id: str) -> ApproveResult:
             raise ArbError(f"run {run_id} is approved but has no human approval Decision")
         run = records.get_run(ledger, run_id)
         try:
-            backend = backends.get_backend(profile)
+            backend = backends.get_backend(profile, project)
             submitted = submit_segments(ctx, ledger, run, plan, backend)
         except BackendError as exc:
             raise ArbError(f"{exc}\n{run_id} 已批准，但提交没有完成。处理好之后重新运行 "

@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ..clusters import Profile
-from ..slurm import parse_job_name, script_path
+from ..slurm import script_path
 from .base import Backend, BackendError, NeedLogin, check_job_ids, need_login_message, restrict_path
 
 FIRST_JOB_ID = 1001
@@ -36,8 +36,8 @@ def local_path(path: str) -> Path:
 
 
 class FakeSlurm(Backend):
-    def __init__(self, profile: Profile):
-        super().__init__(profile)
+    def __init__(self, profile: Profile, project: str):
+        super().__init__(profile, project)
         self.root = Path(profile.root or "")
         self.state_file = self.root / "state.json"
 
@@ -134,6 +134,7 @@ class FakeSlurm(Backend):
     # ------------------------------------------------------------ Backend
 
     def ship(self, repo_path: Path, commit: str, remote_code_dir: str) -> None:
+        remote_code_dir = restrict_path(self.profile, self.project, remote_code_dir)
         with self._state() as st:
             self._remote(st, "ship", commit, remote_code_dir)
         proc = subprocess.run(["git", "archive", "--format=tar", commit], cwd=repo_path,
@@ -146,7 +147,7 @@ class FakeSlurm(Backend):
             tar.extractall(dest, filter="data")
 
     def submit(self, script_text: str, job_name: str, dependency_job_id: str | None) -> str:
-        run_id, segment = parse_job_name(job_name)
+        run_id, segment = self.own_job(job_name)
         with self._state() as st:
             self._remote(st, "submit", job_name, dependency_job_id)
             sc = st["scenarios"].setdefault(job_name, {})
@@ -157,7 +158,7 @@ class FakeSlurm(Backend):
                 raise BackendError(f"sbatch: invalid dependency {dependency_job_id}")
             jid = str(st["next_id"])
             st["next_id"] += 1
-            target = local_path(script_path(self.profile.paths, run_id, segment))
+            target = local_path(script_path(self.profile.paths, self.project, run_id, segment))
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(script_text)
             log = re.search(r"^#SBATCH --output=(.+)$", script_text, re.M)
@@ -175,6 +176,7 @@ class FakeSlurm(Backend):
             return jid
 
     def find_job(self, job_name: str) -> str | None:
+        self.own_job(job_name)
         with self._state() as st:
             self._remote(st, "find_job", job_name)
             ids = [j["id"] for j in st["jobs"].values() if j["name"] == job_name]
@@ -211,7 +213,7 @@ class FakeSlurm(Backend):
             self._tick(st)
 
     def tail(self, remote_path: str, n: int) -> str:
-        path = restrict_path(self.profile, remote_path)
+        path = restrict_path(self.profile, self.project, remote_path)
         with self._state() as st:
             self._remote(st, "tail", path, n)
         p = local_path(path)
@@ -221,7 +223,7 @@ class FakeSlurm(Backend):
         return "\n".join(lines[-n:]) + ("\n" if lines else "")
 
     def list_dir(self, remote_path: str) -> list[str]:
-        path = restrict_path(self.profile, remote_path)
+        path = restrict_path(self.profile, self.project, remote_path)
         with self._state() as st:
             self._remote(st, "list_dir", path)
         p = local_path(path)
@@ -230,7 +232,7 @@ class FakeSlurm(Backend):
         return sorted(x.name for x in p.iterdir())
 
     def fetch(self, remote_dir: str, local_dir: Path) -> None:
-        path = restrict_path(self.profile, remote_dir)
+        path = restrict_path(self.profile, self.project, remote_dir)
         with self._state() as st:
             self._remote(st, "fetch", path)
         src = local_path(path)

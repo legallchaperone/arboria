@@ -9,11 +9,11 @@ __all__ = ["Backend", "BackendError", "NeedLogin", "get_backend", "map_slurm_sta
            "restrict_path"]
 
 
-def get_backend(profile: Profile) -> Backend:
+def get_backend(profile: Profile, project: str) -> Backend:
     if profile.kind == "fake":
         from .fake import FakeSlurm
 
-        return FakeSlurm(profile)
+        return FakeSlurm(profile, project)
     from .ssh import SshSlurm
 
-    return SshSlurm(profile)
+    return SshSlurm(profile, project)

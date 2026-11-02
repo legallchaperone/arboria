@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 from ..clusters import Profile
-from ..slurm import dq, log_pattern, parse_job_name, script_path
+from ..slurm import dq, log_pattern, script_path
 from .base import (
     Backend,
     BackendError,
@@ -76,8 +76,8 @@ def parse_charge(text: str) -> float | None:
 
 
 class SshSlurm(Backend):
-    def __init__(self, profile: Profile, runner: Runner | None = None):
-        super().__init__(profile)
+    def __init__(self, profile: Profile, project: str, runner: Runner | None = None):
+        super().__init__(profile, project)
         self.host = profile.host
         self.runner = runner or Runner()
 
@@ -107,7 +107,7 @@ class SshSlurm(Backend):
     def ship(self, repo_path: Path, commit: str, remote_code_dir: str) -> None:
         if not re.fullmatch(r"[0-9a-f]{7,64}", commit):
             raise BackendError(f"invalid commit {commit!r}")
-        d = dq(remote_code_dir)
+        d = dq(restrict_path(self.profile, self.project, remote_code_dir))
         self.gate()
         rc1, rc2, err = self.runner.pipe(
             ["git", "archive", "--format=tar", commit], Path(repo_path),
@@ -118,11 +118,11 @@ class SshSlurm(Backend):
                                + (f": {err.splitlines()[-1]}" if err else ""))
 
     def submit(self, script_text: str, job_name: str, dependency_job_id: str | None) -> str:
-        run_id, segment = parse_job_name(job_name)
+        run_id, segment = self.own_job(job_name)
         paths = self.profile.paths
-        script = script_path(paths, run_id, segment)
+        script = script_path(paths, self.project, run_id, segment)
         sbatch_dir = script.rsplit("/", 1)[0]
-        logs_dir = log_pattern(paths, run_id, segment).rsplit("/", 1)[0]
+        logs_dir = log_pattern(paths, self.project, run_id, segment).rsplit("/", 1)[0]
         dep = ""
         if dependency_job_id is not None:
             dep = f" --dependency=afterany:{check_job_ids([dependency_job_id])[0]}"
@@ -136,18 +136,26 @@ class SshSlurm(Backend):
         return job_id
 
     def find_job(self, job_name: str) -> str | None:
-        parse_job_name(job_name)
-        queued = self._ids(self._remote(f"squeue --name={job_name} -h -o %i").stdout)
+        """Only the user's own jobs whose name is exactly `job_name` (re-checked locally)."""
+        self.own_job(job_name)
+        queued = self._ids(self._remote(
+            f"squeue --name={job_name} -u \"$USER\" -h -o '%i %j'").stdout, " ", job_name)
         ids = queued or self._ids(self._remote(
-            f"sacct --name={job_name} -n -X -P -o JobID --starttime={FIND_WINDOW}").stdout)
+            f"sacct --name={job_name} -n -X -P -o JobID,JobName "
+            f"--starttime={FIND_WINDOW}").stdout, "|", job_name)
         if len(set(ids)) > 1:
             raise BackendError(f"several jobs named {job_name} ({', '.join(sorted(set(ids)))}); "
                                "cancel the extras by hand before resuming")
         return ids[0] if ids else None
 
     @staticmethod
-    def _ids(text: str) -> list[str]:
-        ids = [l.strip() for l in text.splitlines() if l.strip()]
+    def _ids(text: str, sep: str, job_name: str) -> list[str]:
+        """Job ids from `<id><sep><name>` lines whose name is exactly `job_name`."""
+        ids = []
+        for line in text.splitlines():
+            jid, _, name = line.strip().partition(sep)
+            if jid and name.strip() == job_name:
+                ids.append(jid.strip())
         return check_job_ids(ids)
 
     def poll(self, job_ids: list[str]) -> dict[str, tuple[str, int, float | None]]:
@@ -184,15 +192,15 @@ class SshSlurm(Backend):
             self._remote("scancel " + " ".join(ids))
 
     def tail(self, remote_path: str, n: int) -> str:
-        path = restrict_path(self.profile, remote_path)
+        path = restrict_path(self.profile, self.project, remote_path)
         return self._remote(f"tail -n {int(n)} {dq(path)}").stdout
 
     def list_dir(self, remote_path: str) -> list[str]:
-        path = restrict_path(self.profile, remote_path)
+        path = restrict_path(self.profile, self.project, remote_path)
         return [l for l in self._remote(f"ls -1 {dq(path)}").stdout.splitlines() if l]
 
     def fetch(self, remote_dir: str, local_dir: Path) -> None:
-        path = restrict_path(self.profile, remote_dir)
+        path = restrict_path(self.profile, self.project, remote_dir)
         resolved = self._remote(
             f"if [ -d {dq(path)} ]; then cd {dq(path)} && pwd -P; fi").stdout.strip()
         local_dir = Path(local_dir)

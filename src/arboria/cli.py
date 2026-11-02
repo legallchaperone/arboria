@@ -16,6 +16,7 @@ from . import ideas as ideas_mod
 from . import install as install_mod
 from . import lessons as lessons_mod
 from . import monitor, records, report, submission
+from .config import require_project_id
 from .db import Ledger
 from .errors import ArbError
 from .paths import RepoContext, locate
@@ -297,6 +298,7 @@ def poll(
 ) -> None:
     """One pass: update job states, run status and cost; fetch ARBORIA_OUT when done."""
     ctx, ledger = _open()
+    require_project_id(ctx)
     outcomes = []
     with ledger:
         ids = [run_id] if run_id else [r["id"] for r in monitor.active_runs(ledger)]

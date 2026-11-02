@@ -8,9 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from arboria import backends, monitor, submission
+from arboria import backends, monitor, slurm, submission
 from arboria.backends.fake import FakeSlurm
 from arboria.clusters import load_profile
+from arboria.config import project_config
 from arboria.db import Ledger
 from arboria.errors import ArbError
 from arboria.paths import locate
@@ -32,7 +33,11 @@ def cluster(tmp_path_factory, monkeypatch, initialized: Path) -> FakeSlurm:
     toml = initialized / "arboria.toml"
     toml.write_text(toml.read_text().replace('default_machine = ""', 'default_machine = "fake"')
                     .replace("total_su = 0", "total_su = 1000"))
-    return FakeSlurm(load_profile("fake"))
+    return FakeSlurm(load_profile("fake"), project_config(locate(initialized)).project_id)
+
+
+def jn(cluster: FakeSlurm, run: str, k: int) -> str:
+    return slurm.job_name(cluster.project, run, k)
 
 
 def _submit(arb, idea: Path, *extra: str, ok: bool = True):
@@ -168,7 +173,7 @@ def test_approve_submits_and_queues(cluster, idea: Path, initialized: Path, arb)
     assert (dec["choice"], dec["decided_by"]) == ("approve", "human")
     [job] = _jobs(initialized)
     assert (job["segment"], job["job_name"], job["job_id"], job["state"]) == \
-        (1, "arboria-r001-s1", "1001", "pending")
+        (1, jn(cluster, "r001", 1), "1001", "pending")
     # the decision was recorded (and backed up) before the submission
     log = _backups(initialized)
     assert log[1].startswith("arboria backup: decision d001; run_approve r001")
@@ -176,10 +181,11 @@ def test_approve_submits_and_queues(cluster, idea: Path, initialized: Path, arb)
     calls = [c[0] for c in cluster.calls()]
     assert calls == ["ship", "find_job", "submit"]
     # code shipped from the snapshot, script written next to it
-    runs = Path(cluster.profile.paths["runs"])
+    runs = Path(cluster.profile.paths["runs"]) / cluster.project
     assert (runs / "r001" / "code" / "train.py").read_text() == "print('train')\n"
     script = (runs / "r001" / "sbatch" / "s1.sh").read_text()
-    assert "#SBATCH --job-name=arboria-r001-s1" in script and "--account=acct1" in script
+    assert f"#SBATCH --job-name=arb-{cluster.project}-r001-s1" in script
+    assert "--account=acct1" in script
     assert script.rstrip().endswith("python train.py --lr 3e-4")
     # approving again is refused: already queued
     res = arb(idea, "approve", "r001", ok=False)
@@ -191,7 +197,7 @@ def test_segmented_run_chains_dependencies(cluster, idea: Path, initialized: Pat
     arb(idea, "approve", "r001")
     jobs = cluster.jobs()
     assert [(j["name"], j["dependency"]) for j in jobs.values()] == [
-        ("arboria-r001-s1", None), ("arboria-r001-s2", "1001"), ("arboria-r001-s3", "1002")]
+        (jn(cluster, "r001", 1), None), (jn(cluster, "r001", 2), "1001"), (jn(cluster, "r001", 3), "1002")]
     assert "--time=48:00:00" in jobs["1001"]["script"] and "--time=04:00:00" in jobs["1003"]["script"]
     assert [j["job_id"] for j in _jobs(initialized)] == ["1001", "1002", "1003"]
 
@@ -243,7 +249,7 @@ def test_reject(cluster, idea: Path, initialized: Path, arb) -> None:
 
 def test_resume_after_failed_segment_submission(cluster, idea: Path, initialized: Path, arb) -> None:
     arb(idea, "submit", "--reason", "x", "--gpus", "4", "--time", "60h", *CMD)
-    cluster.script("arboria-r001-s2", submit_error=True)
+    cluster.script(jn(cluster, "r001", 2), submit_error=True)
     res = arb(idea, "approve", "r001", ok=False)
     assert "已批准，但提交没有完成" in res.stderr and "arb approve r001" in res.stderr
     assert _run(initialized)["status"] == "approved"
@@ -256,7 +262,7 @@ def test_resume_after_failed_segment_submission(cluster, idea: Path, initialized
     assert len(_decisions(initialized)) == 1  # no second Decision
     assert _run(initialized)["status"] == "queued"
     assert [c[1] for c in cluster.calls("submit")] == [
-        "arboria-r001-s1", "arboria-r001-s2", "arboria-r001-s2"]
+        jn(cluster, "r001", 1), jn(cluster, "r001", 2), jn(cluster, "r001", 2)]
     assert len(cluster.calls("ship")) == 1
     assert cluster.jobs()["1002"]["dependency"] == "1001"
 
@@ -264,7 +270,7 @@ def test_resume_after_failed_segment_submission(cluster, idea: Path, initialized
 def test_lost_sbatch_reply_is_adopted_not_resubmitted(cluster, idea: Path, initialized: Path,
                                                       arb) -> None:
     _submit(arb, idea)
-    cluster.script("arboria-r001-s1", lose_reply=True)
+    cluster.script(jn(cluster, "r001", 1), lose_reply=True)
     assert "connection lost" in arb(idea, "approve", "r001", ok=False).stderr
     assert [(j["job_id"], j["state"]) for j in _jobs(initialized)] == [(None, "submitting")]
     res = arb(idea, "approve", "r001")
@@ -314,7 +320,7 @@ class Spy(FakeSlurm):
 def test_no_other_path_reaches_backend_submit(cluster, idea: Path, initialized: Path, arb,
                                               monkeypatch) -> None:
     Spy.submitted = []
-    monkeypatch.setattr(backends, "get_backend", lambda profile: Spy(profile))
+    monkeypatch.setattr(backends, "get_backend", lambda profile, project: Spy(profile, project))
     _submit(arb, idea)
     _submit(arb, idea)
     arb(idea, "card", "r001")
@@ -327,7 +333,7 @@ def test_no_other_path_reaches_backend_submit(cluster, idea: Path, initialized: 
     arb(idea, "cancel", "r001", ok=False)
     assert Spy.submitted == []
     arb(idea, "approve", "r001")
-    assert Spy.submitted == ["arboria-r001-s1"]
+    assert Spy.submitted == [jn(cluster, "r001", 1)]
 
 
 def test_guard_refuses_without_human_decision(cluster, idea: Path, initialized: Path, arb) -> None:
@@ -337,19 +343,19 @@ def test_guard_refuses_without_human_decision(cluster, idea: Path, initialized: 
         run = l.one("SELECT * FROM runs WHERE id = 'r001'")
         _, plan = submission.replan(run)
         with pytest.raises(ArbError, match="no human approval Decision"):
-            submission._guarded_submit(l, cluster, "r001", "S", "arboria-r001-s1", None)
+            submission._guarded_submit(l, cluster, "r001", "S", jn(cluster, "r001", 1), None)
         with pytest.raises(ArbError, match="no human approval Decision"):
             submission.submit_segments(ctx, l, run, plan, cluster)
         # flipping the status by hand is not enough
         with l.write() as c:
             c.execute("UPDATE runs SET status = 'approved' WHERE id = 'r001'")
         with pytest.raises(ArbError, match="no human approval Decision"):
-            submission._guarded_submit(l, cluster, "r001", "S", "arboria-r001-s1", None)
+            submission._guarded_submit(l, cluster, "r001", "S", jn(cluster, "r001", 1), None)
         # nor is a decision made by someone other than the human
         with l.write() as c:
             c.execute("UPDATE decisions SET choice = 'approve', decided_by = 'claude'")
         with pytest.raises(ArbError, match="no human approval Decision"):
-            submission._guarded_submit(l, cluster, "r001", "S", "arboria-r001-s1", None)
+            submission._guarded_submit(l, cluster, "r001", "S", jn(cluster, "r001", 1), None)
     assert "no human approval Decision" in arb(idea, "approve", "r001", ok=False).stderr
     assert cluster.calls("submit") == []
 
@@ -358,7 +364,7 @@ def test_guard_refuses_without_human_decision(cluster, idea: Path, initialized: 
 
 
 def test_poll_to_success_fetches_out(cluster, idea: Path, initialized: Path, arb) -> None:
-    cluster.script("arboria-r001-s1", run_s=3600, queue_s=60, billed=4.25,
+    cluster.script(jn(cluster, "r001", 1), run_s=3600, queue_s=60, billed=4.25,
                    log="epoch 1 loss 2.1\n", out_files={"metrics.json": '{"val_loss": 2.0}'})
     _submit(arb, idea)
     arb(idea, "approve", "r001")
@@ -391,7 +397,7 @@ def test_poll_to_success_fetches_out(cluster, idea: Path, initialized: Path, arb
 
 
 def test_poll_failure_cancels_remaining_segments(cluster, idea: Path, initialized: Path, arb) -> None:
-    cluster.script("arboria-r001-s1", state="failed", run_s=30)
+    cluster.script(jn(cluster, "r001", 1), state="failed", run_s=30)
     arb(idea, "submit", "--reason", "x", "--gpus", "4", "--time", "60h", *CMD)
     arb(idea, "approve", "r001")
     cluster.advance(60)
@@ -404,8 +410,8 @@ def test_poll_failure_cancels_remaining_segments(cluster, idea: Path, initialize
 
 def test_last_segment_timeout_is_failure_but_earlier_is_fine(cluster, idea: Path,
                                                             initialized: Path, arb) -> None:
-    cluster.script("arboria-r001-s1", state="timeout", run_s=100)
-    cluster.script("arboria-r001-s2", state="completed", run_s=100)
+    cluster.script(jn(cluster, "r001", 1), state="timeout", run_s=100)
+    cluster.script(jn(cluster, "r001", 2), state="completed", run_s=100)
     arb(idea, "submit", "--reason", "x", "--gpus", "4", "--time", "60h", *CMD)
     arb(idea, "approve", "r001")
     cluster.advance(150)
@@ -438,7 +444,7 @@ def test_cancel(cluster, idea: Path, initialized: Path, arb) -> None:
                                      ("RuntimeError: CUDA out of memory. Tried\n", True),
                                      ("step 10 loss 2.3 nanoseconds\n", False)])
 def test_watch_observation_window(cluster, idea: Path, initialized: Path, arb, log, hit) -> None:
-    cluster.script("arboria-r001-s1", run_s=7200, log=log)
+    cluster.script(jn(cluster, "r001", 1), run_s=7200, log=log)
     arb(idea, "submit", "--reason", "x", "--gpus", "4", "--time", "60h", *CMD)
     arb(idea, "approve", "r001")
     cluster.advance(120)
@@ -457,7 +463,7 @@ def test_watch_observation_window(cluster, idea: Path, initialized: Path, arb, l
 
 
 def test_watch_ignores_logs_after_window(cluster, idea: Path, initialized: Path, arb) -> None:
-    cluster.script("arboria-r001-s1", run_s=7200, log="loss nan\n")
+    cluster.script(jn(cluster, "r001", 1), run_s=7200, log="loss nan\n")
     _submit(arb, idea)
     arb(idea, "approve", "r001")
     cluster.advance(700)
@@ -491,7 +497,7 @@ def test_watch_pauses_on_need_login(cluster, idea: Path, initialized: Path) -> N
 
 
 def test_logs_and_remote_ls(cluster, idea: Path, initialized: Path, arb) -> None:
-    cluster.script("arboria-r001-s1", run_s=7200, log="".join(f"line {i}\n" for i in range(300)))
+    cluster.script(jn(cluster, "r001", 1), run_s=7200, log="".join(f"line {i}\n" for i in range(300)))
     _submit(arb, idea)
     assert "no submitted jobs" in arb(idea, "logs", "r001", ok=False).stderr
     arb(idea, "approve", "r001")

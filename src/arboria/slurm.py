@@ -22,7 +22,10 @@ MIN_WALLTIME_S = 60
 _UNITS_RE = re.compile(r"^(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
 _CLOCK_RE = re.compile(r"^(?:(\d+)-)?(\d+):(\d{2}):(\d{2})$")
 _USER_VAR_RE = re.compile(r"\$\{USER\}|\$USER(?![A-Za-z0-9_])")
-JOB_NAME_RE = re.compile(r"^arboria-([a-z0-9][a-z0-9-]*)-s([1-9][0-9]*)$")
+# arb-<project>-<run>-s<k>; the run id has no '-', so the split is unambiguous
+JOB_NAME_RE = re.compile(r"^arb-([a-z0-9][a-z0-9-]{0,30})-([a-z0-9]+)-s([1-9][0-9]*)$")
+PROJECT_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,30}$")  # arboria.toml [project] id
+MAX_JOB_NAME = 64
 
 
 # ---------------------------------------------------------------- walltime
@@ -115,6 +118,7 @@ class Ask:
 @dataclass(frozen=True)
 class Plan:
     ask: Ask
+    project: str  # arboria.toml [project] id at submit time; names jobs and remote dirs
     account: str
     partition: str
     charge: float
@@ -138,7 +142,7 @@ class Plan:
     def request(self) -> dict[str, Any]:
         """What is stored in runs.request_json."""
         return {
-            "ask": asdict(self.ask),
+            "ask": asdict(self.ask), "project": self.project,
             "command": self.ask.command, "machine": self.ask.machine, "partition": self.partition,
             "nodes": self.ask.nodes, "gpus": self.ask.gpus, "walltime_s": self.ask.walltime_s,
             "walltime": human_duration(self.ask.walltime_s), "account": self.account,
@@ -149,8 +153,15 @@ class Plan:
         }
 
 
-def build_plan(profile: "Profile", ask: Ask) -> Plan:
+def check_project(project: Any) -> str:
+    if not isinstance(project, str) or not PROJECT_RE.match(project):
+        raise ArbError(f"invalid project id {project!r}; must match {PROJECT_RE.pattern}")
+    return project
+
+
+def build_plan(profile: "Profile", ask: Ask, project: str) -> Plan:
     """Validate `ask` against the machine profile; refuse anything that cannot be billed right."""
+    check_project(project)
     if not ask.command or not all(isinstance(a, str) and a for a in ask.command):
         raise ArbError("no command: put it after `--`, e.g. arb submit ... -- python train.py")
     if not profile.account_set:
@@ -180,7 +191,7 @@ def build_plan(profile: "Profile", ask: Ask) -> Plan:
     segments = segment_plan(ask.walltime_s, part.max_walltime_s, profile.max_segments)
     env = {"arch": profile.arch, "prelude": list(profile.prelude),
            "env_activate": list(profile.env_activate), "paths": dict(profile.paths)}
-    return Plan(ask=ask, account=profile.account, partition=part.name, charge=part.charge,
+    return Plan(ask=ask, project=project, account=profile.account, partition=part.name, charge=part.charge,
                 max_walltime_s=part.max_walltime_s, gpus_per_node=per_node, cpus_per_node=cpus,
                 mem_gb_per_node=mem, billed_per_node=billed_node,
                 billed_gpus=billed_node * ask.nodes, segments=segments, env=env)
@@ -193,6 +204,7 @@ def card_payload(snapshot_commit: str, plan: Plan) -> dict[str, Any]:
     """Everything an approval is bound to."""
     return {
         "snapshot_commit": snapshot_commit,
+        "project": plan.project,
         "command": plan.ask.command,
         "machine": plan.ask.machine,
         "partition": plan.partition,
@@ -218,40 +230,56 @@ def card_hash(snapshot_commit: str, plan: Plan) -> str:
 # ---------------------------------------------------------------- sbatch script
 
 
-def job_name(run_id: str, segment: int) -> str:
-    return f"arboria-{run_id}-s{segment}"
+def job_name(project: str, run_id: str, segment: int) -> str:
+    name = f"arb-{check_project(project)}-{run_id}-s{segment}"
+    if len(name) > MAX_JOB_NAME or not JOB_NAME_RE.match(name):
+        raise ArbError(f"job name {name!r} is invalid or longer than {MAX_JOB_NAME} chars")
+    return name
 
 
-def parse_job_name(name: str) -> tuple[str, int]:
+def parse_job_name(name: str) -> tuple[str, str, int]:
+    """(project, run id, segment) of an arboria job name."""
     m = JOB_NAME_RE.match(name or "")
-    if not m:
+    if not m or len(name) > MAX_JOB_NAME:
         raise ArbError(f"not an arboria job name: {name!r}")
-    return m.group(1), int(m.group(2))
+    return m.group(1), m.group(2), int(m.group(3))
 
 
-def run_dir(paths: dict[str, str], run_id: str) -> str:
-    return f"{paths['runs']}/{run_id}"
+def job_project(name: str) -> str | None:
+    """The project a job name belongs to, or None (e.g. a pre-project `arboria-r001-s1`)."""
+    try:
+        return parse_job_name(name)[0]
+    except ArbError:
+        return None
 
 
-def code_dir(paths: dict[str, str], run_id: str) -> str:
-    return f"{run_dir(paths, run_id)}/code"
+def run_dir(paths: dict[str, str], project: str, run_id: str) -> str:
+    return f"{paths['runs']}/{check_project(project)}/{run_id}"
 
 
-def script_path(paths: dict[str, str], run_id: str, segment: int) -> str:
-    return f"{run_dir(paths, run_id)}/sbatch/s{segment}.sh"
+def code_dir(paths: dict[str, str], project: str, run_id: str) -> str:
+    return f"{run_dir(paths, project, run_id)}/code"
 
 
-def log_pattern(paths: dict[str, str], run_id: str, segment: int) -> str:
+def script_path(paths: dict[str, str], project: str, run_id: str, segment: int) -> str:
+    return f"{run_dir(paths, project, run_id)}/sbatch/s{segment}.sh"
+
+
+def log_pattern(paths: dict[str, str], project: str, run_id: str, segment: int) -> str:
     """Log path with Slurm's %j; `$USER` stays a shell variable."""
-    return f"{run_dir(paths, run_id)}/logs/s{segment}.%j.out"
+    return f"{run_dir(paths, project, run_id)}/logs/s{segment}.%j.out"
 
 
-def log_path(paths: dict[str, str], run_id: str, segment: int, job_id: str) -> str:
-    return log_pattern(paths, run_id, segment).replace("%j", job_id)
+def log_path(paths: dict[str, str], project: str, run_id: str, segment: int, job_id: str) -> str:
+    return log_pattern(paths, project, run_id, segment).replace("%j", job_id)
 
 
-def out_dir(paths: dict[str, str], run_id: str) -> str:
-    return f"{paths['out']}/{run_id}"
+def out_dir(paths: dict[str, str], project: str, run_id: str) -> str:
+    return f"{paths['out']}/{check_project(project)}/{run_id}"
+
+
+def ckpt_dir(paths: dict[str, str], project: str, run_id: str) -> str:
+    return f"{paths['ckpt']}/{check_project(project)}/{run_id}"
 
 
 def sbatch_value(path: str) -> str:
@@ -272,11 +300,13 @@ def render_sbatch(plan: Plan, run_id: str, idea: str, segment: int) -> str:
     n = len(plan.segments)
     if not 1 <= segment <= n:
         raise ArbError(f"segment {segment} out of range 1..{n}")
-    log = sbatch_value(log_pattern(paths, run_id, segment))
+    project = plan.project
+    log = sbatch_value(log_pattern(paths, project, run_id, segment))
     lines = [
         "#!/bin/bash",
-        f"# arboria run {run_id}, segment {segment}/{n}, idea {idea}. Generated by arb; do not edit.",
-        f"#SBATCH --job-name={job_name(run_id, segment)}",
+        f"# arboria project {project}, run {run_id}, segment {segment}/{n}, idea {idea}. "
+        "Generated by arb; do not edit.",
+        f"#SBATCH --job-name={job_name(project, run_id, segment)}",
         f"#SBATCH --account={plan.account}",
         f"#SBATCH --partition={plan.partition}",
         f"#SBATCH --nodes={plan.ask.nodes}",
@@ -300,10 +330,10 @@ def render_sbatch(plan: Plan, run_id: str, idea: str, segment: int) -> str:
         f"export ARBORIA_DATA={dq(paths['data'])}",
         f"export ARBORIA_CACHE={dq(paths['cache'])}",
         'export HF_HOME="$ARBORIA_CACHE/hf"',
-        f"export ARBORIA_CKPT_DIR={dq(paths['ckpt'] + '/' + run_id)}",
-        f"export ARBORIA_OUT={dq(out_dir(paths, run_id))}",
+        f"export ARBORIA_CKPT_DIR={dq(ckpt_dir(paths, project, run_id))}",
+        f"export ARBORIA_OUT={dq(out_dir(paths, project, run_id))}",
         'mkdir -p "$ARBORIA_CACHE" "$HF_HOME" "$ARBORIA_CKPT_DIR" "$ARBORIA_OUT"',
-        f"cd {dq(code_dir(paths, run_id))}",
+        f"cd {dq(code_dir(paths, project, run_id))}",
         shlex.join(plan.ask.command),
     ]
     return "\n".join(lines) + "\n"

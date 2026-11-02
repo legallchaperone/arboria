@@ -10,8 +10,7 @@ from typing import Any
 
 from .errors import ArbError
 from .paths import RepoContext
-
-PROJECT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,30}$")
+from .slurm import PROJECT_RE as PROJECT_ID_RE
 _SLUG_MAX = 26  # + "-" + 4 hex chars = 31, the longest id PROJECT_ID_RE allows
 
 DEFAULT_OBSERVATION_MINUTES = 10

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
 import threading
 from pathlib import Path
 
 import pytest
 
-from arboria import db
+from arboria import config, db
 from arboria.db import Ledger, validate_text
 from arboria.errors import ArbError, NotARepoError
 from arboria.paths import locate
@@ -47,7 +48,8 @@ def test_init_creates_everything_and_is_idempotent(repo: Path, arb) -> None:
     arb(repo, "init")
     state = repo / ".arboria"
     assert (state / "ledger.db").is_file()
-    assert (repo / "arboria.toml").read_text() == "# mine\n"  # not overwritten
+    text = (repo / "arboria.toml").read_text()
+    assert text.startswith("# mine\n\n[project]\n")  # not overwritten; only the id is added
     exclude = (repo / ".git" / "info" / "exclude").read_text()
     assert exclude.count("/.arboria/") == 1
     assert git(repo, "status", "--porcelain", "--untracked-files=all") == "?? arboria.toml"
@@ -57,6 +59,7 @@ def test_init_creates_everything_and_is_idempotent(repo: Path, arb) -> None:
 
     res = arb(repo, "init")
     assert "already initialized" in res.stdout
+    assert (repo / "arboria.toml").read_text() == text
     assert (repo / ".git" / "info" / "exclude").read_text().count("/.arboria/") == 1
     assert git(state, "rev-list", "--count", "HEAD") == "1"
 
@@ -75,6 +78,84 @@ def test_init_writes_toml_template(repo: Path, arb) -> None:
     assert cfg["budget"]["total_su"] == 0
     assert cfg["default_machine"] == ""
     assert len(cfg["review"]["checklist"]) == 3
+    assert re.fullmatch(r"proj-[0-9a-f]{4}", cfg["project"]["id"])
+    assert cfg["watch"]["observation_minutes"] == 10
+    assert tuple(cfg["watch"]["fail_patterns"]) == config.DEFAULT_FAIL_PATTERNS
+    ctx = locate(repo)
+    pc = config.project_config(ctx)
+    assert pc.project_id == cfg["project"]["id"] == config.derive_project_id(ctx)
+    assert pc.watch.observation_minutes == 10 and len(pc.watch.fail_patterns) == 4
+
+
+OLD_TOML = """\
+# hand-edited, keep me exactly
+default_machine = "deltaai"   # trailing comment
+
+[budget]
+total_su = 500
+[claudemd]
+autocommit = false"""
+
+
+def test_init_adds_project_id_and_preserves_the_rest(repo: Path, arb) -> None:
+    import tomllib
+
+    (repo / "arboria.toml").write_text(OLD_TOML)
+    res = arb(repo, "init")
+    pid = config.derive_project_id(locate(repo))
+    assert f'added [project] id = "{pid}"' in res.stdout
+    text = (repo / "arboria.toml").read_text()
+    assert text.startswith(OLD_TOML + "\n\n[project]\n")  # byte for byte, then appended
+    cfg = tomllib.loads(text)
+    assert cfg["project"]["id"] == pid and cfg["budget"]["total_su"] == 500
+    assert cfg["claudemd"]["autocommit"] is False
+    arb(repo, "init")
+    arb(repo, "init")
+    assert (repo / "arboria.toml").read_text() == text  # idempotent
+
+    # an existing [project] table without id: the id goes right under its header
+    body = 'default_machine = ""\n[project] # mine\nname = "x"\n\n[budget]\ntotal_su = 1\n'
+    (repo / "arboria.toml").write_text(body)
+    arb(repo, "init")
+    text = (repo / "arboria.toml").read_text()
+    assert text.startswith('default_machine = ""\n[project] # mine\n# ')
+    assert text.endswith(f'id = "{pid}"\nname = "x"\n\n[budget]\ntotal_su = 1\n')
+    assert tomllib.loads(text)["project"] == {"id": pid, "name": "x"}
+
+
+def test_derive_project_id(tmp_path: Path, repo: Path) -> None:
+    from arboria.paths import RepoContext
+
+    def ctx(main: Path) -> RepoContext:
+        return RepoContext(cwd=main, common_dir=main / ".git", main=main, toplevel=main)
+
+    a = config.derive_project_id(ctx(tmp_path / "a" / "My Project_v2"))
+    b = config.derive_project_id(ctx(tmp_path / "b" / "My Project_v2"))
+    assert a.startswith("my-project-v2-") and b.startswith("my-project-v2-") and a != b
+    long = config.derive_project_id(ctx(tmp_path / ("x" * 25 + "--" + "y" * 20)))
+    assert config.PROJECT_ID_RE.match(long) and len(long) <= 31 and "--" not in long
+    assert config.derive_project_id(ctx(tmp_path / "实验")).startswith("proj-")
+    assert config.derive_project_id(ctx(repo)) == config.derive_project_id(ctx(repo))
+
+
+@pytest.mark.parametrize("body,msg", [
+    ('[project]\nid = "Bad_ID"\n', "must match"),
+    ('[project]\nid = "' + "a" * 32 + '"\n', "must match"),
+    ("project = 3\n", r"\[project\] must be a table"),
+    ("[watch]\nfail_patterns = ['loss (nan']\n", r"fail_patterns\[0\] 'loss \(nan' is not a valid"),
+    ("[watch]\nfail_patterns = 'nan'\n", "must be a list"),
+    ("[watch]\nobservation_minutes = 0\n", "observation_minutes must be an integer >= 1"),
+])
+def test_project_config_validation(repo: Path, body: str, msg: str) -> None:
+    (repo / "arboria.toml").write_text(body)
+    with pytest.raises(ArbError, match=msg):
+        config.project_config(locate(repo))
+
+
+def test_require_project_id(repo: Path) -> None:
+    (repo / "arboria.toml").write_text('default_machine = ""\n')
+    with pytest.raises(ArbError, match="no \\[project\\] id.*run `arb init`"):
+        config.require_project_id(locate(repo))
 
 
 def test_init_from_idea_worktree_uses_main(idea: Path, initialized: Path, arb) -> None:

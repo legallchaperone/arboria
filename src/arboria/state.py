@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Callable
 
 from . import claudemd
+from .config import (
+    DEFAULT_FAIL_PATTERNS,
+    DEFAULT_OBSERVATION_MINUTES,
+    add_project_id,
+    derive_project_id,
+    project_config,
+    project_table,
+)
 from .db import Ledger, init_backup_repo
 from .errors import ArbError
 from .paths import RepoContext, ensure_excluded
@@ -15,6 +23,7 @@ CONFIG_TEMPLATE = """\
 # Machine (cluster) used when a run does not name one; empty = none yet.
 default_machine = ""
 
+{project}
 [budget]
 # Total service units (SU) available for this project; 0 = no budget set.
 total_su = 0
@@ -31,7 +40,34 @@ checklist = [
 # After `arb` updates its block in the main worktree's CLAUDE.md, commit that file
 # (and only that file) with message "arboria: update CLAUDE.md".
 autocommit = true
+
+[watch]
+# 观察期：作业开跑后这么多分钟内，arb watch 检查日志末尾；某一行匹配下面任一正则
+# （Python re 语法）就取消这个 run 的全部作业并通知。默认只认 loss 为 NaN 和 CUDA OOM，
+# 像 "0 NaN batches skipped" 这样的行不会触发。
+observation_minutes = {minutes}
+fail_patterns = [{patterns}]
 """
+
+
+def config_template(project_id: str) -> str:
+    patterns = ", ".join(f"'{p}'" for p in DEFAULT_FAIL_PATTERNS)
+    return CONFIG_TEMPLATE.format(project=project_table(project_id),
+                                  minutes=DEFAULT_OBSERVATION_MINUTES, patterns=patterns)
+
+
+def ensure_project_id(ctx: RepoContext) -> str | None:
+    """Add `[project] id` to an existing arboria.toml that lacks it. Returns the id if added."""
+    path = ctx.config_path
+    if project_config(ctx).project_id is not None:  # also validates the file
+        return None
+    pid = derive_project_id(ctx)
+    text = path.read_text(encoding="utf-8")
+    new = add_project_id(text, pid)
+    tmp = path.with_name(f".{path.name}.arboria-tmp")
+    tmp.write_text(new, encoding="utf-8")
+    tmp.replace(path)
+    return pid
 
 
 def init_state(ctx: RepoContext, warn: Callable[[str], None] | None = None) -> list[str]:
@@ -55,8 +91,12 @@ def init_state(ctx: RepoContext, warn: Callable[[str], None] | None = None) -> l
             actions.append("committed initial ledger backup")
     config: Path = ctx.config_path
     if not config.exists():
-        config.write_text(CONFIG_TEMPLATE, encoding="utf-8")
+        config.write_text(config_template(derive_project_id(ctx)), encoding="utf-8")
         actions.append(f"wrote config template {config} (commit it)")
+    else:
+        added = ensure_project_id(ctx)
+        if added:
+            actions.append(f"added [project] id = \"{added}\" to {config} (commit it)")
     try:
         with Ledger(state) as ledger:
             result = claudemd.sync(ctx, ledger)

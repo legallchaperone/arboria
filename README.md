@@ -48,8 +48,13 @@ arb idea close --merge               # 或 --drop（先存档最终快照再删�
 | `arb note TEXT [--run ID] [--confidence X]` | 给当前 idea 写笔记；`--confidence` 同时更新 idea 的置信度 |
 | `arb status [--json] [--brief]` | 在 idea worktree 中：该 idea 的假设、指标、置信度、runs、最近 5 条笔记、待决事项；在主 worktree 中：所有 open idea 概览 |
 | `arb export [--out FILE]` | 导出所有 idea 的 Markdown（新的在前），可直接粘贴到 Claude Desktop |
+| `arb lesson propose TEXT [--idea NAME \| --run ID]` | 提出一条经验（单行、≤200 字符），同时生成一个待人确认的 Decision；来源默认取当前目录所属的 idea |
+| `arb lesson list [--all] [--json]` | 列出经验（默认只列待确认和已确认的，`--all` 含已退役/已拒绝的） |
+| `arb lesson accept ID` / `reject ID` | 接受 / 拒绝一条待确认的经验（接受后更新 CLAUDE.md）。**只由你来运行** |
+| `arb lesson retire ID` | 退役一条已确认的经验，并从 CLAUDE.md 中移除 |
+| `arb claudemd sync [--no-commit]` | 重写主 worktree 中 CLAUDE.md 的 arboria 区块 |
 | `arb hook session-start` | Claude Code SessionStart hook（从 stdin 读取 hook JSON） |
-| `arb install-claude [--main \| --user]` | 把 hook 和权限规则合并进 `.claude/settings.json` |
+| `arb install-claude [--main \| --user]` | 把 hook 和权限规则合并进 `.claude/settings.json`，并同步 CLAUDE.md 区块 |
 
 置信度取值：`guess`、`prelim`、`confirmed`、`rejected`。
 
@@ -71,7 +76,7 @@ arb install-claude --user   # 写入 ~/.claude/settings.json（对所有项目�
 {
   "hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "arb hook session-start"}]}]},
   "permissions": {
-    "ask": ["Bash(arb approve:*)"],
+    "ask": ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"],
     "deny": ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"]
   }
 }
@@ -85,9 +90,17 @@ arb install-claude --user   # 写入 ~/.claude/settings.json（对所有项目�
 
 hook 绝不会让会话失败：任何错误都只会写入 `.arboria/hook.log`，并以退出码 0 结束、不输出内容。注入的上下文上限约 4000 字符。
 
+## CLAUDE.md 与经验
+
+- `arb` 只管理主 worktree 的 `CLAUDE.md` 里的**一个区块**（`<!-- arboria:begin … -->` 到 `<!-- arboria:end -->` 之间），内容是使用 arboria 的稳定规则和**已确认的经验**，总长不超过 50 行。区块之外的内容都是你的，`arb` 一个字节也不会改。区块内的手动修改会在下次同步时被覆盖；标记损坏（只有开头没有结尾、重复等）时 `arb` 拒绝写入并提示你手动修复。
+- `arb init`、`arb install-claude`、接受/退役经验时会自动同步区块，并只提交 `CLAUDE.md` 这一个文件（提交信息 `arboria: update CLAUDE.md`，使用你的 git 身份；你暂存的其他文件不受影响）。主 worktree 正在 merge/rebase/cherry-pick、`CLAUDE.md` 有冲突或没有配置 git 身份时只写文件、不提交。在 `arboria.toml` 中设 `[claudemd] autocommit = false` 可关闭自动提交。
+- **当前状态不写进 CLAUDE.md**：idea、run、待决事项由 SessionStart hook 在每次会话开始时注入。
+- **经验由 Claude 提出、只由你确认**：Claude 用 `arb lesson propose "..."` 提出，你用 `arb lesson list` 查看，用 `arb lesson accept ID` 或 `arb lesson reject ID` 决定（`install-claude` 会把 `arb lesson accept` 设为需要询问）。已确认的经验最多 20 条；满了就先用 `arb lesson retire ID` 退役或合并一些。
+- idea worktree 是更早从主分支分出来的，里面的 `CLAUDE.md` 可能是旧的：新确认的经验会**立即**通过 hook 注入（最新 10 条，以及待你确认的条数），合并回主分支之后也会出现在 worktree 的 `CLAUDE.md` 里。
+
 ## 状态存放位置
 
 - 主 worktree = `git rev-parse --git-common-dir` 的父目录；所有 worktree 共享 `<主 worktree>/.arboria/`。
 - `.arboria/ledger.db`：SQLite（WAL 模式），schema 版本记录在 `PRAGMA user_version`。
-- `.arboria/` 本身是一个只用于备份的小 git 仓库：在 idea 新建/关闭、笔记、新 run、决策之后，会把数据库导出到 `.arboria/backup/ledger.sql` 并提交。
-- `arboria.toml` 位于主 worktree 根目录，应由你提交到仓库（预算、默认机器、review 检查清单；目前尚未被读取）。
+- `.arboria/` 本身是一个只用于备份的小 git 仓库：在 idea 新建/关闭、笔记、新 run、决策、经验提出/接受/拒绝/退役之后，会把数据库导出到 `.arboria/backup/ledger.sql` 并提交。
+- `arboria.toml` 位于主 worktree 根目录，应由你提交到仓库（预算、默认机器、review 检查清单目前尚未被读取；`[claudemd] autocommit` 已生效）。

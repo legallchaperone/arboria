@@ -19,19 +19,20 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 
 ## 进度
 - 已完成 1a：本地账本、idea 生命周期、快照、note、status/export、hook、install-claude、托管的 CLAUDE.md 区块与 lesson。
-- 下一步 1b，接入 NCSA DeltaAI（aarch64 GH200、Slurm、登录需 Duo）。必须在用户本机上做：
-  1. ssh：host `deltaai` 配 ControlMaster/ControlPersist。`arb doctor` 发现连接断了就提示用户重新登录，绝不循环重试，因为每次重试都会推送一次 Duo。
-  2. `arb machine init deltaai` 生成 `~/.config/arboria/clusters.toml`，内容包括：登录节点架构、账户名（来自 `accounts`）、项目目录、文件数配额（来自 `quota`）、计算节点能否上网。
-  3. 环境：在 NGC PyTorch arm64 容器 + uv 和 pixi 之间实测选一个。用一个短作业在计算节点上构建，缓存 key 为 lockfile 哈希 + 架构 + CUDA 版本。环境放在 /projects 下。
-  4. Slurm 后端（status/check/submit/poll/cancel）：
-     - 永远设置 `--time` 和 `--account`。
-     - DeltaAI 按 GPU、内存、CPU 三者折算后的最大值计费，所以 `--mem` 和 `--cpus` 要按卡数配比，保证计费卡数等于申请卡数。
-     - 快照用 `git archive | ssh tar` 发送。
-     - walltime 超过分区上限时用 `--dependency` 分段。分区上限：`ghx4` 48h；`ghx4-interactive` 2h，计费 2 倍。
-     - 实际花费从 `jobcharge` / `sacct` 取。
-  5. `arb submit` 生成状态为 awaiting_approval 的 run 和审核单（检查、资源、预算）。`arb approve` / `arb reject` 生成 Decision。
-  6. 本机常驻 watcher，每分钟轮询一次。开跑后约 10 分钟是观察期：崩溃或 NaN 就取消并通知。跑完把 `ARBORIA_OUT` 拉回本地。
-- 之后：第 2 步做提交前检查、审核包和独立 AI 审稿人、基于历史的估计；第 3 步做 marimo 面板。
+- 已完成 1b 中不需要真集群的部分（全部用 FakeSlurm 和 mock 的 subprocess 测试）：
+  - schema v3（runs 加 `rejected`、`request_json`、`card_hash`；`jobs` 表每段一行），v1/v2→v3 原地迁移。
+  - `clusters`（`~/.config/arboria/clusters.toml`，`ARBORIA_CONFIG_DIR` 可覆盖，示例 `examples/clusters.toml`）、`config`（arboria.toml）、`slurm`（纯函数：walltime、DeltaAI 计费、分段、sbatch 渲染、审核单哈希）。
+  - `backends/`：`Backend` 接口、`FakeSlurm`（本地模拟、可编排结果、手动时钟）、`SshSlurm`（`ssh -O check` 门禁 + `NeedLogin`、BatchMode、只读路径限制在 runs/out 下）。
+  - `submission`：`arb submit`（纯本地）/`card`/`approve`/`reject`。`_guarded_submit` 是 `Backend.submit` 唯一的调用点，提交前再查账本里人的批准 Decision；`tests/test_submit.py` 用源码扫描和 spy 守住这一点。
+  - `monitor`：`arb poll`/`cancel`/`watch`（观察期 NaN / CUDA OOM 取消，NeedLogin 时暂停该机器）/`logs`/`remote ls`。
+  - install-claude 的 deny 规则（sbatch/srun/salloc/scancel/ssh/scp/rsync），CLAUDE.md 区块和 hook 文案更新。
+- 1b 剩下的部分必须在用户本机上做（会碰真集群和 Duo）：
+  1. 确认 profile 的值：`cpus_per_gpu`、`mem_per_gpu_gb`（决定计费卡数 = 申请卡数）、`account`（来自 `accounts`）、各 `paths`、登录节点架构、计算节点能否上网；`jobcharge` 的输出格式（`SshSlurm.parse_charge` 目前是猜的，解析不了就按 elapsed × 计费卡数 × 倍率本地估算）。
+  2. `arb machine init deltaai` 和 `arb doctor`（都还没写）：ssh host `deltaai` 配 ControlMaster/ControlPersist；连接断了只提示用户重新登录，绝不循环重试。
+  3. 环境：在 NGC PyTorch arm64 容器 + uv 和 pixi 之间实测选一个，用短作业在计算节点上构建（缓存 key = lockfile 哈希 + 架构 + CUDA 版本，放在 /projects 下），定下 profile 的 `prelude` / `env_activate`。
+  4. 通过 `SshSlurm` 跑通第一个真实 run：submit → approve → watch → 拉回 `ARBORIA_OUT`，核对命令行、`%u` 日志路径、`sacct` 状态和花费。
+- 已知限制：作业名和远程目录不带仓库名，一个机器配置只能给一个仓库用（README 有说明）；`find_job` 用 `sacct --starttime=now-30days`。
+- 之后：第 2 步做提交前检查、审核包和独立 AI 审稿人、基于历史的估计（以及提交前的排队估计）；第 3 步做 marimo 面板。
 
 ## 使用 arboria 的训练代码要遵守的约定
 1. 启动时把完整的解析后配置导出为 yaml。

@@ -28,13 +28,19 @@ RUN_STATUS = (
     "failed",
     "cancelled",
 )
-SUBJECT_TYPES = ("run", "idea")
+SUBJECT_TYPES = ("run", "idea", "lesson")
+LESSON_STATUS = ("proposed", "accepted", "retired")
+LESSON_SOURCES = ("idea", "run", "none")
 
 # Events after which the db is dumped to .arboria/backup/ledger.sql and committed.
-BACKUP_EVENTS = frozenset({"idea_new", "idea_close", "note", "run_new", "decision"})
+BACKUP_EVENTS = frozenset({
+    "idea_new", "idea_close", "note", "run_new", "decision",
+    "lesson_propose", "lesson_accept", "lesson_reject", "lesson_retire",
+})
 
 # Limits for the free-text fields an LLM is allowed to write.
-LIMITS = {"hypothesis": 300, "metric": 200, "change_reason": 300, "note": 1000, "summary": 1500}
+LIMITS = {"hypothesis": 300, "metric": 200, "change_reason": 300, "note": 1000, "summary": 1500,
+          "lesson": 200}
 SUMMARY_MAX_LINES = 10
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -82,7 +88,7 @@ CREATE INDEX runs_tree_hash ON runs(tree_hash);
 CREATE INDEX runs_idea ON runs(idea_id);
 CREATE TABLE decisions (
     id           TEXT PRIMARY KEY,
-    subject_type TEXT NOT NULL CHECK (subject_type IN {_in(SUBJECT_TYPES)}),
+    subject_type TEXT NOT NULL CHECK (subject_type IN ('run', 'idea')),
     subject_id   TEXT NOT NULL,
     question     TEXT NOT NULL,
     options_json TEXT NOT NULL DEFAULT '[]',
@@ -108,8 +114,40 @@ CREATE TABLE events (
 );
 """
 
-# MIGRATIONS[i] upgrades user_version i -> i+1.
-MIGRATIONS: list[str] = [SCHEMA_V1]
+# v2: lessons, and decisions may be about a lesson. SQLite cannot ALTER a CHECK
+# constraint, so `decisions` is rebuilt with its rows copied over.
+MIGRATION_V2 = f"""
+CREATE TABLE lessons (
+    id          TEXT PRIMARY KEY,
+    text        TEXT NOT NULL,
+    source_type TEXT NOT NULL DEFAULT 'none' CHECK (source_type IN {_in(LESSON_SOURCES)}),
+    source_id   TEXT,
+    status      TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN {_in(LESSON_STATUS)}),
+    created_at  TEXT NOT NULL,
+    decided_at  TEXT,
+    CHECK ((source_type = 'none') = (source_id IS NULL))
+);
+CREATE INDEX lessons_status ON lessons(status);
+CREATE TABLE decisions_v2 (
+    id           TEXT PRIMARY KEY,
+    subject_type TEXT NOT NULL CHECK (subject_type IN {_in(SUBJECT_TYPES)}),
+    subject_id   TEXT NOT NULL,
+    question     TEXT NOT NULL,
+    options_json TEXT NOT NULL DEFAULT '[]',
+    choice       TEXT,
+    decided_by   TEXT,
+    created_at   TEXT NOT NULL
+);
+INSERT INTO decisions_v2 (id, subject_type, subject_id, question, options_json, choice,
+                          decided_by, created_at)
+    SELECT id, subject_type, subject_id, question, options_json, choice, decided_by, created_at
+    FROM decisions;
+DROP TABLE decisions;
+ALTER TABLE decisions_v2 RENAME TO decisions;
+"""
+
+# MIGRATIONS[i] upgrades user_version i -> i+1. Never edit a released migration.
+MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2]
 SCHEMA_VERSION = len(MIGRATIONS)
 
 
@@ -139,6 +177,11 @@ def validate_text(field: str, value: str | None, *, required: bool = True) -> st
         lines = value.count("\n") + 1
         if lines > SUMMARY_MAX_LINES:
             raise ArbError(f"summary has {lines} lines (max {SUMMARY_MAX_LINES}); shorten it")
+    if field == "lesson":
+        if "\n" in value or "\r" in value:
+            raise ArbError("lesson must be a single line; state one pitfall per lesson")
+        if "<!--" in value or "-->" in value:
+            raise ArbError("lesson must not contain HTML comment markers (<!-- or -->)")
     return value
 
 

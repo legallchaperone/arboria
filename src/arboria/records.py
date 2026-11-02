@@ -97,25 +97,26 @@ def add_note(
 
 
 # ---------------------------------------------------------------- decisions
-# No CLI yet (approval flow is a later step); these keep the table usable and backed up.
+# No CLI for run/idea decisions yet (approval flow is a later step); lessons use them.
 
 
-def open_decision(
+def insert_decision(
     ledger: Ledger, subject_type: str, subject_id: str, question: str, options: list[str]
-) -> dict[str, Any]:
+) -> str:
+    """Insert an open decision; call inside `ledger.write()`. Returns its id."""
     validate_choice("subject_type", subject_type, SUBJECT_TYPES)
-    with ledger.write() as conn:
-        dec_id = ledger.next_id("decisions", "d")
-        conn.execute(
-            "INSERT INTO decisions (id, subject_type, subject_id, question, options_json, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (dec_id, subject_type, subject_id, question, json.dumps(options, ensure_ascii=False), now()),
-        )
-        ledger.event("decision", dec_id, {"action": "open", "subject": f"{subject_type}:{subject_id}"})
-    return ledger.one("SELECT * FROM decisions WHERE id = ?", (dec_id,))
+    dec_id = ledger.next_id("decisions", "d")
+    ledger.conn.execute(
+        "INSERT INTO decisions (id, subject_type, subject_id, question, options_json, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?)",
+        (dec_id, subject_type, subject_id, question, json.dumps(options, ensure_ascii=False), now()),
+    )
+    ledger.event("decision", dec_id, {"action": "open", "subject": f"{subject_type}:{subject_id}"})
+    return dec_id
 
 
-def decide(ledger: Ledger, decision_id: str, choice: str, decided_by: str) -> dict[str, Any]:
+def set_decision(ledger: Ledger, decision_id: str, choice: str, decided_by: str) -> None:
+    """Record the choice of an open decision; call inside `ledger.write()`."""
     dec = ledger.one("SELECT * FROM decisions WHERE id = ?", (decision_id,))
     if dec is None:
         raise ArbError(f"no decision {decision_id!r}")
@@ -124,8 +125,21 @@ def decide(ledger: Ledger, decision_id: str, choice: str, decided_by: str) -> di
     options = json.loads(dec["options_json"] or "[]")
     if options and choice not in options:
         raise ArbError(f"invalid choice {choice!r}; options: {', '.join(options)}")
-    with ledger.write() as conn:
-        conn.execute("UPDATE decisions SET choice = ?, decided_by = ? WHERE id = ?",
-                     (choice, decided_by, decision_id))
-        ledger.event("decision", decision_id, {"action": "decide", "choice": choice, "by": decided_by})
+    ledger.conn.execute("UPDATE decisions SET choice = ?, decided_by = ? WHERE id = ?",
+                        (choice, decided_by, decision_id))
+    ledger.event("decision", decision_id, {"action": "decide", "choice": choice, "by": decided_by})
+
+
+def open_decision(
+    ledger: Ledger, subject_type: str, subject_id: str, question: str, options: list[str]
+) -> dict[str, Any]:
+    validate_choice("subject_type", subject_type, SUBJECT_TYPES)
+    with ledger.write():
+        dec_id = insert_decision(ledger, subject_type, subject_id, question, options)
+    return ledger.one("SELECT * FROM decisions WHERE id = ?", (dec_id,))
+
+
+def decide(ledger: Ledger, decision_id: str, choice: str, decided_by: str) -> dict[str, Any]:
+    with ledger.write():
+        set_decision(ledger, decision_id, choice, decided_by)
     return ledger.one("SELECT * FROM decisions WHERE id = ?", (decision_id,))

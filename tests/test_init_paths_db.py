@@ -161,3 +161,76 @@ def test_concurrent_writers_get_sequential_ids(initialized: Path) -> None:
         t.join()
     assert not errors
     assert sorted(ids) == [f"d{i:03d}" for i in range(1, 21)]
+
+
+def _make_v1_db(path: Path) -> None:
+    conn = db.connect(path)
+    for stmt in db._split_sql(db.MIGRATIONS[0]):
+        conn.execute(stmt)
+    conn.execute("PRAGMA user_version = 1")
+    conn.execute(
+        "INSERT INTO ideas (name, hypothesis, metric, branch, worktree_path, created_at)"
+        " VALUES ('exp1', 'h', 'm', 'idea/exp1', '/w', 't')"
+    )
+    conn.execute(
+        "INSERT INTO decisions (id, subject_type, subject_id, question, options_json, choice,"
+        " decided_by, created_at) VALUES ('d001', 'idea', 'exp1', 'go?', '[\"yes\", \"no\"]', 'yes',"
+        " 'human', 't1')"
+    )
+    conn.execute(
+        "INSERT INTO decisions (id, subject_type, subject_id, question, created_at)"
+        " VALUES ('d002', 'run', 'r001', 'submit?', 't2')"
+    )
+    conn.execute("INSERT INTO notes (idea_id, text, created_at) VALUES (1, 'a note', 't')")
+    with pytest.raises(sqlite3.IntegrityError):  # v1 does not know lessons
+        conn.execute("INSERT INTO decisions (id, subject_type, subject_id, question, created_at)"
+                     " VALUES ('d003', 'lesson', 'l001', 'q', 't')")
+    conn.close()
+
+
+def test_migration_v1_to_v2_preserves_data(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    state.mkdir()
+    _make_v1_db(state / "ledger.db")
+    with Ledger(state) as ledger:  # opening migrates in place
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 2
+        decs = ledger.all("SELECT * FROM decisions ORDER BY id")
+        assert [(d["id"], d["subject_type"], d["subject_id"], d["question"], d["options_json"],
+                 d["choice"], d["decided_by"], d["created_at"]) for d in decs] == [
+            ("d001", "idea", "exp1", "go?", '["yes", "no"]', "yes", "human", "t1"),
+            ("d002", "run", "r001", "submit?", "[]", None, None, "t2"),
+        ]
+        assert ledger.one("SELECT name FROM ideas")["name"] == "exp1"
+        assert ledger.one("SELECT text FROM notes")["text"] == "a note"
+        with ledger.write() as conn:
+            conn.execute("INSERT INTO decisions (id, subject_type, subject_id, question, created_at)"
+                         " VALUES ('d003', 'lesson', 'l001', 'q', 't')")
+            conn.execute("INSERT INTO lessons (id, text, source_type, source_id, created_at)"
+                         " VALUES ('l001', 'x', 'idea', 'exp1', 't')")
+        assert ledger.one("SELECT status FROM lessons")["status"] == "proposed"
+        with pytest.raises(sqlite3.IntegrityError):
+            with ledger.write() as conn:
+                conn.execute("INSERT INTO decisions (id, subject_type, subject_id, question,"
+                             " created_at) VALUES ('d004', 'bogus', 'x', 'q', 't')")
+        with pytest.raises(sqlite3.IntegrityError):
+            with ledger.write() as conn:
+                conn.execute("INSERT INTO lessons (id, text, status, created_at)"
+                             " VALUES ('l002', 'x', 'maybe', 't')")
+        with pytest.raises(sqlite3.IntegrityError):  # source_id requires a source_type
+            with ledger.write() as conn:
+                conn.execute("INSERT INTO lessons (id, text, source_id, created_at)"
+                             " VALUES ('l003', 'x', 'exp1', 't')")
+    # reopening is a no-op
+    with Ledger(state) as ledger:
+        assert ledger.one("SELECT COUNT(*) AS n FROM decisions")["n"] == 3
+
+
+def test_lesson_text_validation() -> None:
+    assert validate_text("lesson", "  eval 每 500 步一次  ") == "eval 每 500 步一次"
+    assert validate_text("lesson", "x" * 200)
+    with pytest.raises(ArbError, match="lesson is too long"):
+        validate_text("lesson", "x" * 201)
+    with pytest.raises(ArbError, match="single line"):
+        validate_text("lesson", "a\nb")
+    with pytest.raises(ArbError, match="comment markers"):
+        validate_text("lesson", "<!-- arboria:end -->")

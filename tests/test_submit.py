@@ -440,26 +440,82 @@ def test_cancel(cluster, idea: Path, initialized: Path, arb) -> None:
 # ---------------------------------------------------------------- watch
 
 
-@pytest.mark.parametrize("log,hit", [("step 10 loss nan\n", True),
-                                     ("RuntimeError: CUDA out of memory. Tried\n", True),
-                                     ("step 10 loss 2.3 nanoseconds\n", False)])
-def test_watch_observation_window(cluster, idea: Path, initialized: Path, arb, log, hit) -> None:
-    cluster.script(jn(cluster, "r001", 1), run_s=7200, log=log)
+@pytest.mark.parametrize("log,pattern", [
+    ("step 10 loss nan\n", r"(?i)\bloss\b[^\n]{0,40}\bnan\b"),
+    ("step 120 loss nan\n", r"(?i)\bloss\b[^\n]{0,40}\bnan\b"),
+    ("epoch 1 | loss: NaN | lr 3e-4\n", r"(?i)\bloss\b[^\n]{0,40}\bnan\b"),
+    ("warning: nan detected in loss\n", r"(?i)\bnan\b[^\n]{0,40}\bloss\b"),
+    ("RuntimeError: CUDA out of memory. Tried\n", "CUDA out of memory"),
+    ("torch.OutOfMemoryError: allocation failed\n", r"torch\.OutOfMemoryError"),
+    ("step 10 loss 2.3 nanoseconds\n", None),
+    ("0 NaN batches skipped\n", None),
+    ("nan_policy=skip, banana loss-free warmup\n", None),
+])
+def test_watch_observation_window(cluster, idea: Path, initialized: Path, arb, log,
+                                  pattern) -> None:
+    cluster.script(jn(cluster, "r001", 1), run_s=7200, log="step 1 loss 2.5\n" + log)
     arb(idea, "submit", "--reason", "x", "--gpus", "4", "--time", "60h", *CMD)
     arb(idea, "approve", "r001")
     cluster.advance(120)
     res = arb(idea, "watch", "--once")
     run = _run(initialized)
     notes = initialized / ".arboria" / "notifications.log"
-    if hit:
+    if pattern is not None:
         assert run["status"] == "failed"
-        assert "r001 失败：s1 日志出现异常" in res.stdout and "已取消剩余作业" in res.stdout
-        assert "r001 失败" in notes.read_text()
+        line = log.strip()
+        assert f"r001 失败：s1 日志出现异常（匹配 {pattern}）：{line}，已取消剩余作业" in res.stdout
+        assert f"（匹配 {pattern}）：{line}" in notes.read_text()
         assert sorted(cluster.calls("cancel")[0][1]) == ["1001", "1002"]
         assert [j["state"] for j in _jobs(initialized)] == ["cancelled", "cancelled"]
+        with _ledger(initialized) as l:
+            ev = l.one("SELECT payload_json FROM events WHERE kind = 'run_final'")
+        payload = json.loads(ev["payload_json"])
+        assert (payload["pattern"], payload["line"], payload["segment"]) == (pattern, line, 1)
+        assert payload["by"] == "arb watch" and payload["job_id"] == "1001"
     else:
         assert run["status"] == "running" and cluster.calls("cancel") == []
         assert len(cluster.calls("tail")) == 1
+
+
+def test_watch_hit_line_is_truncated(cluster, idea: Path, initialized: Path, arb) -> None:
+    long = "step 7 loss nan " + "x" * 400
+    cluster.script(jn(cluster, "r001", 1), run_s=7200, log=long + "\n")
+    _submit(arb, idea)
+    arb(idea, "approve", "r001")
+    cluster.advance(60)
+    out = arb(idea, "watch", "--once").stdout
+    assert long[:200] + "，已取消剩余作业" in out and long[:201] not in out
+
+
+def _set_watch(main: Path, body: str) -> None:
+    toml = main / "arboria.toml"
+    text = toml.read_text()
+    toml.write_text(text[:text.index("[watch]")] + "[watch]\n" + body)
+
+
+def test_watch_custom_patterns_and_window(cluster, idea: Path, initialized: Path, arb) -> None:
+    _set_watch(initialized, "observation_minutes = 20\nfail_patterns = ['^Traceback ']\n")
+    cluster.script(jn(cluster, "r001", 1), run_s=7200, log="step 1 loss nan\n")
+    cluster.script(jn(cluster, "r002", 1), run_s=7200,
+                   log="step 1 loss 2.0\nTraceback (most recent call last):\n")
+    _submit(arb, idea)
+    arb(idea, "approve", "r001")
+    _submit(arb, idea)
+    arb(idea, "approve", "r002")
+    cluster.advance(900)  # past the default 10 minutes, inside the configured 20
+    out = arb(idea, "watch", "--once").stdout
+    assert _run(initialized, "r001")["status"] == "running"  # defaults replaced
+    assert _run(initialized, "r002")["status"] == "failed"
+    assert "r002 失败：s1 日志出现异常（匹配 ^Traceback ）：Traceback (most recent call last):" in out
+    assert len(cluster.calls("tail")) == 2
+
+
+def test_watch_invalid_pattern_errors_clearly(cluster, idea: Path, initialized: Path, arb) -> None:
+    _set_watch(initialized, "fail_patterns = ['loss', '(?i)loss[ nan']\n")
+    res = arb(idea, "watch", "--once", ok=False)
+    assert res.exit_code == 1
+    assert "[watch] fail_patterns[1] '(?i)loss[ nan' is not a valid regular expression" in res.stderr
+    assert "arboria.toml" in res.stderr
 
 
 def test_watch_ignores_logs_after_window(cluster, idea: Path, initialized: Path, arb) -> None:

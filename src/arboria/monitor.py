@@ -16,15 +16,13 @@ from .backends import Backend, BackendError, NeedLogin
 from .db import JOB_TERMINAL, RUN_FINAL, Ledger, now
 from .errors import ArbError
 from .paths import RepoContext
-from .config import require_project_id
+from .config import project_config, require_project_id
 from .submission import LEGACY_RUN, check_same_project, jobs_of, local_run_dir, request_of, \
     run_lock, run_project
 
 NOTIFICATIONS = "notifications.log"
-OBSERVE_S = 600
 TAIL_LINES = 50
-NAN_RE = re.compile(r"\bnan\b", re.IGNORECASE)
-OOM_TEXT = "CUDA out of memory"
+HIT_LINE_MAX = 200
 FETCHED_MARKER = "fetched"
 
 
@@ -237,9 +235,22 @@ def log_path_for(run: dict[str, Any], job: dict[str, Any]) -> str:
     return slurm.log_path(paths, project, run["id"], job["segment"], job["job_id"])
 
 
+def first_hit(text: str, patterns: tuple[re.Pattern[str], ...]) -> tuple[str, str] | None:
+    """(pattern, log line) of the first line matching any of `patterns`."""
+    for line in text.splitlines():
+        for pat in patterns:
+            if pat.search(line):
+                return pat.pattern, line.strip()[:HIT_LINE_MAX]
+    return None
+
+
 def observe(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend,
-            window_s: int = OBSERVE_S) -> str | None:
-    """Observation window: tail fresh jobs' logs; NaN / CUDA OOM -> cancel + fail the run."""
+            window_s: int | None = None) -> str | None:
+    """Observation window: tail fresh jobs' logs; a line matching one of arboria.toml's
+    [watch] fail_patterns -> cancel + fail the run, naming the pattern and the line."""
+    watch_cfg = project_config(ctx).watch
+    if window_s is None:
+        window_s = watch_cfg.observation_minutes * 60
     run = records.get_run(ledger, run_id)
     if run["status"] not in ("queued", "running", "approved") or run_project(run) is None:
         return None
@@ -252,16 +263,18 @@ def observe(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend,
             raise
         except BackendError:
             continue  # log not created yet
-        hit = next((line for line in text.splitlines()
-                    if NAN_RE.search(line) or OOM_TEXT in line), None)
+        hit = first_hit(text, watch_cfg.fail_patterns)
         if hit is None:
             continue
+        pattern, line = hit
         with run_lock(ctx, run_id):
             run = records.get_run(ledger, run_id)
             if run["status"] in RUN_FINAL:
                 return None
-            reason = f"s{job['segment']} 日志出现异常：{hit.strip()[:160]}"
-            _stop(ctx, ledger, run, backend, "failed", {"reason": reason, "by": "arb watch"})
+            reason = f"s{job['segment']} 日志出现异常（匹配 {pattern}）：{line}"
+            _stop(ctx, ledger, run, backend, "failed",
+                  {"reason": reason, "by": "arb watch", "segment": job["segment"],
+                   "job_id": job["job_id"], "pattern": pattern, "line": line})
         return notify(ctx, f"{run_id} 失败：{reason}，已取消剩余作业")
     return None
 
@@ -270,11 +283,13 @@ def observe(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend,
 
 
 def watch(ctx: RepoContext, ledger: Ledger, *, once: bool = False, interval: float = 60,
-          window_s: int = OBSERVE_S, echo: Callable[[str], None] = print,
+          window_s: int | None = None, echo: Callable[[str], None] = print,
           sleep: Callable[[float], None] = time_mod.sleep, max_iterations: int | None = None) -> int:
     """Poll all active runs every `interval` s. NeedLogin pauses that machine for good
     (until `arb watch` is started again): no automatic retries, one notification."""
     require_project_id(ctx)
+    if window_s is None:
+        window_s = project_config(ctx).watch.observation_minutes * 60
     paused: dict[str, str] = {}
     iterations = 0
     while True:

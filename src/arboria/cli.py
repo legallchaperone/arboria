@@ -320,15 +320,18 @@ def poll(
 def watch(
     once: Annotated[bool, typer.Option("--once", help="One pass, then exit.")] = False,
     interval: Annotated[int, typer.Option("--interval", help="Seconds between passes.")] = 60,
-    window: Annotated[int, typer.Option("--window", help="Observation window after a job starts, in minutes.")] = 10,
+    window: Annotated[Optional[int], typer.Option("--window", help="Observation window after a job starts, in minutes (default: arboria.toml [watch] observation_minutes).")] = None,
 ) -> None:
-    """Keep polling active runs; in the observation window cancel on crash / NaN / CUDA OOM."""
+    """Keep polling active runs; in the observation window cancel on crash or a log line
+    matching arboria.toml [watch] fail_patterns (default: loss NaN, CUDA OOM)."""
     if interval < 10:
         raise ArbError("--interval must be at least 10 seconds")
+    if window is not None and window < 1:
+        raise ArbError("--window must be at least 1 minute")
     ctx, ledger = _open()
     with ledger:
-        code = monitor.watch(ctx, ledger, once=once, interval=interval, window_s=window * 60,
-                             echo=typer.echo)
+        code = monitor.watch(ctx, ledger, once=once, interval=interval,
+                             window_s=None if window is None else window * 60, echo=typer.echo)
     raise typer.Exit(code)
 
 

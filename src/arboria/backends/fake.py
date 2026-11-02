@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from ..clusters import Profile
-from ..slurm import parse_job_name
+from ..slurm import parse_job_name, script_path
 from .base import Backend, BackendError, NeedLogin, check_job_ids, need_login_message, restrict_path
 
 FIRST_JOB_ID = 1001
@@ -157,6 +157,9 @@ class FakeSlurm(Backend):
                 raise BackendError(f"sbatch: invalid dependency {dependency_job_id}")
             jid = str(st["next_id"])
             st["next_id"] += 1
+            target = local_path(script_path(self.profile.paths, run_id, segment))
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(script_text)
             log = re.search(r"^#SBATCH --output=(.+)$", script_text, re.M)
             out = re.search(r'^export ARBORIA_OUT="(.+)"$', script_text, re.M)
             st["jobs"][jid] = {

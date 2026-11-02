@@ -15,7 +15,7 @@ from . import hook as hook_mod
 from . import ideas as ideas_mod
 from . import install as install_mod
 from . import lessons as lessons_mod
-from . import records, report
+from . import monitor, records, report, submission
 from .db import Ledger
 from .errors import ArbError
 from .paths import RepoContext, locate
@@ -39,6 +39,9 @@ app.add_typer(run_app, name="run")
 app.add_typer(hook_app, name="hook")
 app.add_typer(claudemd_app, name="claudemd")
 app.add_typer(lesson_app, name="lesson")
+remote_app = typer.Typer(help="Read-only views of a run's files on the cluster.",
+                         no_args_is_help=True)
+app.add_typer(remote_app, name="remote")
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
 ConfidenceOpt = Annotated[
@@ -187,6 +190,174 @@ def run_summary(
         idea = ideas_mod.require_current_idea(ctx, ledger)
         records.set_run_summary(ledger, idea, run_id, text)
     typer.echo(f"summary saved for {run_id}")
+
+
+# ---------------------------------------------------------------- cluster runs
+
+APPROVE_LINE = "由你批准：arb approve {run}"
+
+
+@app.command(context_settings={"allow_interspersed_args": False})
+@handle_errors
+def submit(
+    command: Annotated[list[str], typer.Argument(help="The training command, after `--`.",
+                                                 show_default=False)],
+    reason: Annotated[str, typer.Option("--reason", help="What changed vs. the previous run and why (≤300 chars).")],
+    gpus: Annotated[int, typer.Option("--gpus", help="Total GPUs.")],
+    time: Annotated[str, typer.Option("--time", help="Walltime: 90m, 12h, 1d6h or HH:MM:SS.")],
+    nodes: Annotated[int, typer.Option("--nodes", help="Nodes (GPUs are split evenly).")] = 1,
+    partition: Annotated[Optional[str], typer.Option("--partition", help="Default: the machine's default_partition.")] = None,
+    machine: Annotated[Optional[str], typer.Option("--machine", help="Default: arboria.toml default_machine.")] = None,
+    mem: Annotated[Optional[int], typer.Option("--mem", help="Memory per node in GB (default: GPU share; more is billed as extra GPUs).")] = None,
+    cpus: Annotated[Optional[int], typer.Option("--cpus", help="CPUs per node (default: GPU share; more is billed as extra GPUs).")] = None,
+    allow_large: Annotated[bool, typer.Option("--allow-large", help="Snapshot large untracked files anyway.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """Snapshot the idea worktree and ask the human to approve a cluster run (local only)."""
+    ctx, ledger = _open()
+    with ledger:
+        idea = ideas_mod.require_current_idea(ctx, ledger)
+        run, card = submission.submit(ctx, ledger, idea, reason, command, gpus=gpus, time=time,
+                                      nodes=nodes, partition=partition, machine=machine,
+                                      mem_gb=mem, cpus=cpus, allow_large=allow_large, warn=_warn)
+    if as_json:
+        _echo_json({"run": run, "card": card.as_dict(), "card_text": card.text()})
+        return
+    typer.echo(card.text())
+    typer.echo(APPROVE_LINE.format(run=run["id"]))
+
+
+@app.command()
+@handle_errors
+def card(
+    run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")],
+    as_json: JsonOpt = False,
+) -> None:
+    """Show a submitted run's approval card, recomputed now (local only)."""
+    ctx, ledger = _open()
+    with ledger:
+        c, matches = submission.card_for(ctx, ledger, run_id)
+        status = records.get_run(ledger, run_id)["status"]
+    if as_json:
+        _echo_json(c.as_dict() | {"matches_submitted": matches, "status": status})
+        return
+    typer.echo(c.text())
+    if not matches:
+        typer.echo(f"⚠ {submission.CARD_CHANGED}")
+    elif status == "awaiting_approval":
+        typer.echo(APPROVE_LINE.format(run=run_id))
+    else:
+        typer.echo(f"状态：{status}")
+
+
+@app.command()
+@handle_errors
+def approve(run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")]) -> None:
+    """(Human only) approve a run's card and submit it to the cluster; re-run to resume."""
+    ctx, ledger = _open()
+    with ledger:
+        res = submission.approve(ctx, ledger, run_id)
+    if res.decision_id:
+        typer.echo(f"approved {run_id} (decision {res.decision_id})")
+    else:
+        typer.echo(f"resuming approved {run_id}")
+    for segment, job_id, adopted in res.submitted:
+        typer.echo(f"  s{segment}: job {job_id}" + (" (already on the cluster, adopted)" if adopted else ""))
+    typer.echo(f"{run_id} is {res.run['status']}; follow it with `arb poll {run_id}` or `arb watch`")
+
+
+@app.command()
+@handle_errors
+def reject(
+    run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")],
+    reason: Annotated[Optional[str], typer.Option("--reason", help="Why (saved as a note, ≤1000 chars).")] = None,
+) -> None:
+    """Reject a run awaiting approval (nothing is sent to the cluster)."""
+    ctx, ledger = _open()
+    with ledger:
+        submission.reject(ctx, ledger, run_id, reason)
+    typer.echo(f"rejected {run_id}")
+
+
+@app.command("cancel")
+@handle_errors
+def cancel_cmd(run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")]) -> None:
+    """Cancel a submitted run's jobs on the cluster."""
+    ctx, ledger = _open()
+    with ledger:
+        run, ids = monitor.cancel(ctx, ledger, run_id)
+    typer.echo(f"cancelled {run_id}" + (f" (scancel {' '.join(ids)})" if ids else " (no live jobs)"))
+
+
+@app.command()
+@handle_errors
+def poll(
+    run_id: Annotated[Optional[str], typer.Argument(help="Default: every active run.")] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """One pass: update job states, run status and cost; fetch ARBORIA_OUT when done."""
+    ctx, ledger = _open()
+    outcomes = []
+    with ledger:
+        ids = [run_id] if run_id else [r["id"] for r in monitor.active_runs(ledger)]
+        for rid in ids:
+            outcomes.append(monitor.poll_run(ctx, ledger, rid))
+    if as_json:
+        _echo_json([o.__dict__ for o in outcomes])
+        return
+    if not outcomes:
+        typer.echo("no active runs")
+    for o in outcomes:
+        typer.echo(f"{o.run_id}: {o.status}" + (f" (was {o.previous})" if o.previous != o.status else ""))
+        for m in o.messages:
+            typer.echo(f"  {m}")
+
+
+@app.command()
+@handle_errors
+def watch(
+    once: Annotated[bool, typer.Option("--once", help="One pass, then exit.")] = False,
+    interval: Annotated[int, typer.Option("--interval", help="Seconds between passes.")] = 60,
+    window: Annotated[int, typer.Option("--window", help="Observation window after a job starts, in minutes.")] = 10,
+) -> None:
+    """Keep polling active runs; in the observation window cancel on crash / NaN / CUDA OOM."""
+    if interval < 10:
+        raise ArbError("--interval must be at least 10 seconds")
+    ctx, ledger = _open()
+    with ledger:
+        code = monitor.watch(ctx, ledger, once=once, interval=interval, window_s=window * 60,
+                             echo=typer.echo)
+    raise typer.Exit(code)
+
+
+@app.command()
+@handle_errors
+def logs(
+    run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")],
+    segment: Annotated[Optional[int], typer.Option("--segment", help="Default: the latest started segment.")] = None,
+    n: Annotated[int, typer.Option("-n", help="Number of lines.")] = 100,
+) -> None:
+    """Tail a run's Slurm log on the cluster (use this instead of ssh)."""
+    ctx, ledger = _open()
+    with ledger:
+        text = monitor.logs(ctx, ledger, run_id, segment, n)
+    typer.echo(text, nl=not text.endswith("\n"))
+
+
+@remote_app.command("ls")
+@handle_errors
+def remote_ls(
+    run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")],
+    subpath: Annotated[Optional[str], typer.Argument(help="Relative path inside the run dir.")] = None,
+    out: Annotated[bool, typer.Option("--out", help="List ARBORIA_OUT instead of the run dir.")] = False,
+) -> None:
+    """List a run's directory (or its ARBORIA_OUT) on the cluster."""
+    ctx, ledger = _open()
+    with ledger:
+        base, names = monitor.remote_ls(ctx, ledger, run_id, subpath, out)
+    typer.echo(f"{base}:")
+    for name in names:
+        typer.echo(f"  {name}")
 
 
 # ---------------------------------------------------------------- lessons

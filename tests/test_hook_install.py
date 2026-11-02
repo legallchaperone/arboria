@@ -88,7 +88,9 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
         {"hooks": [{"type": "command", "command": "arb hook session-start"}]}
     ]
     assert data["permissions"]["ask"] == ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
-    assert data["permissions"]["deny"] == ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"]
+    assert data["permissions"]["deny"] == install.DENY_RULES == [
+        "Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)", "Bash(ssh:*)",
+        "Bash(scp:*)", "Bash(rsync:*)"]
     assert not (initialized / ".claude").exists()
 
     res = arb(idea, "install-claude")  # idempotent
@@ -103,7 +105,7 @@ def test_install_claude_preserves_existing(initialized: Path, arb) -> None:
         "model": "opus",
         "hooks": {"SessionStart": [{"matcher": "startup", "hooks": [{"type": "command", "command": "echo hi"}]}],
                   "Stop": [{"hooks": [{"type": "command", "command": "x"}]}]},
-        "permissions": {"allow": ["Bash(ls:*)"], "deny": ["Bash(sbatch:*)"],
+        "permissions": {"allow": ["Bash(ls:*)"], "deny": ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"],
                         "ask": ["Bash(rm:*)", "Bash(arb lesson accept:*)"]},
     }
     path.write_text(json.dumps(existing))
@@ -113,7 +115,10 @@ def test_install_claude_preserves_existing(initialized: Path, arb) -> None:
     assert len(data["hooks"]["SessionStart"]) == 2
     assert data["hooks"]["SessionStart"][0] == existing["hooks"]["SessionStart"][0]
     assert data["permissions"]["allow"] == ["Bash(ls:*)"]
-    assert data["permissions"]["deny"] == ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"]
+    # existing rules (incl. the older ssh rule) kept in place, ours appended once
+    assert data["permissions"]["deny"] == ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)",
+                                           "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
+                                           "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)"]
     assert data["permissions"]["ask"] == ["Bash(rm:*)", "Bash(arb lesson accept:*)",
                                           "Bash(arb approve:*)"]
     arb(initialized, "install-claude", "--main")

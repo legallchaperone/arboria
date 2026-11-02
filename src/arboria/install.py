@@ -10,7 +10,10 @@ from .errors import ArbError
 
 HOOK_COMMAND = "arb hook session-start"
 ASK_RULES = ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
-DENY_RULES = ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)"]
+# The real guarantee is that only `arb approve` submits (after a human Decision);
+# these deny rules are an extra layer that keeps Claude off the cluster directly.
+DENY_RULES = ["Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
+              "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)"]
 
 
 def _has_hook(entries: list[Any]) -> bool:

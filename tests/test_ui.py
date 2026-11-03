@@ -405,3 +405,15 @@ def test_arb_ui_without_marimo(initialized: Path, arb, monkeypatch) -> None:
 
 def test_arb_ui_needs_an_initialized_repo(repo: Path, arb) -> None:
     assert "arb init" in arb(repo, "ui", ok=False).stderr
+
+
+def test_dashboard_app_on_an_empty_project(initialized: Path, monkeypatch) -> None:
+    pytest.importorskip("marimo")
+    monkeypatch.setenv("ARBORIA_UI_ROOT", str(initialized))
+    monkeypatch.delenv("ARBORIA_UI_IDEA", raising=False)
+    from arboria.ui import dashboard
+
+    outputs, defs = dashboard.app.run()
+    assert defs["picker"].value is None and defs["board"].ideas == []
+    html = "".join(getattr(o, "text", "") for o in outputs if o is not None)
+    assert "还没有 idea" in html and "未设项目预算" in html

@@ -1,12 +1,44 @@
 [project]
 name = "arboria"
 version = "0.1.0"
-description = "Local ledger of ML research ideas, runs and notes for working with Claude Code"
+description = "AI-native ML research workflow: a local ledger of ideas, runs and notes, a marimo notebook per idea, and human-approved Slurm runs for working with Claude Code"
 readme = "README.md"
 requires-python = ">=3.11"
+authors = [{ name = "legallchaperone" }]
+keywords = [
+    "machine-learning",
+    "research",
+    "experiment-tracking",
+    "slurm",
+    "hpc",
+    "marimo",
+    "claude-code",
+    "cli",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: Chinese (Simplified)",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Distributed Computing",
+]
 dependencies = [
     "typer>=0.12",
 ]
+
+[project.urls]
+Homepage = "https://github.com/legallchaperone/arboria"
+Repository = "https://github.com/legallchaperone/arboria"
+Issues = "https://github.com/legallchaperone/arboria/issues"
+Documentation = "https://github.com/legallchaperone/arboria/blob/main/docs/guide.md"
 
 [project.optional-dependencies]
 # The idea notebooks (`.arboria/notebooks/<idea>.py`) are marimo notebooks.

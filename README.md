@@ -109,13 +109,14 @@ arb ui --port 2718
 
 - 需要 marimo，而且要装在 arb 自己的环境里（看板会 import arboria）：在 arboria 源码目录 `uv tool install --force '.[ui]'`，或 `pip install 'arboria[ui]'`。没装时 `arb ui` 会直接告诉你怎么装。
 - `arb ui` 在 `127.0.0.1` 上运行包里自带的 marimo app（`marimo run`，带 marimo 的会话 token），项目根目录通过 `--` 后的参数和 `ARBORIA_UI_ROOT` 传进去。Ctrl-C 结束。
-- **只读**：账本用 SQLite 的只读模式打开（`file:…?mode=ro`），看板的代码不 import 任何写入路径；不连网、不 ssh、不调 wandb API。数据只来自账本、`.arboria/notifications.log`、`.arboria/runs/<run>/out/` 的文件列表、`arboria.toml`、`clusters.toml`（重算审核单）和 notebooks 目录。集群状态是 `arb watch` / `arb poll` 最后写进账本的样子，页面顶部写着“数据更新于 HH:MM:SS（来自账本；集群状态由 arb watch 更新）”。每 30 秒自动重读一次（右上角可改间隔）。
+- **只读**：账本用 SQLite 的只读模式打开（`file:…?mode=ro`），看板的代码不 import 任何写入路径；不连网、不 ssh、不调 wandb API。数据只来自账本、`.arboria/notifications.log`、`.arboria/runs/<run>/out/` 的文件列表、`arboria.toml`、`clusters.toml`（重算审核单）和 notebooks 目录。集群状态是 `arb watch` / `arb poll` 最后写进账本的样子；页面顶部的“更新于 HH:MM:SS”是最后一次读账本的时间。每 30 秒自动重读一次（右上角可改间隔）。
 - **没有会动手的按钮**：批准、接受经验、取消都留在你自己的终端里；看板只把要运行的命令显示成可以一键选中复制的文本，例如 `arb approve r014`。
-- 内容，从上到下：
-  1. **待你处理**：待批准的 run（审核单全文，和 `arb card` 一样；配置变了会标出“审核单已变化”）和 `arb approve` / `arb reject` 命令；你上次给那个 idea 写笔记之后结束的 run（写一条笔记后就不再列出）；待确认的经验和 `arb lesson accept` / `reject`；还没完成的待办（普通和命令待办，带时间）；最近 10 条 watch 通知。每组有数量，空的组缩成一行灰字。
-  2. **idea 树**：横轴是时间，每个 idea 一行，父 idea 到子 idea 有连线（从某个 run 的快照分出的从那个 run 连出），圆点颜色是置信度，◆ 已合并，✕ 已放弃（变淡，可以用开关隐藏），run 是行上的小竖条、颜色是状态。鼠标悬停看详情；用下拉框选 idea。
-  3. **idea 详情**：假设、指标、置信度、状态、分支和 worktree、notebook（`vscode://` 链接和 `marimo edit` 命令）、runs 表（父 run、状态、GPU × 时长、分区、估计/实际 SU、wandb 链接、相对父 run 改了哪些参数 `k: 旧 → 新`、拉回的输出文件数）、你的笔记、run 总结（折叠）、未完成的待办。
-  4. **算力与预算**：已用 / 总预算（`arboria.toml [budget] total_su`）、进行中和待批准的 run 估计还会花多少、各 idea 已用 SU、累计花费曲线、活跃作业、已结束 run 的估计 vs 实际。
+- 布局：顶部一行数字（需要你处理、进行中的 idea、活跃作业、已用 SU / 预算）；宽屏（≥1100px）左边是“待你处理”，右边是 idea 树和 idea 详情；最下面是算力与预算。窄屏变成一列。先给简短的版本，细节都在可以点开的折叠里。跟随 marimo 的浅色/深色主题（样式在包里的 `ui/dashboard.css`，不用网络字体，离线可用）。
+- 内容：
+  1. **待你处理**：每项一行。待批准的 run 带 `arb approve` 命令，审核单全文（和 `arb card` 一样，配置变了会标出“审核单已变化”）和 `arb reject` 收在“审核单”里；新结束的 run（你上次给那个 idea 写笔记之后结束的，写一条笔记后就不再列出）；待确认的经验和 `arb lesson accept` / `reject`；等 Claude 处理的待办；最近的 watch 通知（显示 3 条，其余折叠）。空的组缩成一行灰字。
+  2. **idea 树**：横轴是时间，每个 idea 一行，父 idea 到子 idea 有连线（从某个 run 的快照分出的从那个 run 连出），行尾写着置信度（已合并、已放弃也写在这里；已放弃的行变淡，可以用开关隐藏）。run 是行上的小竖条，只有失败（红）和待批准（琥珀色）有颜色。鼠标悬停看详情。
+  3. **idea 详情**（右上角下拉框选 idea）：假设、指标、置信度、notebook（`vscode://` 链接和 `marimo edit` 命令）；父 idea、分支、worktree、创建时间在“更多”里。runs 表每行是 run、状态、相对父 run 的改动（`k: 旧 → 新`，没有参数改动时显示原因）、GPU × 时长、SU、wandb，点开一行看原因、父 run、分区、估计/实际 SU、创建时间和拉回的输出文件。笔记和 run 总结显示最新 3 条，其余折叠；还有未完成的待办。
+  4. **算力与预算**：已用 / 总预算（`arboria.toml [budget] total_su`）和剩余、各 idea 已用 SU、累计花费曲线、活跃作业（有的时候才显示），已结束 run 的估计 vs 实际（折叠）。
 - 有东西在等你（待批准的 run、待确认的经验、你还没看过的已结束 run）时，`arb status` 和 SessionStart hook 会多一行“看板：arb ui”。
 
 ## 命令列表

@@ -53,6 +53,12 @@ def two(tmp_path: Path, monkeypatch, arb):
             "fake": FakeSlurm(load_profile("fake"), a_pid)}
 
 
+def _bump(wt: Path) -> None:
+    """Change the worktree so the next submit is a new run (identical ones are reused)."""
+    n = len(list(wt.glob("bump*.txt")))
+    (wt / f"bump{n}.txt").write_text(f"{n}\n")
+
+
 def _submit(arb, wt: Path, *extra: str, ok: bool = True):
     return arb(wt, "submit", "--reason", "x", "--gpus", "1", "--time", "2h", *extra, *CMD, ok=ok)
 
@@ -118,6 +124,7 @@ def test_find_job_in_b_never_adopts_a_job(two, arb) -> None:
     assert [c[1] for c in fake.calls("find_job")] == [f"arb-{a}-r001-s1", f"arb-{b}-r001-s1"]
     assert [j["job_id"] for j in _jobs(b_main)] == ["1002"]
     # a lost sbatch reply in B is adopted from B's own job only
+    _bump(b_wt)
     _submit(arb, b_wt)
     fake.script(f"arb-{b}-r002-s1", lose_reply=True)
     arb(b_wt, "approve", "r002", ok=False)
@@ -188,6 +195,7 @@ def test_old_run_with_jobs_can_still_be_polled_and_cancelled(two, arb) -> None:
     arb(a_wt, "approve", "r001")
     # r002: approved, but its sbatch failed, so it would need `arb approve` to resume
     fake.script(f"arb-{a}-r002-s1", submit_error=True)
+    _bump(a_wt)
     _submit(arb, a_wt)
     arb(a_wt, "approve", "r002", ok=False)
     assert _run(a_main, "r002")["status"] == "approved"
@@ -219,6 +227,7 @@ def test_commands_need_project_id(two, arb, args) -> None:
     a_main, a_wt, a = two["a"]
     _submit(arb, a_wt)
     arb(a_wt, "approve", "r001")
+    _bump(a_wt)
     _submit(arb, a_wt)
     toml = a_main / "arboria.toml"
     original = toml.read_text()

@@ -40,6 +40,12 @@ def jn(cluster: FakeSlurm, run: str, k: int) -> str:
     return slurm.job_name(cluster.project, run, k)
 
 
+def _bump(wt: Path, tag: str = "") -> None:
+    """Change the worktree so the next submit is a different run (identical ones are reused)."""
+    n = len(list(wt.glob("bump*.txt")))
+    (wt / f"bump{n}{tag}.txt").write_text(f"{n}\n")
+
+
 def _submit(arb, idea: Path, *extra: str, ok: bool = True):
     return arb(idea, "submit", "--reason", "warmup 1k", "--gpus", "4", "--time", "12h",
                *extra, *CMD, ok=ok)
@@ -98,8 +104,12 @@ def test_submit_is_local_and_prints_card(cluster, idea: Path, initialized: Path,
     assert json.loads(dec["options_json"]) == ["approve", "reject", "revise"]
     assert _backups(initialized)[0] == "arboria backup: decision d001; run_submit r001"
 
+    # identical request again: the same run comes back (see test_identical_submit_*)
     data = json.loads(_submit(arb, idea, "--json").stdout)
-    assert data["run"]["id"] == "r002" and data["card"]["est_su"] == 48.0
+    assert data["run"]["id"] == "r001" and data["existed"] and data["card"]["est_su"] == 48.0
+    _bump(idea)
+    data = json.loads(_submit(arb, idea, "--json").stdout)
+    assert data["run"]["id"] == "r002" and not data["existed"]
 
 
 def test_submit_flags_over_request(cluster, idea: Path, arb) -> None:
@@ -143,12 +153,16 @@ def test_submit_refusals_write_nothing(cluster, idea: Path, initialized: Path, a
 def test_submit_needs_machine_account_and_command(cluster, idea: Path, initialized: Path, arb,
                                                   monkeypatch, tmp_path) -> None:
     toml = initialized / "arboria.toml"
-    toml.write_text(toml.read_text().replace('default_machine = "fake"', 'default_machine = ""'))
+    toml.write_text(toml.read_text().replace('default_machine = "fake"', 'default_machine = ""')
+                    .replace('command = "python train.py"', 'command = ""'))
     res = _submit(arb, idea, ok=False)
     assert "no machine" in res.stderr
+    # no `-- CMD` and no [run] command
     res = arb(idea, "submit", "--reason", "x", "--gpus", "1", "--time", "1h", "--machine", "fake",
               ok=False)
-    assert res.exit_code != 0
+    assert res.exit_code == 1 and submission.NO_COMMAND in res.stderr
+    res = arb(idea, "submit", "--reason", "x", "--machine", "fake", *CMD, ok=False)
+    assert res.exit_code == 1 and "--gpus and --time are required" in res.stderr
     cfg = tmp_path / "cfg2"
     cfg.mkdir()
     (cfg / "clusters.toml").write_text(fake_toml(tmp_path / "c2", account=""))
@@ -322,9 +336,13 @@ def test_no_other_path_reaches_backend_submit(cluster, idea: Path, initialized: 
     Spy.submitted = []
     monkeypatch.setattr(backends, "get_backend", lambda profile, project: Spy(profile, project))
     _submit(arb, idea)
+    _bump(idea)
     _submit(arb, idea)
+    _submit(arb, idea)  # identical: returns r002
+    arb(idea, "submit", "--from", "r001", "--set", "lr=1", "--reason", "x")
     arb(idea, "card", "r001")
     arb(idea, "reject", "r002")
+    arb(idea, "reject", "r003")
     arb(idea, "poll")
     arb(idea, "poll", "r001")
     arb(idea, "watch", "--once")
@@ -500,6 +518,7 @@ def test_watch_custom_patterns_and_window(cluster, idea: Path, initialized: Path
                    log="step 1 loss 2.0\nTraceback (most recent call last):\n")
     _submit(arb, idea)
     arb(idea, "approve", "r001")
+    _bump(idea)
     _submit(arb, idea)
     arb(idea, "approve", "r002")
     cluster.advance(900)  # past the default 10 minutes, inside the configured 20
@@ -572,6 +591,7 @@ def test_logs_and_remote_ls(cluster, idea: Path, initialized: Path, arb) -> None
 
 def test_pending_approvals_in_status_and_hook(cluster, idea: Path, initialized: Path, arb) -> None:
     _submit(arb, idea)
+    _bump(idea)
     _submit(arb, idea)
     st = json.loads(arb(idea, "status", "--json").stdout)
     assert st["pending_approvals"] == 2

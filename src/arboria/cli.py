@@ -207,12 +207,15 @@ APPROVE_LINE = "由你批准：arb approve {run}"
 @app.command(context_settings={"allow_interspersed_args": False})
 @handle_errors
 def submit(
-    command: Annotated[list[str], typer.Argument(help="The training command, after `--`.",
-                                                 show_default=False)],
-    reason: Annotated[str, typer.Option("--reason", help="What changed vs. the previous run and why (≤300 chars).")],
-    gpus: Annotated[int, typer.Option("--gpus", help="Total GPUs.")],
-    time: Annotated[str, typer.Option("--time", help="Walltime: 90m, 12h, 1d6h or HH:MM:SS.")],
-    nodes: Annotated[int, typer.Option("--nodes", help="Nodes (GPUs are split evenly).")] = 1,
+    command: Annotated[Optional[list[str]], typer.Argument(
+        help="The training command, after `--` (default: run.command in arboria.toml, or "
+             "the --from run's command).", show_default=False)] = None,
+    reason: Annotated[str, typer.Option("--reason", help="What changed vs. the previous run and why (≤300 chars).")] = ...,
+    from_run: Annotated[Optional[str], typer.Option("--from", help="Reuse this run's snapshot, resources and overrides (no new snapshot).")] = None,
+    set_: Annotated[Optional[list[str]], typer.Option("--set", help="Override key=value (repeatable), rendered per run.override_style.")] = None,
+    gpus: Annotated[Optional[int], typer.Option("--gpus", help="Total GPUs (default with --from: the parent's).")] = None,
+    time: Annotated[Optional[str], typer.Option("--time", help="Walltime: 90m, 12h, 1d6h or HH:MM:SS (default with --from: the parent's).")] = None,
+    nodes: Annotated[Optional[int], typer.Option("--nodes", help="Nodes (GPUs are split evenly; default 1).")] = None,
     partition: Annotated[Optional[str], typer.Option("--partition", help="Default: the machine's default_partition.")] = None,
     machine: Annotated[Optional[str], typer.Option("--machine", help="Default: arboria.toml default_machine.")] = None,
     mem: Annotated[Optional[int], typer.Option("--mem", help="Memory per node in GB (default: GPU share; more is billed as extra GPUs).")] = None,
@@ -220,16 +223,25 @@ def submit(
     allow_large: Annotated[bool, typer.Option("--allow-large", help="Snapshot large untracked files anyway.")] = False,
     as_json: JsonOpt = False,
 ) -> None:
-    """Snapshot the idea worktree and ask the human to approve a cluster run (local only)."""
+    """Snapshot the idea worktree (or reuse --from's) and ask the human to approve a
+    cluster run (local only). An identical earlier run is returned instead of a new one."""
     ctx, ledger = _open()
     with ledger:
         idea = ideas_mod.require_current_idea(ctx, ledger)
-        run, card = submission.submit(ctx, ledger, idea, reason, command, gpus=gpus, time=time,
-                                      nodes=nodes, partition=partition, machine=machine,
-                                      mem_gb=mem, cpus=cpus, allow_large=allow_large, warn=_warn)
+        overrides = [slurm.parse_override(x) for x in set_ or []]
+        run, card = submission.submit(ctx, ledger, idea, reason, command or None, gpus=gpus,
+                                      time=time, nodes=nodes, partition=partition,
+                                      machine=machine, mem_gb=mem, cpus=cpus, from_run=from_run,
+                                      overrides=overrides, allow_large=allow_large, warn=_warn)
     if as_json:
-        _echo_json({"run": run, "card": card.as_dict(), "card_text": card.text()})
+        _echo_json({"run": run, "card": card.as_dict(), "card_text": card.text(),
+                    "existed": run["existed"]})
         return
+    if run["existed"]:
+        typer.echo(submission.EXISTS.format(run=run["id"]))
+        if run["status"] != "awaiting_approval":
+            typer.echo(f"状态：{run['status']}")
+            return
     typer.echo(card.text())
     typer.echo(APPROVE_LINE.format(run=run["id"]))
 

@@ -30,6 +30,9 @@ CARD_CHANGED = "审核单已变化，请重新 arb submit"
 LEGACY_RUN = ("run {run} 是在加入项目 id 之前提交的（request 里没有 project），作业名和远程目录"
               "可能与其他仓库冲突；请重新 arb submit")
 REVIEW_PLACEHOLDER = "审稿（第 2 步加入，暂无）"
+EXISTS = "已存在：{run}"
+NO_COMMAND = ("no command: put it after `--` (arb submit ... -- python train.py) or set "
+              "[run] command in arboria.toml")
 
 
 # ---------------------------------------------------------------- helpers
@@ -150,6 +153,8 @@ def build_card(ctx: RepoContext, ledger: Ledger, run: dict[str, Any], idea: dict
                 est_su=plan.est_su)
     a = plan.ask
     card.checks.append((True, f"快照 {run['snapshot_commit'][:12]}（不含被 .gitignore 忽略的文件）"))
+    if run.get("parent_run"):
+        card.checks.append((True, f"复用 {run['parent_run']} 的快照，只改了命令参数和资源"))
     card.checks += [(False, f"快照警告：{w}") for w in warnings or []]
     card.checks.append((True, f"账户 {plan.account}"))
     if plan.over_billed:
@@ -211,34 +216,113 @@ def card_for(ctx: RepoContext, ledger: Ledger, run_id: str) -> tuple[Card, bool]
 # ---------------------------------------------------------------- submit
 
 
+@dataclass(frozen=True)
+class CommandSpec:
+    """How the run's command was built (stored in request_json)."""
+
+    command: list[str]
+    base: list[str]
+    source: str  # explicit (`-- CMD`) | config ([run] command)
+    overrides: list[tuple[str, str]]
+    style: str
+
+    def request_extra(self) -> dict[str, Any]:
+        return {"command_source": self.source, "base_command": self.base,
+                "overrides": [list(kv) for kv in self.overrides], "override_style": self.style}
+
+
+def build_command(cfg: ProjectConfig, explicit: list[str] | None,
+                  overrides: list[tuple[str, str]], parent_request: dict[str, Any] | None
+                  ) -> CommandSpec:
+    """The command: `-- CMD`, else the parent's (explicit) base or `[run] command`, plus
+    overrides (the parent's, updated by the new ones) in the configured style."""
+    overrides = [slurm.check_override(k, v) for k, v in overrides]
+    if explicit:
+        base, source, ov = list(explicit), "explicit", overrides
+        style = cfg.run.override_style
+    elif parent_request is not None:
+        # runs from before v4 always had an explicit `-- CMD` and no overrides
+        source = parent_request.get("command_source", "explicit")
+        ov = slurm.merge_overrides([tuple(kv) for kv in parent_request.get("overrides", [])],
+                                   overrides)
+        if source == "explicit":
+            base = list(parent_request.get("base_command", parent_request["command"]))
+            style = parent_request.get("override_style", cfg.run.override_style)
+        else:
+            base, style = list(cfg.run.command), cfg.run.override_style
+    else:
+        base, source, ov, style = list(cfg.run.command), "config", overrides, cfg.run.override_style
+    if not base:
+        raise ArbError(NO_COMMAND)
+    return CommandSpec(command=base + slurm.render_overrides(style, ov), base=base,
+                       source=source, overrides=ov, style=style)
+
+
+def find_same_run(ledger: Ledger, idea_id: int, card_hash: str) -> dict[str, Any] | None:
+    """An earlier run of this idea with the same card hash that is still usable."""
+    marks = ", ".join("?" for _ in RUN_NOT_REUSABLE)
+    return ledger.one(
+        f"SELECT * FROM runs WHERE idea_id = ? AND card_hash = ? AND status NOT IN ({marks})"
+        " ORDER BY id LIMIT 1", (idea_id, card_hash, *RUN_NOT_REUSABLE))
+
+
 def submit(
     ctx: RepoContext,
     ledger: Ledger,
     idea: dict[str, Any],
     reason: str,
-    command: list[str],
+    command: list[str] | None = None,
     *,
-    gpus: int,
-    time: str,
-    nodes: int = 1,
+    gpus: int | None = None,
+    time: str | None = None,
+    nodes: int | None = None,
     partition: str | None = None,
     machine: str | None = None,
     mem_gb: int | None = None,
     cpus: int | None = None,
+    from_run: str | None = None,
+    overrides: list[tuple[str, str]] | None = None,
     allow_large: bool = False,
     warn: Callable[[str], None] | None = None,
 ) -> tuple[dict[str, Any], Card]:
-    """Snapshot + request + card + open Decision. Never touches a backend."""
+    """Snapshot (or the parent run's snapshot) + request + card + open Decision.
+
+    Never touches a backend. If this idea already has a usable run with the same card
+    hash (same snapshot, command and resources), that run is returned with
+    `existed = True` and nothing is written: re-executing a notebook cell is safe."""
     reason = validate_text("change_reason", reason)
     project = require_project_id(ctx)
-    machine = machine or project_config(ctx).default_machine
+    cfg = project_config(ctx)
+    parent = parent_req = None
+    if from_run is not None:
+        parent = records.get_run(ledger, from_run)
+        if parent["idea_id"] != idea["id"]:
+            raise ArbError(f"run {from_run} belongs to another idea; --from only reuses runs of "
+                           f"{idea['name']} (use lab.fork to start a new idea from it)")
+        parent_req = request_of(parent) if parent.get("request_json") else None
+    pask = Ask.from_dict(parent_req["ask"]) if parent_req else None
+    if gpus is None and pask:
+        gpus = pask.gpus
+    if time is None and pask:
+        time = slurm.human_duration(pask.walltime_s)
+    if gpus is None or time is None:
+        raise ArbError("--gpus and --time are required" + (
+            f" ({from_run} was never submitted, so there is nothing to default to)"
+            if from_run else ""))
+    machine = machine or (pask.machine if pask else None) or cfg.default_machine
     if not machine:
         raise ArbError("no machine: pass --machine or set default_machine in arboria.toml")
     profile = clusters.load_profile(machine)
-    ask = Ask(command=list(command), gpus=gpus, nodes=nodes,
+    same_machine = pask is not None and pask.machine == machine
+    spec = build_command(cfg, command, list(overrides or []), parent_req)
+    ask = Ask(command=spec.command, gpus=gpus,
+              nodes=nodes if nodes is not None else (pask.nodes if pask else 1),
               walltime_s=slurm.parse_walltime(time),
-              partition=partition or profile.default_partition, machine=machine,
-              mem_gb=mem_gb, cpus=cpus)
+              partition=partition or (pask.partition if same_machine else None)
+              or profile.default_partition,
+              machine=machine,
+              mem_gb=mem_gb if mem_gb is not None else (pask.mem_gb if same_machine else None),
+              cpus=cpus if cpus is not None else (pask.cpus if same_machine else None))
     plan = slurm.build_plan(profile, ask, project)  # refuses before anything is written
 
     warnings: list[str] = []
@@ -248,24 +332,44 @@ def submit(
         if warn:
             warn(msg)
 
+    existing = None
     with ledger.write() as conn:
-        run_id, snap = records.insert_run(ledger, idea, reason, allow_large=allow_large,
-                                          warn=collect)
-        h = slurm.card_hash(snap.commit, plan)
-        conn.execute(
-            "UPDATE runs SET status = 'awaiting_approval', machine = ?, \"partition\" = ?,"
-            " gpus = ?, walltime = ?, est_cost = ?, request_json = ?, card_hash = ?,"
-            " updated_at = ? WHERE id = ?",
-            (machine, plan.partition, ask.gpus, slurm.human_duration(ask.walltime_s), plan.est_su,
-             json.dumps(plan.request(), ensure_ascii=False, sort_keys=True), h, now(), run_id),
-        )
-        dec_id = records.insert_decision(ledger, "run", run_id, QUESTION, OPTIONS)
-        ledger.event("run_submit", run_id, {"idea": idea["name"], "commit": snap.commit,
-                                             "machine": machine, "card_hash": h,
-                                             "est_su": plan.est_su, "decision": dec_id})
+        if parent is not None:
+            commit, tree = parent["snapshot_commit"], parent["tree_hash"]
+            if not gitutil.ok(["cat-file", "-e", f"{commit}^{{commit}}"], ctx.main):
+                raise ArbError(f"snapshot {commit[:12]} of {from_run} is missing from the repo")
+        else:
+            snap = records.take_snapshot(ledger, idea, allow_large=allow_large, warn=collect)
+            commit, tree = snap.commit, snap.tree
+        h = slurm.card_hash(commit, plan)
+        existing = find_same_run(ledger, idea["id"], h)
+        if existing is None:
+            run_id = records.insert_run_at(ledger, idea, reason, commit, tree,
+                                           parent_run=parent["id"] if parent else None)
+            request = plan.request() | spec.request_extra() | {
+                "parent_run": parent["id"] if parent else None}
+            wandb_url = cfg.wandb.run_url(slurm.wandb_id(project, run_id))
+            conn.execute(
+                "UPDATE runs SET status = 'awaiting_approval', machine = ?, \"partition\" = ?,"
+                " gpus = ?, walltime = ?, est_cost = ?, request_json = ?, card_hash = ?,"
+                " wandb_url = ?, updated_at = ? WHERE id = ?",
+                (machine, plan.partition, ask.gpus, slurm.human_duration(ask.walltime_s),
+                 plan.est_su, json.dumps(request, ensure_ascii=False, sort_keys=True), h,
+                 wandb_url, now(), run_id),
+            )
+            dec_id = records.insert_decision(ledger, "run", run_id, QUESTION, OPTIONS)
+            ledger.event("run_submit", run_id, {"idea": idea["name"], "commit": commit,
+                                                 "machine": machine, "card_hash": h,
+                                                 "est_su": plan.est_su, "decision": dec_id,
+                                                 "parent_run": parent["id"] if parent else None})
+    if existing is not None:
+        dec = _open_run_decision(ledger, existing["id"])
+        card = build_card(ctx, ledger, existing, idea, profile, plan, warnings)
+        return existing | {"existed": True, "decision_id": dec["id"] if dec else None,
+                           "request": request_of(existing)}, card
     run = records.get_run(ledger, run_id)
     card = build_card(ctx, ledger, run, idea, profile, plan, warnings)
-    return run | {"decision_id": dec_id, "request": plan.request()}, card
+    return run | {"existed": False, "decision_id": dec_id, "request": request_of(run)}, card
 
 
 # ---------------------------------------------------------------- approve

@@ -30,18 +30,19 @@ COMMIT_MESSAGE = "arboria: update CLAUDE.md"
 RULES = """\
 ## 研究工作流（Arboria）
 - 实验状态只通过 `arb` 读写，不要手改 `.arboria/`。
-- 当前状态（idea、run、待批准的 run、最新经验）由会话开始时的 hook 注入；本文件只放稳定规则和已确认的经验。
+- 当前状态（idea、run、待办、待批准的 run、最新经验）由会话开始时的 hook 注入；本文件只放稳定规则和已确认的经验。
 - 一个 idea 一个文件夹（worktree）：只在当前 idea 的文件夹里改代码。
-- 看状态用 `arb status`。
-- 记结论用 `arb note "..." [--confidence guess|prelim|confirmed|rejected]`。
+- `notebook.py`（marimo，链接到 `.arboria/notebooks/<idea>.py`）是人的：读它了解人的想法和分析，绝不修改。
+- 你的工作来自待办：`arb todo list` 查看，做完用 `arb todo done tNNN --result "..."`（≤600 字）交代结果。
+- 看状态用 `arb status`。`arb note` 只由人写；你的结论写进 `arb todo done --result` 或 `arb run summary RUN "..."`。
 - 只做本地快照用 `arb run new --reason "..."`。
-- 上集群：`arb submit --reason "..." --gpus N --time 12h -- python train.py ...`。它只在本地生成快照和审核单，不会提交。
-- 批准是人的事：不要自己运行 `arb approve`；绝不直接 `sbatch`/`srun`，也不要 ssh 上集群。
+- 上集群：`arb submit --reason "..." --gpus N --time 12h [-- CMD]`，或 `arb submit --from rNNN --set k=v --reason "..."`。它只在本地生成快照和审核单，不会提交。
+- 批准只能由人在自己的终端里做：你不能运行 `arb approve` 和 `arb lesson accept`；绝不直接 `sbatch`/`srun`，也不要 ssh 上集群。
 - 看集群上的日志和文件用 `arb logs RUN`、`arb remote ls RUN`，不用 ssh；跑完的输出在 `.arboria/runs/RUN/out/`。
 - 发现可复用的教训用 `arb lesson propose "..."` 提出，由人确认；不要直接写进 CLAUDE.md。
 - 训练代码约定：
-  1. 启动时导出完整的解析后配置（yaml）。
-  2. `wandb.init(id=ARBORIA_RUN_ID, group=ARBORIA_IDEA)`。
+  1. 启动时把完整的解析后配置导出为 `$ARBORIA_OUT/config.yaml`。
+  2. `wandb.init(id=ARBORIA_WANDB_ID, group=ARBORIA_IDEA)`。
   3. 路径只从 `ARBORIA_*` 变量读取。
   4. 可续训：checkpoint 存到 `ARBORIA_CKPT_DIR`，重启后能接着跑（超过分区上限的 run 会分段）。"""
 

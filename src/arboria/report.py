@@ -6,16 +6,21 @@ from typing import Any
 
 from .claudemd import accepted_lessons, lesson_line
 from .db import Ledger, now
+from .tasks import list_tasks
 from .ideas import current_idea
 from .paths import RepoContext
 
 BRIEF_FOOTER = (
     "Ledger rules: experiment state lives in the arboria ledger, written only by `arb`. "
-    "Use `arb status`, `arb note \"...\"`, `arb submit --reason \"...\" --gpus N --time T -- CMD`; "
-    "never edit .arboria/ by hand. Approval is the human's: never run `arb approve`. "
-    "Read cluster logs with `arb logs RUN` / `arb remote ls RUN`, not ssh. "
-    "Propose reusable pitfalls with `arb lesson propose \"...\"` (never `arb lesson accept`)."
+    "Work comes from the todos: finish one with `arb todo done tNNN --result \"...\"`; "
+    "`notebook.py` is the human's notebook: read it, never edit it; `arb note` is human-only. "
+    "Use `arb status`, `arb run summary RUN \"...\"`, "
+    "`arb submit --reason \"...\" --gpus N --time T [-- CMD]`; never edit .arboria/ by hand. "
+    "Approval happens only in the human's own terminal: you cannot run `arb approve` or "
+    "`arb lesson accept`. Read cluster logs with `arb logs RUN` / `arb remote ls RUN`, not ssh. "
+    "Propose reusable pitfalls with `arb lesson propose \"...\"`."
 )
+TODOS_HEADER = "来自 notebook 的待办："
 # Accepted lessons shown in status / the hook (CLAUDE.md in an idea worktree may be stale).
 STATUS_LESSONS = 10
 
@@ -103,6 +108,7 @@ def _status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
             "idea": _idea_public(idea) | {"parent": parent["name"] if parent else None},
             "runs": _runs(ledger, idea["id"]),
             "notes": _notes(ledger, idea["id"], limit=5),
+            "todos": list_tasks(ledger, idea["id"]),
             "open_decisions": _open_decisions(ledger, idea["id"]),
         }
     ideas = ledger.all(
@@ -117,6 +123,7 @@ def _status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
         "ideas": [_idea_public(i) | {"run_count": i["run_count"], "last_note": i["last_note"]}
                   for i in ideas],
         "closed_ideas": closed,
+        "todos": list_tasks(ledger),
         "open_decisions": _open_decisions(ledger),
     }
 
@@ -135,6 +142,17 @@ def format_status(data: dict[str, Any], brief: bool = False) -> str:
     """Human/LLM-readable status. `brief` is the compact form injected by the hook."""
     head, tail = status_parts(data, brief=brief)
     return "\n".join(part for part in (head, tail) if part)
+
+
+def todo_lines(todos: list[dict[str, Any]], brief: bool, with_idea: bool) -> list[str]:
+    """Open todos the human left in a notebook (the work Claude should pick up)."""
+    if not todos:
+        return []
+    lines = [TODOS_HEADER + "（做完用 `arb todo done tNNN --result \"...\"`）"]
+    for t in todos:
+        where = f" [{t['idea']}]" if with_idea else ""
+        lines.append(f"- {t['id']}{where}: {_clip(t['text'], 300 if brief else 10_000)}")
+    return lines
 
 
 def lesson_lines(data: dict[str, Any]) -> list[str]:
@@ -166,6 +184,7 @@ def status_parts(data: dict[str, Any], brief: bool = False) -> tuple[str, str]:
             lines.append(f"worktree: {idea['worktree_path']}")
         lines.append(f"Hypothesis: {_clip(idea['hypothesis'], clip)}")
         lines.append(f"Metric: {_clip(idea['metric'], clip)}")
+        lines.extend(todo_lines(data.get("todos") or [], brief, with_idea=False))
         runs = data["runs"]
         shown = runs[-8:] if brief else runs
         lines.append(f"Runs ({len(runs)})" + (":" if runs else ": none"))
@@ -198,6 +217,7 @@ def status_parts(data: dict[str, Any], brief: bool = False) -> tuple[str, str]:
                 lines.append(f"    last note: {_clip(i['last_note'], 160 if brief else 10_000)}")
         if not ideas:
             lines.append("No open ideas. Start one with `arb idea new NAME --hypothesis ... --metric ...`.")
+        lines.extend(todo_lines(data.get("todos") or [], brief, with_idea=True))
     decisions = data["open_decisions"]
     lines.append("Open decisions" + (":" if decisions else ": none"))
     lines.extend(_decision_lines(decisions))

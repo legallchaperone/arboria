@@ -1,0 +1,260 @@
+"""`from arboria import lab`: idea resolution, runs, todos and the human's records."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from arboria import lab
+from arboria.db import Ledger
+from arboria.errors import ArbError
+
+from .conftest import git
+from .test_submit import _bump, _run, cluster, jn  # noqa: F401  (fixture)
+
+
+@pytest.fixture(autouse=True)
+def no_pinned_idea():
+    lab.use(None)
+    yield
+    lab.use(None)
+
+
+def _nb(main: Path, name: str = "exp1") -> Path:
+    return main / ".arboria" / "notebooks" / f"{name}.py"
+
+
+def _subj(main: Path) -> list[str]:
+    return git(main / ".arboria", "log", "--format=%s").splitlines()
+
+
+# ---------------------------------------------------------------- resolution
+
+
+def test_resolve_order(idea: Path, initialized: Path, tmp_path: Path, monkeypatch) -> None:
+    arb_state = initialized / ".arboria"
+    monkeypatch.chdir(tmp_path)  # not a repo: only explicit sources work
+    t = lab.resolve(file=_nb(initialized))
+    assert (t.idea, t.source, t.ctx.main) == ("exp1", "file", initialized)
+    assert lab.resolve(file=idea / "notebook.py").idea == "exp1"  # the worktree symlink
+
+    # the caller's __file__, as in a marimo cell
+    scope = {"__name__": "__marimo__", "__file__": str(_nb(initialized)), "lab": lab}
+    exec("t = lab.resolve()", scope)
+    assert (scope["t"].idea, scope["t"].source) == ("exp1", "file")
+
+    monkeypatch.setattr(lab, "_marimo_file", lambda: str(_nb(initialized)))
+    assert lab.resolve().source == "marimo"
+    monkeypatch.setattr(lab, "_marimo_file", lambda: None)
+
+    with pytest.raises(Exception, match="not inside a git repository"):
+        lab.resolve()
+    monkeypatch.chdir(idea / ".")
+    assert (lab.resolve().idea, lab.resolve().source) == ("exp1", "cwd")
+    sub = idea / "src"
+    sub.mkdir()
+    assert lab.resolve(cwd=sub).idea == "exp1"  # any folder of the worktree
+    with pytest.raises(ArbError, match=r"lab.use\(\"<idea>\"\)"):
+        lab.resolve(cwd=initialized)
+
+    lab.use("exp1", repo=initialized)
+    assert lab.resolve(cwd=tmp_path).source == "use"
+    lab.use("nope", repo=initialized)
+    with pytest.raises(ArbError, match="no idea named 'nope'"):
+        lab.runs()
+    assert arb_state.is_dir()
+
+
+# ---------------------------------------------------------------- runs
+
+
+def test_run_creates_card_and_never_approves(cluster, idea: Path, initialized: Path,
+                                             monkeypatch) -> None:
+    monkeypatch.chdir(idea)
+    r = lab.run(reason="baseline", gpus=1, time="1h", set={"lr": 3e-4, "amp": True})
+    assert r.id == "r001" and not r.existed and r.status() == "awaiting_approval"
+    req = json.loads(_run(initialized)["request_json"])
+    assert req["command"] == ["python", "train.py", "lr=0.0003", "amp=true"]
+    md = r._repr_markdown_()
+    assert "等你批准：在你自己的终端运行 `arb approve r001`" in md and "审核单 r001" in md
+    assert "审核单 r001" in r.card() and r.jobs() == [] and r.wandb_url is None
+    assert cluster.calls() == []
+
+    again = lab.run(reason="re-executed cell", gpus=1, time="1h", set={"lr": 3e-4, "amp": True})
+    assert again.id == "r001" and again.existed and "没有重复提交" in again._repr_markdown_()
+    child = lab.run(reason="lower lr", from_=r, set={"lr": 1e-4})
+    assert child.id == "r002" and "来自 r001" in child._repr_markdown_()
+    assert json.loads(_run(initialized, "r002")["request_json"])["command"][-2:] == \
+        ["lr=0.0001", "amp=true"]
+    rows = lab.runs()
+    assert [x["id"] for x in rows] == ["r001", "r002"] and rows[1]["parent_run"] == "r001"
+    assert "approve" not in [n for n in dir(lab) if not n.startswith("_")]
+
+
+def test_run_status_rendering_after_approval(cluster, idea: Path, initialized: Path, arb,
+                                             monkeypatch) -> None:
+    monkeypatch.chdir(idea)
+    cluster.script(jn(cluster, "r001", 1), run_s=3600, billed=1.5)
+    r = lab.run(reason="x", gpus=4, time="2h")
+    arb(idea, "approve", "r001")  # the human, in their terminal
+    cluster.advance(10)
+    arb(idea, "poll")
+    md = r._repr_markdown_()
+    assert "**r001** · running" in md and "| s1 | 1001 | running | 10s | " in md
+    assert "估计上限 8.00" in md and "等你批准" not in md
+    assert r.jobs()[0]["job_id"] == "1001"
+
+
+class FakeWandbRun:
+    def __init__(self, path):
+        self.path = path
+
+    def scan_history(self, keys):
+        return [{"_step": i, **{k: i * 0.5 for k in keys}} for i in range(3)]
+
+
+class FakeApi:
+    paths: list = []
+
+    def run(self, path):
+        FakeApi.paths.append(path)
+        return FakeWandbRun(path)
+
+
+def test_metrics_and_compare(cluster, idea: Path, initialized: Path, monkeypatch) -> None:
+    monkeypatch.chdir(idea)
+    r = lab.run(reason="x", gpus=1, time="1h")
+    with pytest.raises(ArbError, match="no wandb link"):
+        r.metrics("val/loss")
+    toml = initialized / "arboria.toml"
+    toml.write_text(toml.read_text().replace('entity = ""', 'entity = "team"')
+                    .replace('project = ""', 'project = "lm"'))
+    r2 = lab.run(reason="y", gpus=2, time="1h")
+    with pytest.raises(ArbError, match="uv add wandb"):  # not installed in the test env
+        r2.metrics(["val/loss"])
+    FakeApi.paths = []
+    monkeypatch.setattr(lab, "_wandb_api", lambda: FakeApi())
+    rows = r2.metrics(["val/loss"])
+    assert rows == [{"_step": 0, "val/loss": 0.0}, {"_step": 1, "val/loss": 0.5},
+                    {"_step": 2, "val/loss": 1.0}]
+    assert FakeApi.paths == [f"team/lm/{cluster.project}-r002"]
+    r3 = lab.run(reason="z", gpus=3, time="1h")
+    table = lab.compare(["r002", r3], "val/loss")
+    assert [row["run"] for row in table] == ["r002"] * 3 + ["r003"] * 3
+
+
+# ---------------------------------------------------------------- todos
+
+
+def test_todos_from_notebook_to_claude(idea: Path, initialized: Path, arb, monkeypatch) -> None:
+    monkeypatch.chdir(idea)
+    t = lab.todo("把 eval 改成每 500 步一次")
+    assert t["id"] == "t001" and t["status"] == "open" and t["idea"] == "exp1"
+    lab.todo("加一个 cosine schedule")
+    assert _subj(initialized)[0] == "arboria backup: todo_new t002"
+    out = arb(idea, "todo", "list").stdout
+    assert "t001" in out and "把 eval 改成每 500 步一次" in out and "t002" in out
+    hook = arb(idea, "hook", "session-start", input=json.dumps({"cwd": str(idea)})).stdout
+    ctx = json.loads(hook)["hookSpecificOutput"]["additionalContext"]
+    assert "来自 notebook 的待办：" in ctx and "- t001: 把 eval 改成每 500 步一次" in ctx
+    assert ctx.index("来自 notebook 的待办") < ctx.index("Runs (")
+
+    res = arb(idea, "todo", "done", "t001", "--result", "x" * 601, ok=False)
+    assert "result is too long: 601 chars (max 600)" in res.stderr
+    arb(idea, "todo", "done", "t001", "--result", "改好了，见 train.py:42")
+    assert _subj(initialized)[0] == "arboria backup: todo_done t001"
+    assert "already done" in arb(idea, "todo", "done", "t001", "--result", "x", ok=False).stderr
+    arb(idea, "todo", "drop", "t002", "--reason", "不需要了")
+    assert _subj(initialized)[0] == "arboria backup: todo_drop t002"
+    assert arb(idea, "todo", "list").stdout.strip() == "no open todos"
+    rows = json.loads(arb(idea, "todo", "list", "--all", "--json").stdout)
+    assert [(r["id"], r["status"], r["result"]) for r in rows] == [
+        ("t001", "done", "改好了，见 train.py:42"), ("t002", "dropped", "不需要了")]
+    assert all(r["done_at"] for r in rows)
+    assert "no todo 't404'" in arb(idea, "todo", "drop", "t404", ok=False).stderr
+    hook = arb(idea, "hook", "session-start", input=json.dumps({"cwd": str(idea)})).stdout
+    assert "来自 notebook 的待办" not in hook
+    assert [r["id"] for r in lab.todos(include_closed=True)] == ["t001", "t002"]
+
+
+def test_todo_overview_lists_open_ideas(idea: Path, initialized: Path, arb) -> None:
+    lab.use("exp1", repo=initialized)
+    lab.todo("first")
+    wt2 = Path(arb(initialized, "idea", "new", "exp2", "--hypothesis", "h", "--metric", "m")
+               .stdout.strip())
+    lab.use("exp2", repo=initialized)
+    lab.todo("second")
+    out = arb(initialized, "todo", "list").stdout
+    assert "t001" in out and "t002" in out
+    assert "t001" not in arb(wt2, "todo", "list").stdout  # only this idea's in a worktree
+    assert "- t002 [exp2]: second" in arb(initialized, "status", "--brief").stdout
+    arb(initialized, "idea", "close", "exp2", "--drop")
+    assert "t002" not in arb(initialized, "todo", "list").stdout
+    with pytest.raises(ArbError, match="is dropped"):
+        lab.todo("too late")
+
+
+@pytest.mark.parametrize("call", [
+    lambda: lab.todo("x"), lambda: lab.conf("prelim"), lambda: lab.metric("acc"),
+    lambda: lab.prune("dead end"),
+])
+def test_human_records_refused_inside_claude_code(idea: Path, initialized: Path, monkeypatch,
+                                                  call) -> None:
+    lab.use("exp1", repo=initialized)
+    monkeypatch.setenv("CLAUDECODE", "1")
+    with pytest.raises(ArbError, match="只由人在 notebook 里做"):
+        call()
+    monkeypatch.delenv("CLAUDECODE")
+    assert idea.exists()
+
+
+# ---------------------------------------------------------------- the human's records
+
+
+def test_conf_metric_prune(idea: Path, initialized: Path, arb) -> None:
+    lab.use("exp1", repo=initialized)
+    assert lab.conf("prelim")["confidence"] == "prelim"
+    assert _subj(initialized)[0] == "arboria backup: idea_confidence exp1"
+    with pytest.raises(ArbError, match="invalid confidence"):
+        lab.conf("sure")
+    assert lab.metric("val/acc @ 10k")["metric"] == "val/acc @ 10k"
+    assert _subj(initialized)[0] == "arboria backup: idea_metric exp1"
+    with pytest.raises(ArbError, match="metric is too long"):
+        lab.metric("m" * 201)
+    with pytest.raises(ArbError, match="note is too long"):
+        lab.prune("r" * 1001)
+    assert idea.exists()
+    closed = lab.prune("loss 不降，放弃")
+    assert closed["status"] == "dropped" and not idea.exists()
+    assert _nb(initialized).is_file()  # the notebook outlives the idea
+    with Ledger(initialized / ".arboria") as l:
+        assert l.all("SELECT text, author FROM notes") == [
+            {"text": "prune: loss 不降，放弃", "author": "human"}]
+    st = json.loads(arb(initialized, "idea", "list", "--json").stdout)[0]
+    assert (st["metric"], st["confidence"]) == ("val/acc @ 10k", "prelim")
+
+
+def test_fork_from_run_snapshot(cluster, idea: Path, initialized: Path, arb, monkeypatch) -> None:
+    monkeypatch.chdir(idea)
+    (idea / "wip.py").write_text("uncommitted\n")
+    r = lab.run(reason="x", gpus=1, time="1h")
+    snap = _run(initialized)["snapshot_commit"]
+    _bump(idea)
+    new = lab.fork("exp1-b", from_=r, hypothesis="同上但 lr 更小", metric="val/loss")
+    wt = Path(new["worktree_path"])
+    assert git(wt, "rev-parse", "HEAD") == snap and (wt / "wip.py").read_text() == "uncommitted\n"
+    assert not (wt / "bump0.txt").exists()
+    assert git(wt, "symbolic-ref", "--short", "HEAD") == "idea/exp1-b"
+    text = _nb(initialized, "exp1-b").read_text()
+    assert f"**父 idea：** exp1（从 r001 的快照 `{snap[:10]}` 分出）" in text
+    assert (wt / "notebook.py").resolve() == _nb(initialized, "exp1-b").resolve()
+    rows = {x["name"]: x for x in json.loads(arb(initialized, "idea", "list", "--json").stdout)}
+    assert rows["exp1-b"]["parent_name"] == "exp1"
+    # without from_: branches off the idea's branch, like `arb idea new --parent`
+    monkeypatch.chdir(idea)  # (the arb helper above changed directory)
+    plain = lab.fork("exp1-c", hypothesis="h", metric="m")
+    assert git(Path(plain["worktree_path"]), "rev-parse", "HEAD") == git(idea, "rev-parse", "HEAD")
+    with pytest.raises(ArbError, match="already exists"):
+        lab.fork("exp1-c", hypothesis="h", metric="m")

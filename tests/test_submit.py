@@ -598,7 +598,7 @@ def test_pending_approvals_in_status_and_hook(cluster, idea: Path, initialized: 
     assert [d["question"] for d in st["open_decisions"]] == ["批准这个 run 上集群吗？"] * 2
     out = arb(idea, "hook", "session-start", input=json.dumps({"cwd": str(idea)})).stdout
     ctx = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-    assert "待你批准的 run：2 个" in ctx and "never run `arb approve`" in ctx
+    assert "待你批准的 run：2 个" in ctx and "you cannot run `arb approve`" in ctx
     assert "待你批准的 run：2 个" in arb(initialized, "status").stdout
     arb(idea, "reject", "r002")
     assert "待你批准的 run：1 个" in arb(idea, "status", "--brief").stdout

@@ -17,6 +17,7 @@ from . import install as install_mod
 from . import lessons as lessons_mod
 from . import machine as machine_mod
 from . import monitor, records, report, submission
+from . import tasks as tasks_mod
 from .config import project_config, require_project_id
 from .db import Ledger
 from .errors import ArbError, NotARepoError
@@ -47,6 +48,9 @@ app.add_typer(remote_app, name="remote")
 machine_app = typer.Typer(help="Cluster machine profiles (~/.config/arboria/clusters.toml).",
                           no_args_is_help=True)
 app.add_typer(machine_app, name="machine")
+todo_app = typer.Typer(help="Todos from the idea notebooks (written by the human, done by Claude).",
+                       no_args_is_help=True)
+app.add_typer(todo_app, name="todo")
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
 ConfidenceOpt = Annotated[
@@ -469,6 +473,63 @@ def lesson_retire(lesson_id: Annotated[str, typer.Argument(help="Lesson id, e.g.
     with ledger:
         result = lessons_mod.retire(ctx, ledger, lesson_id)
     _echo_lesson_result(result, "retired")
+
+
+# ---------------------------------------------------------------- todos
+
+
+def _todo_line(t: dict[str, Any]) -> str:
+    line = f"{t['id']:<5} {t['status']:<7} {t['idea']:<20} {t['text']}"
+    if t["result"]:
+        line += f"\n      → {t['result']}"
+    return line
+
+
+@todo_app.command("list")
+@handle_errors
+def todo_list(
+    show_all: Annotated[bool, typer.Option("--all", help="Include done and dropped todos.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """Todos of the current idea (in an idea worktree) or of every open idea."""
+    ctx, ledger = _open()
+    with ledger:
+        idea = ideas_mod.current_idea(ctx, ledger)
+        rows = tasks_mod.list_tasks(ledger, idea["id"] if idea else None, include_closed=show_all)
+    if as_json:
+        _echo_json(rows)
+        return
+    if not rows:
+        typer.echo("no open todos" if not show_all else "no todos")
+        return
+    for r in rows:
+        typer.echo(_todo_line(r))
+
+
+@todo_app.command("done")
+@handle_errors
+def todo_done(
+    task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t001.")],
+    result: Annotated[str, typer.Option("--result", help="What was done / found (≤600 chars).")],
+) -> None:
+    """Mark a todo done with a short result for the human."""
+    _, ledger = _open()
+    with ledger:
+        tasks_mod.done(ledger, task_id, result)
+    typer.echo(f"done {task_id}")
+
+
+@todo_app.command("drop")
+@handle_errors
+def todo_drop(
+    task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t001.")],
+    reason: Annotated[Optional[str], typer.Option("--reason", help="Why (≤600 chars).")] = None,
+) -> None:
+    """Drop a todo that will not be done."""
+    _, ledger = _open()
+    with ledger:
+        tasks_mod.drop(ledger, task_id, reason)
+    typer.echo(f"dropped {task_id}")
 
 
 # ---------------------------------------------------------------- notes / status / export

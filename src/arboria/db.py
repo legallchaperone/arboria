@@ -40,17 +40,21 @@ JOB_TERMINAL = ("completed", "failed", "cancelled", "timeout")
 SUBJECT_TYPES = ("run", "idea", "lesson")
 LESSON_STATUS = ("proposed", "accepted", "retired")
 LESSON_SOURCES = ("idea", "run", "none")
+TASK_STATUS = ("open", "done", "dropped")
+# Runs that an identical re-submit returns instead of creating a new one.
+RUN_NOT_REUSABLE = ("rejected", "cancelled", "failed")
 
 # Events after which the db is dumped to .arboria/backup/ledger.sql and committed.
 BACKUP_EVENTS = frozenset({
     "idea_new", "idea_close", "note", "run_new", "decision",
     "lesson_propose", "lesson_accept", "lesson_reject", "lesson_retire",
     "run_submit", "run_approve", "run_queued", "run_reject", "run_cancel", "run_final",
+    "run_config", "todo_new", "todo_done", "todo_drop", "idea_confidence", "idea_metric",
 })
 
 # Limits for the free-text fields an LLM is allowed to write.
 LIMITS = {"hypothesis": 300, "metric": 200, "change_reason": 300, "note": 1000, "summary": 1500,
-          "lesson": 200}
+          "lesson": 200, "result": 600, "todo": 1000}
 SUMMARY_MAX_LINES = 10
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -210,8 +214,29 @@ CREATE TABLE jobs (
 CREATE INDEX jobs_run ON jobs(run_id);
 """
 
+# v4: notebooks. Runs may be derived from a parent run (same snapshot, new overrides),
+# decisions carry a payload (who approved, from which process chain), notes record
+# their author, and `tasks` holds the todos a human writes in a notebook.
+MIGRATION_V4 = f"""
+ALTER TABLE runs ADD COLUMN parent_run TEXT REFERENCES runs(id);
+ALTER TABLE decisions ADD COLUMN payload_json TEXT;
+ALTER TABLE notes ADD COLUMN author TEXT;
+CREATE INDEX runs_card_hash ON runs(idea_id, card_hash);
+CREATE TABLE tasks (
+    id         TEXT PRIMARY KEY,
+    idea_id    INTEGER NOT NULL REFERENCES ideas(id),
+    text       TEXT NOT NULL,
+    status     TEXT NOT NULL DEFAULT 'open' CHECK (status IN {_in(TASK_STATUS)}),
+    created_at TEXT NOT NULL,
+    done_at    TEXT,
+    result     TEXT,
+    CHECK ((status = 'open') = (done_at IS NULL))
+);
+CREATE INDEX tasks_idea ON tasks(idea_id, status);
+"""
+
 # MIGRATIONS[i] upgrades user_version i -> i+1. Never edit a released migration.
-MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3]
+MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4]
 SCHEMA_VERSION = len(MIGRATIONS)
 
 

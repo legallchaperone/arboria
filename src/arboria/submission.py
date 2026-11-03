@@ -390,9 +390,7 @@ def reject(ctx: RepoContext, ledger: Ledger, run_id: str, reason: str | None = N
                      (now(), run_id))
         note_id = None
         if reason:
-            cur = conn.execute("INSERT INTO notes (idea_id, run_id, text, created_at)"
-                               " VALUES (?, ?, ?, ?)", (run["idea_id"], run_id, reason, now()))
-            note_id = cur.lastrowid
+            note_id = records.insert_note(ledger, run["idea_id"], reason, run_id)
         ledger.event("run_reject", run_id, {"decision": dec["id"] if dec else None,
                                              "note": note_id})
     return records.get_run(ledger, run_id)

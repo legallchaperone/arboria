@@ -274,7 +274,7 @@ def test_migration_v1_to_current_preserves_data(tmp_path: Path) -> None:
     state.mkdir()
     _make_v1_db(state / "ledger.db")
     with Ledger(state) as ledger:  # opening migrates in place
-        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 3
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 4
         decs = ledger.all("SELECT * FROM decisions ORDER BY id")
         assert [(d["id"], d["subject_type"], d["subject_id"], d["question"], d["options_json"],
                  d["choice"], d["decided_by"], d["created_at"]) for d in decs] == [
@@ -345,7 +345,7 @@ def test_migration_to_v3_keeps_runs_and_notes(tmp_path: Path, version: int) -> N
     conn.close()
 
     with Ledger(state) as ledger:
-        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == 3
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
         assert ledger.conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         runs = ledger.all("SELECT * FROM runs ORDER BY id")
         assert [(r["id"], r["status"], r["snapshot_commit"], r["change_reason"], r["gpus"],

@@ -8,6 +8,10 @@ dependencies = [
     "typer>=0.12",
 ]
 
+[project.optional-dependencies]
+# The idea notebooks (`.arboria/notebooks/<idea>.py`) are marimo notebooks.
+ui = ["marimo"]
+
 [project.scripts]
 arb = "arboria.cli:app"
 

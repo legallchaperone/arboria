@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from . import gitutil, snapshot
+from . import gitutil, notebooks, snapshot
 from .db import CONFIDENCE, Ledger, now, validate_choice, validate_name, validate_text
 from .errors import ArbError
 from .paths import RepoContext
@@ -55,8 +55,14 @@ def new_idea(
     hypothesis: str,
     metric: str,
     parent: str | None = None,
+    *,
+    from_run: dict[str, Any] | None = None,
+    warn: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    """Create branch idea/NAME + worktree and record the idea."""
+    """Create branch idea/NAME + worktree + notebook and record the idea.
+
+    With `from_run`, the branch starts at that run's snapshot commit and the run's idea
+    is the parent (it may be closed: the snapshot outlives the branch)."""
     validate_name(name)
     hypothesis = validate_text("hypothesis", hypothesis)
     metric = validate_text("metric", metric)
@@ -65,7 +71,14 @@ def new_idea(
 
     branch = branch_for(name)
     parent_row = None
-    if parent:
+    if from_run is not None:
+        parent_row = ledger.one("SELECT * FROM ideas WHERE id = ?", (from_run["idea_id"],))
+        if parent and parent != parent_row["name"]:
+            raise ArbError(f"run {from_run['id']} belongs to {parent_row['name']}, not {parent}")
+        base = from_run["snapshot_commit"]
+        if gitutil.rev_parse(base, ctx.main) is None:
+            raise ArbError(f"snapshot {base[:12]} of {from_run['id']} is missing from the repo")
+    elif parent:
         parent_row = get_idea(ledger, parent)
         if parent_row["status"] != "open":
             raise ArbError(f"parent idea {parent!r} is {parent_row['status']}; its branch is gone")
@@ -93,12 +106,22 @@ def new_idea(
                 (name, hypothesis, metric, parent_row["id"] if parent_row else None,
                  branch, str(path), now()),
             )
-            ledger.event("idea_new", name, {"branch": branch, "base": base, "parent": parent})
+            row = ledger.one("SELECT * FROM ideas WHERE id = ?", (cur.lastrowid,))
+            nb = notebooks.create(ctx, row, parent_row["name"] if parent_row else None,
+                                  from_run, warn=warn)
+            ledger.event("idea_new", name, {
+                "branch": branch, "base": base,
+                "parent": parent_row["name"] if parent_row else None,
+                "from_run": from_run["id"] if from_run else None,
+                "notebook": str(nb.relative_to(ctx.state_dir))})
     except BaseException:
         gitutil.run(["worktree", "remove", "--force", str(path)], ctx.main, check=False)
         gitutil.run(["branch", "-D", branch], ctx.main, check=False)
+        nb_path = notebooks.notebook_path(ctx.state_dir, name)
+        if nb_path.exists() and ledger.one("SELECT id FROM ideas WHERE name = ?", (name,)) is None:
+            nb_path.unlink()
         raise
-    return get_idea(ledger, name) | {"id": cur.lastrowid}
+    return get_idea(ledger, name) | {"notebook": str(notebooks.notebook_path(ctx.state_dir, name))}
 
 
 def list_ideas(ledger: Ledger) -> list[dict[str, Any]]:

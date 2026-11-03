@@ -65,8 +65,10 @@ def locate(cwd: Path | str | None = None) -> RepoContext:
     return RepoContext(cwd=cwd, common_dir=common_dir, main=common_dir.parent, toplevel=toplevel)
 
 
-def ensure_excluded(common_dir: Path, pattern: str = f"/{STATE_DIR_NAME}/") -> bool:
-    """Add `pattern` to `<common git dir>/info/exclude` once. Returns True if added."""
+def ensure_excluded(common_dir: Path, pattern: str = f"/{STATE_DIR_NAME}/",
+                    comment: str = "arboria state (local only)") -> bool:
+    """Add `pattern` to `<common git dir>/info/exclude` once (it applies to every worktree).
+    Returns True if added."""
     exclude = common_dir / "info" / "exclude"
     exclude.parent.mkdir(parents=True, exist_ok=True)
     text = exclude.read_text() if exclude.exists() else ""
@@ -74,5 +76,5 @@ def ensure_excluded(common_dir: Path, pattern: str = f"/{STATE_DIR_NAME}/") -> b
         return False
     if text and not text.endswith("\n"):
         text += "\n"
-    exclude.write_text(text + f"# arboria state (local only)\n{pattern}\n")
+    exclude.write_text(text + f"# {comment}\n{pattern}\n")
     return True

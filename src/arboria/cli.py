@@ -112,8 +112,10 @@ def idea_new(
     """Create branch idea/NAME and its worktree folder; prints the worktree path."""
     ctx, ledger = _open()
     with ledger:
-        idea = ideas_mod.new_idea(ctx, ledger, name, hypothesis, metric, parent)
+        idea = ideas_mod.new_idea(ctx, ledger, name, hypothesis, metric, parent, warn=_warn)
     typer.echo(idea["worktree_path"])
+    typer.echo(f"notebook: {idea['notebook']} (linked as notebook.py; open it with "
+               f"`marimo edit {idea['notebook']}`)", err=True)
 
 
 @idea_app.command("list")

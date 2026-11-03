@@ -448,7 +448,22 @@ class Ledger:
 
 # ---------------------------------------------------------------- backup repo
 
-BACKUP_GITIGNORE = "# Only the SQL dump is versioned here.\n/*\n!/.gitignore\n!/backup/\n/backup/*\n!/backup/ledger.sql\n"
+BACKUP_GITIGNORE = (
+    "# Only the SQL dump and the idea notebooks are versioned here.\n"
+    "/*\n!/.gitignore\n!/backup/\n/backup/*\n!/backup/ledger.sql\n"
+)
+# Appended to the backup repo's .gitignore (also to older ones that lack it). marimo keeps
+# session caches in notebooks/__marimo__/; only the notebook sources are versioned.
+NOTEBOOKS_GITIGNORE = "!/notebooks/\n/notebooks/*\n!/notebooks/*.py\n"
+
+
+def ensure_backup_gitignore(state_dir: Path) -> None:
+    gi = state_dir / ".gitignore"
+    text = gi.read_text() if gi.exists() else BACKUP_GITIGNORE
+    if "!/notebooks/" not in text:
+        text += ("" if text.endswith("\n") else "\n") + NOTEBOOKS_GITIGNORE
+    if not gi.exists() or gi.read_text() != text:
+        gi.write_text(text)
 
 
 def _backup_git(args: list[str], state_dir: Path) -> str:
@@ -460,14 +475,14 @@ def init_backup_repo(state_dir: Path) -> None:
     """Make `.arboria/` a git repo (idempotent)."""
     if not (state_dir / ".git").exists():
         _backup_git(["init", "-q"], state_dir)
-    gi = state_dir / ".gitignore"
-    if not gi.exists():
-        gi.write_text(BACKUP_GITIGNORE)
+    ensure_backup_gitignore(state_dir)
 
 
 def commit_backup(state_dir: Path, message: str) -> bool:
-    """Commit backup/ledger.sql if it changed. Returns True if a commit was made."""
-    _backup_git(["add", "--", ".gitignore", "backup/ledger.sql"], state_dir)
+    """Commit backup/ledger.sql and the notebooks if anything changed. Returns True if a
+    commit was made. What is versioned is decided by the backup repo's .gitignore."""
+    ensure_backup_gitignore(state_dir)
+    _backup_git(["add", "-A", "--", "."], state_dir)
     if gitutil.ok(["diff", "--cached", "--quiet"], state_dir) and gitutil.ok(
         ["rev-parse", "--verify", "--quiet", "HEAD"], state_dir
     ):

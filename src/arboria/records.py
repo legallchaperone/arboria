@@ -154,6 +154,8 @@ def add_note(
 def set_confidence(ledger: Ledger, idea: dict[str, Any], confidence: str) -> dict[str, Any]:
     if confidence not in CONFIDENCE:
         raise ArbError(f"invalid confidence {confidence!r}; choose one of: {', '.join(CONFIDENCE)}")
+    if confidence == idea["confidence"]:  # unchanged (e.g. a notebook cell re-ran): no event
+        return ledger.one("SELECT * FROM ideas WHERE id = ?", (idea["id"],))
     with ledger.write() as conn:
         conn.execute("UPDATE ideas SET confidence = ? WHERE id = ?", (confidence, idea["id"]))
         ledger.event("idea_confidence", idea["name"], {"from": idea["confidence"],
@@ -163,6 +165,8 @@ def set_confidence(ledger: Ledger, idea: dict[str, Any], confidence: str) -> dic
 
 def set_metric(ledger: Ledger, idea: dict[str, Any], metric: str) -> dict[str, Any]:
     metric = validate_text("metric", metric)
+    if metric == idea["metric"]:  # unchanged: no event, no backup commit
+        return ledger.one("SELECT * FROM ideas WHERE id = ?", (idea["id"],))
     with ledger.write() as conn:
         conn.execute("UPDATE ideas SET metric = ? WHERE id = ?", (metric, idea["id"]))
         ledger.event("idea_metric", idea["name"], {"from": idea["metric"], "author": "human"})

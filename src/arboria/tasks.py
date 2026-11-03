@@ -44,6 +44,14 @@ def add(ledger: Ledger, idea: dict[str, Any], text: str, kind: str = "plain",
     return get_task(ledger, task_id)
 
 
+def open_plain_task(ledger: Ledger, idea_id: int, text: str) -> dict[str, Any] | None:
+    """The oldest open plain todo of the (open) idea with exactly this text."""
+    return ledger.one("SELECT t.*, i.name AS idea FROM tasks t JOIN ideas i ON i.id = t.idea_id"
+                      " WHERE t.idea_id = ? AND i.status = 'open' AND t.status = 'open'"
+                      " AND t.kind = 'plain'"
+                      " AND t.text = ? ORDER BY t.id LIMIT 1", (idea_id, text.strip()))
+
+
 def open_command_tasks(ledger: Ledger, name: str, kind: str | None = None
                        ) -> list[dict[str, Any]]:
     """Open command todos (of open ideas) about the command `name`, oldest first."""

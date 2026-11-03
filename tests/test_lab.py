@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from arboria import lab
+from arboria import lab, tasks
 from arboria.db import Ledger
 from arboria.errors import ArbError
 
@@ -177,6 +177,37 @@ def test_todos_from_notebook_to_claude(idea: Path, initialized: Path, arb, monke
     hook = arb(idea, "hook", "session-start", input=json.dumps({"cwd": str(idea)})).stdout
     assert "来自 notebook 的待办" not in hook
     assert [r["id"] for r in lab.todos(include_closed=True)] == ["t001", "t002"]
+
+
+def _events(main: Path) -> int:
+    with Ledger(main / ".arboria") as l:
+        return l.one("SELECT COUNT(*) AS n FROM events")["n"]
+
+
+def test_rerun_cells_write_nothing_new(idea: Path, initialized: Path) -> None:
+    """Cells re-run on every open: an unchanged conf / metric / todo adds no record."""
+    lab.use("exp1", repo=initialized)
+    lab.conf("prelim")
+    lab.metric("val/acc @ 10k")
+    first = lab.todo("把 eval 改成每 500 步一次")
+    events, commits = _events(initialized), _subj(initialized)
+    assert lab.conf("prelim")["confidence"] == "prelim"
+    assert lab.metric("  val/acc @ 10k ")["metric"] == "val/acc @ 10k"
+    again = lab.todo("把 eval 改成每 500 步一次 ")
+    assert again["id"] == first["id"] == "t001" and again["status"] == "open"
+    assert (_events(initialized), _subj(initialized)) == (events, commits)
+    assert [t["id"] for t in lab.todos()] == ["t001"]
+    # a changed value, or a todo whose twin is closed, is written as usual
+    assert lab.todo("另一件事")["id"] == "t002"
+    with Ledger(initialized / ".arboria") as l:
+        tasks.done(l, "t001", "done")
+    assert lab.todo("把 eval 改成每 500 步一次")["id"] == "t003"
+    lab.conf("confirmed")
+    assert _subj(initialized)[0] == "arboria backup: idea_confidence exp1"
+    lab.metric("val/loss")
+    assert _subj(initialized)[0] == "arboria backup: idea_metric exp1"
+    with pytest.raises(ArbError, match="invalid confidence"):
+        lab.conf("sure")  # still validated when it would be a no-op
 
 
 def test_todo_overview_lists_open_ideas(idea: Path, initialized: Path, arb) -> None:

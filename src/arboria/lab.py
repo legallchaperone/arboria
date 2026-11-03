@@ -321,11 +321,17 @@ def compare(run_ids: Iterable[str | Run], key: str | Iterable[str]) -> Any:
 
 
 def todo(text: str) -> dict[str, Any]:
-    """Leave a todo for Claude on this idea (shown by the SessionStart hook)."""
+    """Leave a todo for Claude on this idea (shown by the SessionStart hook).
+
+    An open todo with the same text is returned instead of a duplicate: the cell
+    re-runs every time the notebook opens."""
     _human_only("写待办")
     t, ledger, idea = _open()
     with ledger:
-        return tasks.add(ledger, idea, text)
+        from .db import validate_text
+
+        existing = tasks.open_plain_task(ledger, idea["id"], validate_text("todo", text))
+        return existing if existing is not None else tasks.add(ledger, idea, text)
 
 
 def todos(include_closed: bool = False) -> Any:
@@ -335,7 +341,7 @@ def todos(include_closed: bool = False) -> Any:
 
 
 def conf(level: str) -> dict[str, Any]:
-    """Set the idea's confidence: guess | prelim | confirmed | rejected."""
+    """Set the idea's confidence: guess | prelim | confirmed | rejected (no-op if unchanged)."""
     _human_only("改置信度")
     t, ledger, idea = _open()
     with ledger:
@@ -343,7 +349,7 @@ def conf(level: str) -> dict[str, Any]:
 
 
 def metric(text: str) -> dict[str, Any]:
-    """Replace the idea's success metric (≤200 chars)."""
+    """Replace the idea's success metric (≤200 chars; no-op if unchanged)."""
     _human_only("改指标")
     t, ledger, idea = _open()
     with ledger:

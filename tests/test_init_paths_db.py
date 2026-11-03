@@ -374,3 +374,10 @@ def test_migration_to_v3_keeps_runs_and_notes(tmp_path: Path, version: int) -> N
             with pytest.raises(sqlite3.IntegrityError):
                 with ledger.write() as c:
                     c.execute(bad)
+
+
+def test_first_init_prints_next_steps(repo, arb):
+    first = arb(repo, "init")
+    assert "arb idea new" in first.stdout and "arb install-claude" in first.stdout
+    again = arb(repo, "init")
+    assert "arb idea new" not in again.stdout

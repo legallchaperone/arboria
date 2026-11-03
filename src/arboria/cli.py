@@ -104,6 +104,17 @@ def init() -> None:
     for a in actions:
         typer.echo(a)
     typer.echo(f"arboria ready: state in {ctx.state_dir}" if actions else "already initialized")
+    if actions:
+        typer.echo(NEXT_STEPS)
+
+
+NEXT_STEPS = """
+账本现在是空的，所以 arb ui 里还什么都没有。下一步：
+  1. 编辑 arboria.toml：default_machine、[wandb] entity/project、[run] command，然后 commit
+  2. arb install-claude          # hook、权限规则、CLAUDE.md 区块
+  3. arb idea new NAME --hypothesis "..." --metric "..."
+     # 建分支、worktree 和 notebook；之后看板上就有这个 idea 了
+  4. 用 VS Code 打开那个 worktree，notebook.py 就是这个 idea 的 notebook"""
 
 
 # ---------------------------------------------------------------- ideas

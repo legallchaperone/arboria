@@ -41,6 +41,9 @@ SUBJECT_TYPES = ("run", "idea", "lesson")
 LESSON_STATUS = ("proposed", "accepted", "retired")
 LESSON_SOURCES = ("idea", "run", "none")
 TASK_STATUS = ("open", "done", "dropped")
+# plain: a free-text todo; command_new / command_revise: write or change a notebook command
+# (the details live in tasks.payload_json, see commands.py).
+TASK_KINDS = ("plain", "command_new", "command_revise")
 # Runs that an identical re-submit returns instead of creating a new one.
 RUN_NOT_REUSABLE = ("rejected", "cancelled", "failed")
 
@@ -235,8 +238,15 @@ CREATE TABLE tasks (
 CREATE INDEX tasks_idea ON tasks(idea_id, status);
 """
 
+# v5: notebook commands. A todo may ask Claude to write or revise a command; what the
+# notebook call looked like (name, scope, args, description, idea) is in payload_json.
+MIGRATION_V5 = f"""
+ALTER TABLE tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {_in(TASK_KINDS)});
+ALTER TABLE tasks ADD COLUMN payload_json TEXT;
+"""
+
 # MIGRATIONS[i] upgrades user_version i -> i+1. Never edit a released migration.
-MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4]
+MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5]
 SCHEMA_VERSION = len(MIGRATIONS)
 
 

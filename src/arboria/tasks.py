@@ -6,9 +6,10 @@ write (≤600 chars, see db.LIMITS).
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
-from .db import TASK_STATUS, Ledger, now, validate_text
+from .db import TASK_KINDS, TASK_STATUS, Ledger, now, validate_choice, validate_text
 from .errors import ArbError
 
 
@@ -20,16 +21,39 @@ def get_task(ledger: Ledger, task_id: str) -> dict[str, Any]:
     return task
 
 
-def add(ledger: Ledger, idea: dict[str, Any], text: str) -> dict[str, Any]:
+def payload(task: dict[str, Any]) -> dict[str, Any]:
+    """The task's payload_json as a dict ({} for plain todos)."""
+    raw = task.get("payload_json")
+    return json.loads(raw) if raw else {}
+
+
+def add(ledger: Ledger, idea: dict[str, Any], text: str, kind: str = "plain",
+        data: dict[str, Any] | None = None) -> dict[str, Any]:
+    """A new open todo. `kind` / `data` (payload_json) are set by code, never by an LLM."""
     text = validate_text("todo", text)
+    validate_choice("todo kind", kind, TASK_KINDS)
     if idea["status"] != "open":
         raise ArbError(f"idea {idea['name']!r} is {idea['status']}")
+    raw = json.dumps(data, ensure_ascii=False, sort_keys=True) if data is not None else None
     with ledger.write() as conn:
         task_id = ledger.next_id("tasks", "t")
-        conn.execute("INSERT INTO tasks (id, idea_id, text, status, created_at)"
-                     " VALUES (?, ?, ?, 'open', ?)", (task_id, idea["id"], text, now()))
-        ledger.event("todo_new", task_id, {"idea": idea["name"], "author": "human"})
+        conn.execute("INSERT INTO tasks (id, idea_id, text, status, created_at, kind, payload_json)"
+                     " VALUES (?, ?, ?, 'open', ?, ?, ?)",
+                     (task_id, idea["id"], text, now(), kind, raw))
+        ledger.event("todo_new", task_id, {"idea": idea["name"], "author": "human", "kind": kind})
     return get_task(ledger, task_id)
+
+
+def open_command_tasks(ledger: Ledger, name: str, kind: str | None = None
+                       ) -> list[dict[str, Any]]:
+    """Open command todos (of open ideas) about the command `name`, oldest first."""
+    kinds = (kind,) if kind else ("command_new", "command_revise")
+    marks = ", ".join("?" for _ in kinds)
+    rows = ledger.all(
+        "SELECT t.*, i.name AS idea FROM tasks t JOIN ideas i ON i.id = t.idea_id"
+        f" WHERE t.status = 'open' AND i.status = 'open' AND t.kind IN ({marks}) ORDER BY t.id",
+        kinds)
+    return [r for r in rows if payload(r).get("name") == name]
 
 
 def list_tasks(ledger: Ledger, idea_id: int | None = None,

@@ -6,6 +6,7 @@ import ast
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -16,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from arboria import db, report
-from arboria.ui import data, views
+from arboria.ui import APP, data, launch, views
 
 from . import uiutil
 
@@ -214,7 +215,7 @@ def test_ticks() -> None:
 # ---------------------------------------------------------------- read-only guarantees
 
 
-DASHBOARD_MODULES = ("data.py", "views.py", "__init__.py")
+DASHBOARD_MODULES = ("data.py", "views.py", "dashboard.py", "__init__.py")
 ALLOWED_ARBORIA = {"arboria.cards", "arboria.config", "arboria.errors", "arboria.paths",
                    "arboria.slurm", "arboria.ui", "arboria.ui.data", "arboria.ui.views"}
 
@@ -250,6 +251,8 @@ def test_dashboard_imports_no_write_path() -> None:
         for bad in ("Ledger(", ".write(", "write_text", "write_bytes", "unlink", "mkdir",
                     "commit_backup", "INSERT", "UPDATE ", "DELETE"):
             assert bad not in text, (name, bad)
+    app = (UI / "dashboard.py").read_text()
+    assert set(re.findall(r"mo\.ui\.(\w+)", app)) == {"refresh", "dropdown", "switch"}
     # transitively, too: importing the dashboard pulls in no write module
     code = ("import sys; import arboria.ui.data, arboria.ui.views; "
             "print(sorted(m for m in sys.modules if m.startswith('arboria')))")
@@ -259,3 +262,146 @@ def test_dashboard_imports_no_write_path() -> None:
     for bad in ("db", "records", "submission", "monitor", "backends", "tasks", "lessons",
                 "ideas", "claudemd", "human", "notebooks", "commands", "state", "snapshot"):
         assert f"arboria.{bad}" not in loaded, bad
+
+
+def test_rendering_calls_no_write_path(board_project: Path, monkeypatch) -> None:
+    """Spy: every write helper, the backends and process/network entry points raise while
+    the board is loaded and rendered, and while the marimo app runs in-process."""
+    pytest.importorskip("marimo")
+    import socket
+
+    from arboria import backends, commands, db, ideas, lessons, monitor, records, \
+        sessions, submission, tasks
+
+    calls: list[str] = []
+
+    def spy(name):
+        def boom(*a, **k):
+            calls.append(name)
+            raise AssertionError(f"dashboard called {name}")
+        return boom
+
+    targets = [(db.Ledger, "write"), (db.Ledger, "__init__"), (db.Ledger, "backup"),
+               (db, "commit_backup"), (db, "migrate"), (db, "connect"),
+               (backends, "get_backend"), (subprocess, "run"), (subprocess, "Popen"),
+               (subprocess, "call"), (subprocess, "check_output"), (socket.socket, "connect"),
+               (socket, "create_connection"), (sessions, "notify"), (sessions, "record"),
+               (monitor, "notify"), (monitor, "poll_run"), (monitor, "cancel")]
+    for mod in (records, tasks, lessons, submission):
+        for name in dir(mod):
+            fn = getattr(mod, name)
+            if callable(fn) and getattr(fn, "__module__", "") == mod.__name__ and \
+                    not isinstance(fn, type):
+                targets.append((mod, name))
+    for name in ("new_idea", "close_idea", "ensure_notebook"):
+        targets.append((ideas, name))
+    targets.append((commands, "request"))
+    for obj, name in targets:
+        monkeypatch.setattr(obj, name, spy(f"{getattr(obj, '__name__', obj)}.{name}"))
+
+    connects: list[tuple] = []
+    real_connect = sqlite3.connect
+
+    def ro_connect(*a, **k):
+        connects.append((a, k))
+        return real_connect(*a, **k)
+
+    monkeypatch.setattr(sqlite3, "connect", ro_connect)
+    ledger = board_project / ".arboria" / "ledger.db"
+    before = ledger.read_bytes()
+    files_before = sorted(p.name for p in (board_project / ".arboria").iterdir())
+
+    b = data.load(board_project)
+    for part in (views.header(b), views.inbox(b), views.tree(b, False, "exp2"),
+                 views.idea_detail(b, "exp2"), views.idea_detail(b, "exp3"), views.budget(b)):
+        assert part
+    monkeypatch.setenv("ARBORIA_UI_ROOT", str(board_project))
+    monkeypatch.setenv("ARBORIA_UI_IDEA", "exp2")
+    from arboria.ui import dashboard
+
+    outputs, defs = dashboard.app.run()
+    assert defs["board"].idea("exp2") and defs["picker"].value == "exp2"
+    assert calls == []
+    assert connects and all(k.get("uri") and str(a[0]).endswith("ledger.db?mode=ro")
+                            for a, k in connects)
+    assert ledger.read_bytes() == before
+    # only SQLite's own -wal/-shm may appear next to the ledger
+    after = sorted(p.name for p in (board_project / ".arboria").iterdir())
+    assert set(after) - set(files_before) <= {"ledger.db-wal", "ledger.db-shm"}
+
+
+# ---------------------------------------------------------------- the real marimo
+
+
+def _decoded(html: str) -> str:
+    return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), html)
+
+
+def test_dashboard_passes_marimo_check() -> None:
+    pytest.importorskip("marimo")
+    res = subprocess.run([sys.executable, "-m", "marimo", "check", "--strict", str(APP)],
+                         capture_output=True, text=True, timeout=120)
+    assert res.returncode == 0 and "warning" not in (res.stdout + res.stderr).lower(), \
+        res.stdout + res.stderr
+
+
+def test_marimo_export_renders_the_dashboard(board_project: Path, tmp_path: Path) -> None:
+    pytest.importorskip("marimo")
+    app = tmp_path / "app" / "dashboard.py"  # a copy: export writes __marimo__/ beside it
+    app.parent.mkdir()
+    shutil.copy(APP, app)
+    out = tmp_path / "out.html"
+    env = {**os.environ, "PYTHONPATH": str(SRC) + os.pathsep + os.environ.get("PYTHONPATH", "")}
+    env.pop("ARBORIA_UI_ROOT", None)
+    res = subprocess.run([sys.executable, "-m", "marimo", "export", "html", str(app), "-o",
+                          str(out), "--no-include-code", "--", "--root", str(board_project),
+                          "--idea", "exp2"],
+                         cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180)
+    assert res.returncode == 0, res.stdout + res.stderr
+    html = _decoded(out.read_text())
+    for text in ("Arboria 看板", "数据更新于", "（来自账本；集群状态由 arb watch 更新）",
+                 "待你处理", "待批准的 run", "arb approve r003", "arb lesson accept l001",
+                 "idea 树", "exp1 → exp2（从 r001 分出）", "idea 详情 · exp2", "算力与预算",
+                 "活跃作业", "估计 vs 实际", "&lt;script&gt;alert(1)"):
+        assert text in html, text
+    assert "Traceback" not in html and "看板读不到账本" not in html
+    preview = os.environ.get("ARBORIA_UI_PREVIEW")
+    if preview:  # a rendered sample for humans (not part of the assertions)
+        shutil.copy(out, preview)
+
+
+# ---------------------------------------------------------------- arb ui
+
+
+def test_arb_ui_launches_marimo_on_localhost(idea: Path, initialized: Path, arb,
+                                            monkeypatch) -> None:
+    seen: list[tuple[list[str], dict]] = []
+    monkeypatch.setattr(launch, "run_marimo", lambda cmd, env: seen.append((cmd, env)) or 0)
+    monkeypatch.setattr(launch, "marimo_available", lambda: True)
+    arb(idea, "ui")  # from the idea worktree: that idea is selected
+    cmd, env = seen[-1]
+    assert cmd[:5] == [sys.executable, "-m", "marimo", "run", str(APP)]
+    assert cmd[cmd.index("--host") + 1] == "127.0.0.1" and "--token" in cmd
+    assert cmd[cmd.index("--") + 1:] == ["--root", str(initialized), "--idea", "exp1"]
+    assert "--port" not in cmd
+    assert env["ARBORIA_UI_ROOT"] == str(initialized) and env["ARBORIA_UI_IDEA"] == "exp1"
+    arb(initialized, "ui", "--port", "8765")  # from main: no idea preselected
+    cmd, env = seen[-1]
+    assert cmd[cmd.index("--port") + 1] == "8765" and "--idea" not in cmd
+    assert "ARBORIA_UI_IDEA" not in env
+    arb(initialized, "ui", "--idea", "exp1")
+    assert seen[-1][0][-2:] == ["--idea", "exp1"]
+    assert "no idea named 'nope'" in arb(initialized, "ui", "--idea", "nope", ok=False).stderr
+    assert "--port must be" in arb(initialized, "ui", "--port", "0", ok=False).stderr
+    assert len(seen) == 3
+
+
+def test_arb_ui_without_marimo(initialized: Path, arb, monkeypatch) -> None:
+    monkeypatch.setattr(launch, "marimo_available", lambda: False)
+    monkeypatch.setattr(launch, "run_marimo", lambda cmd, env: pytest.fail("launched"))
+    res = arb(initialized, "ui", ok=False)
+    assert res.exit_code == 1 and "arb ui 需要 marimo" in res.stderr and "[ui]" in res.stderr
+
+
+def test_arb_ui_needs_an_initialized_repo(repo: Path, arb) -> None:
+    assert "arb init" in arb(repo, "ui", ok=False).stderr

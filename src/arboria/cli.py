@@ -642,6 +642,22 @@ def export(
         typer.echo(f"wrote {out}")
 
 
+@app.command("ui")
+@handle_errors
+def ui(
+    idea: Annotated[Optional[str], typer.Option("--idea", help="Idea to select (default: the idea of the current worktree, else the most recently active open one).")] = None,
+    port: Annotated[Optional[int], typer.Option("--port", help="Port (default: marimo picks a free one).")] = None,
+) -> None:
+    """Open the read-only dashboard (看板): what needs you, the idea tree, SU budget.
+
+    Runs `marimo run` on 127.0.0.1; it reads the ledger and never changes anything."""
+    from .ui import launch
+
+    ctx = locate().require_initialized()
+    code = launch.launch(ctx.main, toplevel=ctx.toplevel, idea=idea, port=port)
+    raise typer.Exit(code)
+
+
 # ---------------------------------------------------------------- machines
 
 

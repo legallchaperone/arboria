@@ -71,10 +71,7 @@ def header_markdown(idea: dict[str, Any], parent: str | None = None,
         if from_run:
             origin = f"（从 {from_run['id']} 的快照 `{from_run['snapshot_commit'][:10]}` 分出）"
         lines.append(f"- **父 idea：** {parent}{origin}")
-    lines += [f"- **创建：** {idea['created_at'][:10]}", "",
-              "在 markdown cell 里整理想法；在 Python cell 里用 `lab.run(reason=...)` 发起实验"
-              "（只生成审核单，批准在你自己的终端里 `arb approve`）；`lab.todo(\"...\")` 给 Claude 留待办；"
-              "`lab.<命令>(...)` 调用 Claude 写的分析命令（还没有的会交给 Claude 写，`lab.commands()` 列出现有的）。"]
+    lines.append(f"- **创建：** {idea['created_at'][:10]}")
     return "\n".join(lines)
 
 
@@ -88,7 +85,7 @@ __generated_with = "{_generated_with()}"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     {md}
     return

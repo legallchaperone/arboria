@@ -177,4 +177,5 @@ def test_template_follows_marimo_format(idea: Path, initialized: Path) -> None:
     assert '__generated_with = "' in text
     assert '    mo.md(r"""\n    # exp1\n' in text
     assert "    from arboria import lab\n\n    return lab, mo\n" in text
-    assert "lab.commands()" in text
+    assert '@app.cell(hide_code=True)\ndef _(mo):\n    mo.md(r"""\n    # exp1\n' in text
+    assert "lab.run(" not in text  # usage lives in the guide, not in every notebook

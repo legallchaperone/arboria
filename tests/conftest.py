@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from arboria import human
 from arboria.cli import app
 
 
@@ -35,6 +36,17 @@ def isolated_git(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.M
         monkeypatch.delenv(var, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def human_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests run as the human in a terminal: no Claude Code variables, stdin "is a TTY".
+
+    (This suite itself may run inside Claude Code, which sets CLAUDECODE.) Tests of the
+    refusals set the variables / patch `human.stdin_is_tty` back themselves."""
+    for var in human.CLAUDE_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(human, "stdin_is_tty", lambda: True)
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     """A main worktree `proj` with one commit, a .gitignore and some files."""
@@ -58,6 +70,9 @@ class Arb:
 
     def __call__(self, cwd: Path, *args: str, input: str | None = None, ok: bool = True):
         self.monkeypatch.chdir(cwd)
+        if input is None and len(args) >= 2 and (
+                args[0] == "approve" or args[:2] == ("lesson", "accept")):
+            input = args[-1] + "\n"  # the human types the id to confirm
         result = self.runner.invoke(app, list(args), input=input, catch_exceptions=False)
         if ok and result.exit_code != 0:
             raise AssertionError(

@@ -15,11 +15,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from . import backends, clusters, records, slurm
+from . import backends, clusters, gitutil, human, records, slurm
 from .backends import Backend, BackendError
 from .clusters import Profile
-from .config import project_config, require_project_id
-from .db import Ledger, now, validate_text
+from .config import ProjectConfig, project_config, require_project_id
+from .db import RUN_NOT_REUSABLE, Ledger, now, validate_text
 from .errors import ArbError
 from .paths import RepoContext
 from .slurm import Ask, Plan
@@ -329,8 +329,14 @@ def submit_segments(ctx: RepoContext, ledger: Ledger, run: dict[str, Any], plan:
     return done
 
 
-def approve(ctx: RepoContext, ledger: Ledger, run_id: str) -> ApproveResult:
-    """Record the human's approval (bound to the card), then submit. Resumable."""
+def approve(ctx: RepoContext, ledger: Ledger, run_id: str,
+            show: Callable[[str], None] | None = None) -> ApproveResult:
+    """Record the human's approval (bound to the card), then submit. Resumable.
+
+    Only in the human's own terminal (see `human`): refused inside Claude Code or
+    without a TTY; the human sees the card (`show`) and types the run id."""
+    command = f"arb approve {run_id}"
+    human.require_terminal(command)
     with run_lock(ctx, run_id):
         run = records.get_run(ledger, run_id)
         if run["status"] not in ("awaiting_approval", "approved"):
@@ -340,6 +346,11 @@ def approve(ctx: RepoContext, ledger: Ledger, run_id: str) -> ApproveResult:
         profile, plan = replan(run)
         if slurm.card_hash(run["snapshot_commit"], plan) != run["card_hash"]:
             raise ArbError(CARD_CHANGED)
+        if show is not None and run["status"] == "awaiting_approval":
+            idea = ledger.one("SELECT * FROM ideas WHERE id = ?", (run["idea_id"],))
+            show(build_card(ctx, ledger, run, idea, profile, plan).text())
+        human.confirm_typed(run_id)
+        prov = human.provenance()
         dec_id = None
         if run["status"] == "awaiting_approval":
             with ledger.write() as conn:
@@ -350,11 +361,12 @@ def approve(ctx: RepoContext, ledger: Ledger, run_id: str) -> ApproveResult:
                 if dec is None:
                     raise ArbError(f"run {run_id} has no open approval decision")
                 dec_id = dec["id"]
-                records.set_decision(ledger, dec_id, "approve", "human")
+                records.set_decision(ledger, dec_id, "approve", "human", prov)
                 conn.execute("UPDATE runs SET status = 'approved', updated_at = ? WHERE id = ?",
                              (now(), run_id))
                 ledger.event("run_approve", run_id, {"decision": dec_id,
-                                                      "card_hash": run["card_hash"]})
+                                                      "card_hash": run["card_hash"],
+                                                      "author": "human"})
         elif approval_decision(ledger, run_id) is None:
             raise ArbError(f"run {run_id} is approved but has no human approval Decision")
         run = records.get_run(ledger, run_id)

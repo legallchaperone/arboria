@@ -9,11 +9,20 @@ from typing import Any
 from .errors import ArbError
 
 HOOK_COMMAND = "arb hook session-start"
-ASK_RULES = ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
+# Approvals happen only in the human's own terminal (`arb approve` / `arb lesson accept`
+# also refuse inside Claude Code); earlier versions put these under "ask".
+APPROVAL_RULES = ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
 # The real guarantee is that only `arb approve` submits (after a human Decision);
 # these deny rules are an extra layer that keeps Claude off the cluster directly.
-DENY_RULES = ["Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
-              "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)"]
+CLUSTER_RULES = ["Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
+                 "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)"]
+# Notebooks are the human's (Claude may read them) and the ledger is written only by
+# `arb`. Other files under .arboria/ (e.g. a later commands/ dir) stay writable.
+PROTECTED_PATHS = ["**/.arboria/notebooks/**", "**/.arboria/ledger.db*", "**/.arboria/backup/**",
+                   "**/.arboria/*.toml", "**/notebook.py"]
+EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"]
+FILE_RULES = [f"{tool}({path})" for path in PROTECTED_PATHS for tool in EDIT_TOOLS]
+DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES]
 
 
 def _has_hook(entries: list[Any]) -> bool:
@@ -41,12 +50,17 @@ def merge_settings(settings: dict[str, Any], where: str = "settings.json") -> li
         session_start.append({"hooks": [{"type": "command", "command": HOOK_COMMAND}]})
         changes.append(f"hooks.SessionStart += {HOOK_COMMAND}")
     perms = _section(settings, "permissions", dict, where)
-    for key, rules in (("ask", ASK_RULES), ("deny", DENY_RULES)):
-        current = _section(perms, key, list, where)
-        for rule in rules:
-            if rule not in current:
-                current.append(rule)
-                changes.append(f"permissions.{key} += {rule}")
+    deny = _section(perms, "deny", list, where)
+    for rule in DENY_RULES:
+        if rule not in deny:
+            deny.append(rule)
+            changes.append(f"permissions.deny += {rule}")
+    ask = perms.get("ask")
+    if isinstance(ask, list):  # moved from ask to deny
+        for rule in APPROVAL_RULES:
+            while rule in ask:
+                ask.remove(rule)
+                changes.append(f"permissions.ask -= {rule}")
     return changes
 
 

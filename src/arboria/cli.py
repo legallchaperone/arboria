@@ -10,7 +10,7 @@ from typing import Annotated, Any, Callable, Optional
 
 import typer
 
-from . import claudemd
+from . import claudemd, human, slurm
 from . import hook as hook_mod
 from . import ideas as ideas_mod
 from . import install as install_mod
@@ -53,6 +53,8 @@ ConfidenceOpt = Annotated[
     Optional[str], typer.Option("--confidence", help="guess | prelim | confirmed | rejected")
 ]
 IDEA_CLOSE_HINT = '如果这次有可复用的教训，用 arb lesson propose "..." 提出。'
+NOTE_REFUSED = ("arb note 只由人来写。Claude 的结论请写进 `arb todo done tNNN --result \"...\"`"
+                "（做完一个待办时）或 `arb run summary RUN \"...\"`（一个 run 的结果）。")
 
 
 def handle_errors(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -258,10 +260,12 @@ def card(
 @app.command()
 @handle_errors
 def approve(run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")]) -> None:
-    """(Human only) approve a run's card and submit it to the cluster; re-run to resume."""
+    """(Human only, in your own terminal) approve a run's card and submit it to the
+    cluster; you type the run id to confirm. Re-run to resume."""
+    human.require_terminal(f"arb approve {run_id}")
     ctx, ledger = _open()
     with ledger:
-        res = submission.approve(ctx, ledger, run_id)
+        res = submission.approve(ctx, ledger, run_id, show=typer.echo)
     if res.decision_id:
         typer.echo(f"approved {run_id} (decision {res.decision_id})")
     else:
@@ -424,10 +428,12 @@ def lesson_list(
 @lesson_app.command("accept")
 @handle_errors
 def lesson_accept(lesson_id: Annotated[str, typer.Argument(help="Lesson id, e.g. l001.")]) -> None:
-    """(Human only) accept a proposed lesson and update CLAUDE.md."""
+    """(Human only, in your own terminal) accept a proposed lesson and update CLAUDE.md;
+    you type the lesson id to confirm."""
+    human.require_terminal(f"arb lesson accept {lesson_id}")
     ctx, ledger = _open()
     with ledger:
-        result = lessons_mod.accept(ctx, ledger, lesson_id)
+        result = lessons_mod.accept(ctx, ledger, lesson_id, show=typer.echo)
     _echo_lesson_result(result, "accepted")
 
 
@@ -461,7 +467,9 @@ def note(
     run: Annotated[Optional[str], typer.Option("--run", help="Attach to this run id.")] = None,
     confidence: ConfidenceOpt = None,
 ) -> None:
-    """Add a note to the current idea (--confidence also updates the idea)."""
+    """(Human only) add a note to the current idea (--confidence also updates the idea)."""
+    if human.in_claude_code():
+        raise ArbError(NOTE_REFUSED)
     ctx, ledger = _open()
     with ledger:
         idea = ideas_mod.require_current_idea(ctx, ledger)

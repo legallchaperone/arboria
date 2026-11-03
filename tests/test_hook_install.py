@@ -89,10 +89,20 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     assert data["hooks"]["SessionStart"] == [
         {"hooks": [{"type": "command", "command": "arb hook session-start"}]}
     ]
-    assert data["permissions"]["ask"] == ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
-    assert data["permissions"]["deny"] == install.DENY_RULES == [
+    assert "ask" not in data["permissions"]  # approvals are denied, not asked
+    deny = data["permissions"]["deny"]
+    assert deny == install.DENY_RULES
+    assert deny[:9] == [
         "Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)", "Bash(ssh:*)",
-        "Bash(scp:*)", "Bash(rsync:*)"]
+        "Bash(scp:*)", "Bash(rsync:*)", "Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
+    for tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
+        for pattern in ("**/.arboria/notebooks/**", "**/.arboria/ledger.db*",
+                        "**/.arboria/backup/**", "**/.arboria/*.toml", "**/notebook.py"):
+            assert f"{tool}({pattern})" in deny
+    # reading stays allowed, and the rest of .arboria/ (e.g. a later commands/ dir) too
+    assert not any(r.startswith("Read(") for r in deny)
+    assert not any("**/.arboria/**" in r for r in deny)
+    assert len(deny) == 9 + 4 * 5
     assert not (initialized / ".claude").exists()
 
     res = arb(idea, "install-claude")  # idempotent
@@ -119,10 +129,10 @@ def test_install_claude_preserves_existing(initialized: Path, arb) -> None:
     assert data["permissions"]["allow"] == ["Bash(ls:*)"]
     # existing rules (incl. the older ssh rule) kept in place, ours appended once
     assert data["permissions"]["deny"] == ["Bash(sbatch:*)", "Bash(ssh:* sbatch*)",
-                                           "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
-                                           "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)"]
-    assert data["permissions"]["ask"] == ["Bash(rm:*)", "Bash(arb lesson accept:*)",
-                                          "Bash(arb approve:*)"]
+                                           *[r for r in install.DENY_RULES
+                                             if r != "Bash(sbatch:*)"]]
+    # an approval rule an older arb put under "ask" moves to deny; the user's stay
+    assert data["permissions"]["ask"] == ["Bash(rm:*)"]
     arb(initialized, "install-claude", "--main")
     assert json.loads(path.read_text()) == data
 

@@ -529,9 +529,11 @@ def test_watch_ignores_logs_after_window(cluster, idea: Path, initialized: Path,
     assert _run(initialized)["status"] == "failed"
 
 
-def test_watch_pauses_on_need_login(cluster, idea: Path, initialized: Path) -> None:
+def test_watch_pauses_on_need_login(cluster, idea: Path, initialized: Path, monkeypatch) -> None:
+    from arboria import human
     from arboria.cli import app  # noqa: F401  (import check only)
 
+    monkeypatch.setattr(human, "read_confirmation", lambda prompt: "r001")
     ctx = locate(idea)
     with _ledger(initialized) as l:
         run, card = submission.submit(ctx, l, l.one("SELECT * FROM ideas"), "x",

@@ -7,9 +7,9 @@ injected by the SessionStart hook.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
-from . import claudemd, records
+from . import claudemd, human, records
 from .db import Ledger, now, validate_text
 from .errors import ArbError
 from .ideas import current_idea, get_idea
@@ -115,21 +115,30 @@ def propose(
     return get_lesson(ledger, lesson_id) | {"decision_id": dec_id}
 
 
-def accept(ctx: RepoContext, ledger: Ledger, lesson_id: str) -> LessonResult:
-    """Human accepts a proposed lesson; decides its Decision and syncs CLAUDE.md."""
+def accept(ctx: RepoContext, ledger: Ledger, lesson_id: str,
+           show: Callable[[str], None] | None = None) -> LessonResult:
+    """Human accepts a proposed lesson; decides its Decision and syncs CLAUDE.md.
+
+    Only in the human's own terminal: refused inside Claude Code or without a TTY; the
+    human sees the lesson (`show`) and types its id."""
+    human.require_terminal(f"arb lesson accept {lesson_id}")
     lesson = get_lesson(ledger, lesson_id)
     if lesson["status"] != "proposed":
         raise ArbError(f"lesson {lesson_id} is {lesson['status']}, not proposed")
     ts = now()
     _check_room(ctx, ledger, lesson | {"decided_at": ts})
     claudemd.check(ctx, [lesson | {"decided_at": ts}, *claudemd.accepted_lessons(ledger)])
+    if show is not None:
+        show(f"{lesson_id}: {lesson['text']}")
+    human.confirm_typed(lesson_id)
+    prov = human.provenance()
     with ledger.write() as conn:
         conn.execute("UPDATE lessons SET status = 'accepted', decided_at = ? WHERE id = ?",
                      (ts, lesson_id))
         dec_id = _open_decision_id(ledger, lesson_id)
         if dec_id:
-            records.set_decision(ledger, dec_id, "accept", "human")
-        ledger.event("lesson_accept", lesson_id, {"decision": dec_id})
+            records.set_decision(ledger, dec_id, "accept", "human", prov)
+        ledger.event("lesson_accept", lesson_id, {"decision": dec_id, "author": "human"})
     return _sync(ctx, ledger, LessonResult(get_lesson(ledger, lesson_id)))
 
 

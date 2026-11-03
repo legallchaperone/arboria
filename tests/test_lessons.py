@@ -227,10 +227,10 @@ def test_export_has_lessons_section(idea: Path, initialized: Path, arb) -> None:
     assert f"- l002: {EVAL}" in md
 
 
-def test_install_claude_ask_entry(initialized: Path, arb) -> None:
+def test_install_claude_denies_lesson_accept(initialized: Path, arb) -> None:
     arb(initialized, "install-claude")
     data = json.loads((initialized / ".claude" / "settings.json").read_text())
-    assert "Bash(arb lesson accept:*)" in data["permissions"]["ask"]
+    assert "Bash(arb lesson accept:*)" in data["permissions"]["deny"]
 
 
 @pytest.mark.parametrize("cmd", ["accept", "reject", "retire"])

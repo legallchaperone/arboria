@@ -11,11 +11,12 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 1a 的代码路径里不发网络请求。远端操作放在后端接口后面。
 
 ## 代码结构
-`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd。`tests/` 使用临时 git 仓库。
+`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）。`tests/` 使用临时 git 仓库。
 
 ## 开发
 - `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
 - commit 要小、逻辑清楚。
+- macOS 上 `.venv/.../arboria.pth` 有时会被加上 `hidden` 标志，Python 3.13 会跳过它，表现为 `No module named 'arboria'`（`uv run` 会重新同步，标志又回来）。临时办法：`PYTHONPATH=$PWD/src .venv/bin/python -m pytest`。
 
 ## 进度
 - 已完成 1a：本地账本、idea 生命周期、快照、note、status/export、hook、install-claude、托管的 CLAUDE.md 区块与 lesson。
@@ -27,11 +28,12 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
   - `monitor`：`arb poll`/`cancel`/`watch`（观察期内日志匹配 `arboria.toml [watch] fail_patterns` 就取消，通知里写明正则和那一行；NeedLogin 时暂停该机器）/`logs`/`remote ls`。
   - 项目 id（`arboria.toml [project] id`，`arb init` 生成/补上）：作业名 `arb-<project>-<run>-s<k>`，远程目录 `<runs>/<project>/<run>`，ckpt/out 同理。项目 id 存在 request_json 里、算进审核单哈希；后端绑定一个项目，只认本项目的作业名和路径。
   - install-claude 的 deny 规则（sbatch/srun/salloc/scancel/ssh/scp/rsync），CLAUDE.md 区块和 hook 文案更新。
-- 1b 剩下的部分必须在用户本机上做（会碰真集群和 Duo）：
-  1. 确认 profile 的值：`cpus_per_gpu`、`mem_per_gpu_gb`（决定计费卡数 = 申请卡数）、`account`（来自 `accounts`）、各 `paths`、登录节点架构、计算节点能否上网；`jobcharge` 的输出格式（`SshSlurm.parse_charge` 目前是猜的，解析不了就按 elapsed × 计费卡数 × 倍率本地估算）。
-  2. `arb machine init deltaai` 和 `arb doctor`（都还没写）：ssh host `deltaai` 配 ControlMaster/ControlPersist；连接断了只提示用户重新登录，绝不循环重试。
-  3. 环境：在 NGC PyTorch arm64 容器 + uv 和 pixi 之间实测选一个，用短作业在计算节点上构建（缓存 key = lockfile 哈希 + 架构 + CUDA 版本，放在 /projects 下），定下 profile 的 `prelude` / `env_activate`。
-  4. 通过 `SshSlurm` 跑通第一个真实 run：submit → approve → watch → 拉回 `ARBORIA_OUT`，核对命令行、`%u` 日志路径、`sacct` 状态和花费。
+- 1b 在用户本机上做的部分：
+  1. ✅ profile 已实测（2026-11-02）并写入用户的 `~/.config/arboria/clusters.toml`：account `bjki-dtai-gh`，`cpus_per_gpu = 72`、`mem_per_gpu_gb = 110.898`（TRESBillingWeights CPU=13.888888、Mem=9.01726G、GRES/gpu=1000，PriorityFlags=MAX_TRES；DefMemPerGPU=113560 MB，节点可分配 454240 MB = 4×113560，所以不能往上取整），ghx4 48h ×1、ghx4-interactive 2h ×2（`full`/`test` 只给别的账户）。路径在 `/projects/bjki`、`/work/nvme/bjki`、`/work/hdd/bjki` 下的 `$USER/...`。登录节点 aarch64，有 apptainer，没有 uv/pixi。
+     - `jobcharge` 不接受作业 id（只按时间段汇总），原来的 `jobcharge <id>` 永远失败。现在 `poll` 从 `sacct` 的 `AllocTRES` 读 `billing=N`，SU = N × 小时 / `billing_per_su`（1000），和 `jobcharge --detail` 对得上；profile 里 `charge_cmd` 换成了 `billing_per_su`。
+  2. ✅ `arb machine init` / `arb doctor`（`machine.py`，测试用 `tests/fixtures/deltaai_probe.txt` 里真实的探测输出）。对 deltaai 跑过，全部通过。
+  3. 环境（还没做）：用户已有 uv 的做法（`/work/hdd/bjki/$USER/opt/uv-aarch64`、`venvs/WaveFront-gh`、`/work/nvme/bjki/$USER/envproj` 里的 uv.lock），倾向 uv；NGC PyTorch 容器要用 apptainer 自己拉（没有对应 module）。计算节点能不能上网还没确认。需要短作业在计算节点上构建 → 必须经 `arb submit` + 用户 `arb approve`，Claude 不能自己 sbatch。定下来后填 `prelude` / `env_activate`。
+  4. 通过 `SshSlurm` 跑通第一个真实 run（还没做）：submit → approve → watch → 拉回 `ARBORIA_OUT`，核对命令行、`%u` 日志路径、`sacct` 状态和花费。
 - 已知限制：`find_job` 用 `sacct --starttime=now-30days`；加入项目 id 之前提交的 run 不能再 approve，要重新 submit。
 - 之后：第 2 步做提交前检查、审核包和独立 AI 审稿人、基于历史的估计（以及提交前的排队估计）；第 3 步做 marimo 面板。
 

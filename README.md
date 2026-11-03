@@ -53,6 +53,8 @@ arb idea close --merge               # 或 --drop（先存档最终快照再删�
 | `arb watch [--once] [--interval 60] [--window MIN]` | 常驻轮询所有活跃 run；作业开跑后的观察期（默认 `[watch] observation_minutes` = 10 分钟）内日志某行匹配 `[watch] fail_patterns`（默认：loss 为 NaN、CUDA OOM），或作业失败，就取消剩余作业并通知（`.arboria/notifications.log`，写明匹配的正则和那一行日志） |
 | `arb logs RUN [--segment K] [-n 100]` | 看集群上某段作业的日志末尾（代替 ssh） |
 | `arb remote ls RUN [SUBPATH] [--out]` | 列出集群上 run 目录（或 `ARBORIA_OUT`）里的文件（代替 ssh） |
+| `arb machine init NAME [--host H] [--account A] [--write [--replace]]` | 通过你已登录的 ssh master，在登录节点上只读地测量机器（`accounts`、`scontrol` 的分区/节点、计费权重、`quota`），打印 profile；`--write` 写进 `clusters.toml`（已有同名 profile 要加 `--replace`，会留备份，并保留你的 paths、prelude、env_activate）。不改 `~/.ssh/config`，没配 ControlMaster/ControlPersist 会提示要加的配置 |
+| `arb doctor [NAME]` | 只读检查：profile 是否有效、ssh 配置和 master、架构、账户余额、分区时限和倍率、各路径（或最近的上级目录）可写、配额。没有 master 时只提示重新登录，不重试。NAME 默认取 `arboria.toml` 的 `default_machine` |
 | `arb run summary RUN_ID TEXT` | 为 run 写结果总结（≤10 行 / 1500 字符） |
 | `arb note TEXT [--run ID] [--confidence X]` | 给当前 idea 写笔记；`--confidence` 同时更新 idea 的置信度 |
 | `arb status [--json] [--brief]` | 在 idea worktree 中：该 idea 的假设、指标、置信度、runs、最近 5 条笔记、待决事项；在主 worktree 中：所有 open idea 概览 |

@@ -154,6 +154,7 @@ module load cuda
 source /projects/bdxx/$USER/env/bin/activate
 set -u
 export ARBORIA_RUN_ID=r007
+export ARBORIA_WANDB_ID=lr-sweep-1a2b-r007
 export ARBORIA_IDEA=lr-warmup
 export ARBORIA_SEGMENT=1
 export ARBORIA_DATA="/work/nvme/bdxx/$USER/data"

@@ -197,6 +197,66 @@ def build_plan(profile: "Profile", ask: Ask, project: str) -> Plan:
                 billed_gpus=billed_node * ask.nodes, segments=segments, env=env)
 
 
+# ---------------------------------------------------------------- command overrides
+
+# Keys like lr, optim.lr, +trainer.devices, ~callbacks, model/encoder (hydra) or batch-size.
+_OVERRIDE_KEY_RE = re.compile(r"^[+~]{0,2}[A-Za-z_][A-Za-z0-9_.\-/]*$")
+
+
+def check_override(key: Any, value: Any) -> tuple[str, str]:
+    """Validate one `k=v` override; values are stringified (bools as true/false)."""
+    if not isinstance(key, str) or not _OVERRIDE_KEY_RE.match(key):
+        raise ArbError(f"invalid override key {key!r}: use letters, digits, '_', '.', '-', '/' "
+                       "(hydra prefixes + / ~ allowed)")
+    if isinstance(value, bool):
+        value = "true" if value else "false"
+    elif value is None:
+        value = "null"
+    elif not isinstance(value, (str, int, float)):
+        raise ArbError(f"override {key}: value must be a string or number, got "
+                       f"{type(value).__name__}")
+    value = str(value)
+    if "\n" in value or "\r" in value or "\0" in value:
+        raise ArbError(f"override {key}: value must be a single line")
+    return key, value
+
+
+def parse_override(text: str) -> tuple[str, str]:
+    """`k=v` from the command line."""
+    key, sep, value = text.partition("=")
+    if not sep:
+        raise ArbError(f"invalid --set {text!r}; use --set key=value")
+    return check_override(key.strip(), value)
+
+
+def merge_overrides(base: list[tuple[str, str]], new: list[tuple[str, str]]
+                    ) -> list[tuple[str, str]]:
+    """`base` with `new` applied: same key replaced in place, new keys appended."""
+    out = [list(kv) for kv in base]
+    for k, v in new:
+        for item in out:
+            if item[0] == k:
+                item[1] = v
+                break
+        else:
+            out.append([k, v])
+    return [(k, v) for k, v in out]
+
+
+def render_overrides(style: str, overrides: list[tuple[str, str]]) -> list[str]:
+    """hydra → ["k=v"]; argparse / tyro → ["--k", "v"]."""
+    if style == "hydra":
+        return [f"{k}={v}" for k, v in overrides]
+    if style in ("argparse", "tyro"):
+        out: list[str] = []
+        for k, v in overrides:
+            if k[0] in "+~":
+                raise ArbError(f"override key {k!r}: + / ~ prefixes are hydra syntax, not {style}")
+            out += [f"--{k}", v]
+        return out
+    raise ArbError(f"unknown override style {style!r}")
+
+
 # ---------------------------------------------------------------- approval card hash
 
 
@@ -278,6 +338,11 @@ def out_dir(paths: dict[str, str], project: str, run_id: str) -> str:
     return f"{paths['out']}/{check_project(project)}/{run_id}"
 
 
+def wandb_id(project: str, run_id: str) -> str:
+    """wandb run id: unique across repos that share one wandb project."""
+    return f"{check_project(project)}-{run_id}"
+
+
 def ckpt_dir(paths: dict[str, str], project: str, run_id: str) -> str:
     return f"{paths['ckpt']}/{check_project(project)}/{run_id}"
 
@@ -325,6 +390,7 @@ def render_sbatch(plan: Plan, run_id: str, idea: str, segment: int) -> str:
         lines += ["set +u", *setup, "set -u"]
     lines += [
         f"export ARBORIA_RUN_ID={shlex.quote(run_id)}",
+        f"export ARBORIA_WANDB_ID={shlex.quote(wandb_id(project, run_id))}",
         f"export ARBORIA_IDEA={shlex.quote(idea)}",
         f"export ARBORIA_SEGMENT={segment}",
         f"export ARBORIA_DATA={dq(paths['data'])}",

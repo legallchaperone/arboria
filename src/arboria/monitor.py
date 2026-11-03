@@ -5,6 +5,7 @@ None of this ever submits anything; only `submission.approve` does.
 
 from __future__ import annotations
 
+import json
 import re
 import time as time_mod
 from dataclasses import dataclass, field
@@ -24,6 +25,8 @@ NOTIFICATIONS = "notifications.log"
 TAIL_LINES = 50
 HIT_LINE_MAX = 200
 FETCHED_MARKER = "fetched"
+CONFIG_FILE = "config.yaml"  # the training code's resolved config, in ARBORIA_OUT
+CONFIG_MAX_BYTES = 200 * 1024
 
 
 # ---------------------------------------------------------------- helpers
@@ -115,6 +118,44 @@ def fetch_out(ctx: RepoContext, run: dict[str, Any], backend: Backend) -> Path:
     return local / "out"
 
 
+def _load_yaml(text: str) -> Any:
+    """Parsed YAML, or raises ImportError when PyYAML is not installed."""
+    import yaml  # optional
+
+    return yaml.safe_load(text)
+
+
+def config_json_from(path: Path) -> str | None:
+    """runs.config_json for a fetched config.yaml: the parsed config when PyYAML is available
+    and it is JSON-serialisable, else the raw text under `_raw_yaml` (capped)."""
+    if not path.is_file():
+        return None
+    data = path.read_bytes()
+    truncated = len(data) > CONFIG_MAX_BYTES
+    text = data[:CONFIG_MAX_BYTES].decode("utf-8", errors="replace")
+    if not truncated:
+        try:
+            return json.dumps(_load_yaml(text), ensure_ascii=False, sort_keys=True)
+        except Exception:  # no PyYAML, invalid YAML, dates/sets that JSON cannot hold
+            pass
+    raw: dict[str, Any] = {"_raw_yaml": text}
+    if truncated:
+        raw |= {"_truncated": True, "_bytes": len(data)}
+    return json.dumps(raw, ensure_ascii=False)
+
+
+def store_config(ledger: Ledger, run_id: str, out_dir: Path) -> bool:
+    """Save out/config.yaml into runs.config_json. Returns True if stored."""
+    value = config_json_from(out_dir / CONFIG_FILE)
+    if value is None:
+        return False
+    with ledger.write() as conn:
+        conn.execute("UPDATE runs SET config_json = ?, updated_at = ? WHERE id = ?",
+                     (value, now(), run_id))
+        ledger.event("run_config", run_id, {"bytes": len(value)})
+    return True
+
+
 def _cancel_rest(backend: Backend, jobs: list[dict[str, Any]],
                  updates: dict[int, dict[str, Any]]) -> list[str]:
     """Cancel every job not yet terminal (afterany would start the next segment)."""
@@ -141,6 +182,8 @@ def poll_run(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend | N
             backend = backend or backend_for(ctx, run)
             dest = fetch_out(ctx, run, backend)
             out.messages.append(f"{run_id}: fetched ARBORIA_OUT into {dest}")
+            if store_config(ledger, run_id, dest):
+                out.messages.append(f"{run_id}: saved {CONFIG_FILE} into the ledger")
         return out
     if run["status"] not in ("approved", "queued", "running"):
         return out
@@ -181,6 +224,8 @@ def poll_run(ctx: RepoContext, ledger: Ledger, run_id: str, backend: Backend | N
         try:
             dest = fetch_out(ctx, run, backend)
             out.messages.append(f"{run_id}: fetched ARBORIA_OUT into {dest}")
+            if store_config(ledger, run_id, dest):
+                out.messages.append(f"{run_id}: saved {CONFIG_FILE} into the ledger")
         except ArbError as exc:
             out.messages.append(f"{run_id}: ARBORIA_OUT not fetched ({exc}); "
                                 f"retry with `arb poll {run_id}`")

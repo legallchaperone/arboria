@@ -9,6 +9,8 @@ from . import claudemd
 from .config import (
     DEFAULT_FAIL_PATTERNS,
     DEFAULT_OBSERVATION_MINUTES,
+    DEFAULT_OVERRIDE_STYLE,
+    DEFAULT_RUN_COMMAND,
     add_project_id,
     derive_project_id,
     project_config,
@@ -47,13 +49,26 @@ autocommit = true
 # 像 "0 NaN batches skipped" 这样的行不会触发。
 observation_minutes = {minutes}
 fail_patterns = [{patterns}]
+
+[wandb]
+# 训练代码里 wandb.init(id=ARBORIA_WANDB_ID, group=ARBORIA_IDEA)。entity 和 project 都填了，
+# arb submit 就会把 run 的 wandb 链接记进账本（notebook 里 lab 读曲线也用它们）。
+entity = ""
+project = ""
+
+[run]
+# 默认训练命令：arb submit 不带 `-- CMD`、或 notebook 里 lab.run() 时用它。
+command = "{command}"
+# --set k=v（lab.run(set=...)）怎么接到命令后面：hydra → k=v；argparse / tyro → --k v
+override_style = "{style}"
 """
 
 
 def config_template(project_id: str) -> str:
     patterns = ", ".join(f"'{p}'" for p in DEFAULT_FAIL_PATTERNS)
     return CONFIG_TEMPLATE.format(project=project_table(project_id),
-                                  minutes=DEFAULT_OBSERVATION_MINUTES, patterns=patterns)
+                                  minutes=DEFAULT_OBSERVATION_MINUTES, patterns=patterns,
+                                  command=DEFAULT_RUN_COMMAND, style=DEFAULT_OVERRIDE_STYLE)
 
 
 def ensure_project_id(ctx: RepoContext) -> str | None:

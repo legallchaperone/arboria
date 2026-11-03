@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import shlex
 import tomllib
 from dataclasses import dataclass
 from typing import Any
@@ -28,12 +29,41 @@ class WatchConfig:
     fail_patterns: tuple[re.Pattern[str], ...]
 
 
+OVERRIDE_STYLES = ("hydra", "argparse", "tyro")
+DEFAULT_RUN_COMMAND = "python train.py"
+DEFAULT_OVERRIDE_STYLE = "hydra"
+_WANDB_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+@dataclass(frozen=True)
+class WandbConfig:
+    entity: str  # "" = not configured
+    project: str
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.entity and self.project)
+
+    def run_url(self, wandb_id: str) -> str | None:
+        if not self.configured:
+            return None
+        return f"https://wandb.ai/{self.entity}/{self.project}/runs/{wandb_id}"
+
+
+@dataclass(frozen=True)
+class RunConfig:
+    command: tuple[str, ...]  # () = not configured
+    override_style: str
+
+
 @dataclass(frozen=True)
 class ProjectConfig:
     default_machine: str
     total_su: float  # 0 = no budget set
     project_id: str | None  # None = arboria.toml predates project ids (run `arb init`)
     watch: WatchConfig
+    wandb: WandbConfig = WandbConfig("", "")
+    run: RunConfig = RunConfig((), DEFAULT_OVERRIDE_STYLE)
 
 
 def load_toml(path, what: str) -> dict[str, Any]:
@@ -91,6 +121,42 @@ def _watch(cfg: dict[str, Any], path) -> WatchConfig:
     return WatchConfig(observation_minutes=minutes, fail_patterns=tuple(patterns))
 
 
+def _table(cfg: dict[str, Any], name: str, path) -> dict[str, Any]:
+    table = cfg.get(name, {})
+    if not isinstance(table, dict):
+        raise ArbError(f"{path}: [{name}] must be a table")
+    return table
+
+
+def _wandb(cfg: dict[str, Any], path) -> WandbConfig:
+    table = _table(cfg, "wandb", path)
+    vals = {}
+    for key in ("entity", "project"):
+        v = table.get(key, "")
+        if not isinstance(v, str) or (v.strip() and not _WANDB_NAME_RE.match(v.strip())):
+            raise ArbError(f"{path}: [wandb] {key} must be a wandb name (letters, digits, "
+                           f"'.', '_', '-'); got {v!r}")
+        vals[key] = v.strip()
+    return WandbConfig(**vals)
+
+
+def _run(cfg: dict[str, Any], path) -> RunConfig:
+    table = _table(cfg, "run", path)
+    raw = table.get("command", "")
+    if not isinstance(raw, str):
+        raise ArbError(f"{path}: [run] command must be a string, e.g. \"python train.py\"")
+    try:
+        command = tuple(shlex.split(raw))
+    except ValueError as exc:
+        raise ArbError(f"{path}: [run] command {raw!r} cannot be split into arguments: {exc}") \
+            from exc
+    style = table.get("override_style", DEFAULT_OVERRIDE_STYLE)
+    if style not in OVERRIDE_STYLES:
+        raise ArbError(f"{path}: [run] override_style must be one of: {', '.join(OVERRIDE_STYLES)}"
+                       f" (hydra → k=v, argparse/tyro → --k v); got {style!r}")
+    return RunConfig(command=command, override_style=style)
+
+
 def project_config(ctx: RepoContext) -> ProjectConfig:
     path = ctx.config_path
     cfg = load_toml(path, "project config") if path.is_file() else {}
@@ -104,7 +170,8 @@ def project_config(ctx: RepoContext) -> ProjectConfig:
     if isinstance(total, bool) or not isinstance(total, (int, float)) or total < 0:
         raise ArbError(f"{path}: [budget] total_su must be a number >= 0")
     return ProjectConfig(default_machine=machine.strip(), total_su=float(total),
-                         project_id=_project_id(cfg, path), watch=_watch(cfg, path))
+                         project_id=_project_id(cfg, path), watch=_watch(cfg, path),
+                         wandb=_wandb(cfg, path), run=_run(cfg, path))
 
 
 def require_project_id(ctx: RepoContext) -> str:

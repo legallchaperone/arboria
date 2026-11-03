@@ -10,7 +10,7 @@ import pytest
 from arboria import clusters, slurm
 from arboria.backends import BackendError, NeedLogin, get_backend, map_slurm_state
 from arboria.backends.fake import FakeSlurm
-from arboria.backends.ssh import Runner, SshSlurm, parse_charge
+from arboria.backends.ssh import Runner, SshSlurm, su_from_billing
 from arboria.errors import ArbError
 
 from .clusterutil import deltaai, fake_toml
@@ -124,14 +124,15 @@ def test_exact_command_lines(ssh) -> None:
     with pytest.raises(BackendError, match="several jobs"):
         backend.find_job(f"arb-{P}-r003-s1")
 
-    runner.reply("sacct -j", "10|COMPLETED|3600\n11|CANCELLED by 123|5\n12|PENDING|0\n9|X|1\n")
-    runner.reply("jobcharge 10", "Job 10 charge: 4.00 SU\n")
-    runner.reply("jobcharge 11", "no idea\n")
-    assert backend.poll(["10", "11", "12"]) == {
-        "10": ("completed", 3600, 4.0), "11": ("cancelled", 5, None), "12": ("pending", 0, None)}
-    assert [*SSH, "sacct -j 10,11,12 -n -X -P -o JobID,State,ElapsedRaw"] in runner.argvs
-    assert [*SSH, "jobcharge 10"] in runner.argvs
-    assert not any("jobcharge 12" in a[-1] for a in runner.argvs)  # only terminal jobs
+    runner.reply("sacct -j", "10|COMPLETED|3600|billing=4000,cpu=288,gres/gpu=4,mem=443G,node=1\n"
+                 "11|CANCELLED by 123|5|\n12|PENDING|0|\n9|X|1|billing=9\n"
+                 "13|RUNNING|60|billing=1000,cpu=72\n")
+    assert backend.poll(["10", "11", "12", "13"]) == {
+        "10": ("completed", 3600, 4.0), "11": ("cancelled", 5, None),
+        "12": ("pending", 0, None), "13": ("running", 60, None)}
+    assert [*SSH, "sacct -j 10,11,12,13 -n -X -P -o JobID,State,ElapsedRaw,AllocTRES"] \
+        in runner.argvs
+    assert not any("jobcharge" in a[-1] for a in runner.argvs)
 
     backend.cancel(["10", "11"])
     assert runner.argvs[-1] == [*SSH, "scancel 10 11"]
@@ -258,10 +259,16 @@ def test_default_runner_uses_subprocess(monkeypatch) -> None:
 
 
 def test_parse_charge_and_states() -> None:
-    assert parse_charge("Charge: 12.5") == 12.5
-    assert parse_charge("Job 1 used 3 SU") == 3.0
-    assert parse_charge("SU charged: 3 (3 SU)") == 3.0
-    assert parse_charge("2 SU and 3 SU") is None and parse_charge("") is None
+    # real DeltaAI rows (sacct AllocTRES vs. `jobcharge --detail` Charge column)
+    for tres, elapsed, charged in [
+            ("billing=1803,cpu=64,gres/gpu=1,mem=200G,node=1", 259, 0.13),
+            ("billing=1803,cpu=64,gres/gpu=1,mem=200G,node=1", 449, 0.22),
+            ("billing=1803,cpu=64,gres/gpu=1,mem=200G,node=1", 643, 0.32),
+            ("billing=1000,cpu=72,gres/gpu=1,mem=100G,node=1", 644, 0.18)]:
+        assert round(su_from_billing(tres, elapsed, 1000), 2) == charged
+    assert su_from_billing("cpu=72,mem=100G", 644, 1000) is None
+    assert su_from_billing("xbilling=5", 644, 1000) is None
+    assert su_from_billing("billing=1000", 3600, 0) is None  # unset: estimate locally
     assert map_slurm_state("CANCELLED by 1234") == "cancelled"
     assert map_slurm_state("COMPLETED") == "completed" and map_slurm_state("TIMEOUT") == "timeout"
     assert map_slurm_state("OUT_OF_MEMORY") == "failed" and map_slurm_state("WHAT") == "unknown"

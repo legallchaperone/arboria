@@ -21,7 +21,7 @@ KINDS = ("slurm", "fake")
 PATH_ROLES = ("runs", "data", "cache", "ckpt", "out")
 TOP_KEYS = {
     "kind", "host", "arch", "account", "gpus_per_node", "cpus_per_gpu", "mem_per_gpu_gb",
-    "default_partition", "max_segments", "balance_cmd", "charge_cmd", "prelude", "env_activate",
+    "default_partition", "max_segments", "balance_cmd", "billing_per_su", "prelude", "env_activate",
     "partitions", "paths", "root",
 }
 PARTITION_KEYS = {"max_walltime", "charge"}
@@ -64,7 +64,7 @@ class Profile:
     default_partition: str
     max_segments: int
     balance_cmd: str
-    charge_cmd: str
+    billing_per_su: float  # sacct billing units costing 1 SU per hour; 0 = estimate locally
     prelude: tuple[str, ...]
     env_activate: tuple[str, ...]
     partitions: dict[str, Partition]
@@ -122,6 +122,9 @@ def parse_profile(name: str, raw: Any, source: str = FILENAME) -> Profile:
         raise ArbError(f"{w} must be a table")
     if not PROFILE_NAME_RE.match(name):
         raise ArbError(f"{w}: invalid machine name")
+    if "charge_cmd" in raw:
+        raise ArbError(f"{w} charge_cmd is gone: set billing_per_su (sacct billing units "
+                       "that cost one SU per hour; 1000 on DeltaAI) instead")
     unknown = sorted(set(raw) - TOP_KEYS)
     if unknown:
         raise ArbError(f"{w}: unknown key(s) {', '.join(unknown)}")
@@ -149,7 +152,11 @@ def parse_profile(name: str, raw: Any, source: str = FILENAME) -> Profile:
     if isinstance(mem, bool) or not isinstance(mem, (int, float)) or mem <= 0:
         raise ArbError(f"{w} mem_per_gpu_gb must be a number > 0{confirm}")
     max_segments = _int(raw.get("max_segments", 4), f"{w} max_segments", 1)
-    for key in ("arch", "balance_cmd", "charge_cmd"):
+    billing_per_su = raw.get("billing_per_su", 0)
+    if isinstance(billing_per_su, bool) or not isinstance(billing_per_su, (int, float)) \
+            or billing_per_su < 0:
+        raise ArbError(f"{w} billing_per_su must be a number >= 0 (0 = estimate locally)")
+    for key in ("arch", "balance_cmd"):
         if not isinstance(raw.get(key, ""), str):
             raise ArbError(f"{w} {key} must be a string")
 
@@ -193,7 +200,7 @@ def parse_profile(name: str, raw: Any, source: str = FILENAME) -> Profile:
         arch=raw.get("arch", ""), account=account.strip(), gpus_per_node=gpus_per_node,
         cpus_per_gpu=cpus_per_gpu, mem_per_gpu_gb=float(mem), default_partition=default_partition,
         max_segments=max_segments, balance_cmd=raw.get("balance_cmd", ""),
-        charge_cmd=raw.get("charge_cmd", ""),
+        billing_per_su=float(billing_per_su),
         prelude=_lines(raw.get("prelude", []), f"{w} prelude"),
         env_activate=_lines(raw.get("env_activate", []), f"{w} env_activate"),
         partitions=partitions, paths=paths, root=root, source=source,

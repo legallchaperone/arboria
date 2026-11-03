@@ -17,7 +17,7 @@ DELTAAI = {
     "default_partition": "ghx4",
     "max_segments": 4,
     "balance_cmd": "accounts",
-    "charge_cmd": "jobcharge",
+    "billing_per_su": 1000,
     "prelude": ["module load cuda"],
     "env_activate": ["source /projects/bdxx/$USER/env/bin/activate"],
     "partitions": {

@@ -1,6 +1,7 @@
 # Arboria cluster profiles. Copy to ~/.config/arboria/clusters.toml
 # (or $ARBORIA_CONFIG_DIR/clusters.toml). One table per machine.
-# Values marked TO CONFIRM are measured at `arb machine init`; arb refuses them until set.
+# `arb machine init <name>` measures these on the cluster and prints (or --write's) the table.
+# <placeholders> are refused until filled in. Numbers below were measured on DeltaAI (2026-11).
 
 [deltaai]
 kind = "slurm"            # "fake" is allowed too, for tests and dry runs
@@ -8,20 +9,20 @@ host = "deltaai"          # ~/.ssh/config alias with ControlMaster
 arch = "aarch64"
 account = "<from `accounts`>"
 gpus_per_node = 4
-cpus_per_gpu = 0          # TO CONFIRM at machine init; required > 0
-mem_per_gpu_gb = 0        # TO CONFIRM at machine init; required > 0
+cpus_per_gpu = 72         # 288 cores / 4 GPUs: 72 CPUs bill as one GPU
+mem_per_gpu_gb = 110.898  # DefMemPerGPU 113560 MB; more bills as more GPUs
 default_partition = "ghx4"
 max_segments = 4
 balance_cmd = "accounts"
-charge_cmd = "jobcharge"
+billing_per_su = 1000     # sacct billing=1000 for an hour = 1 SU (0: estimate locally)
 prelude = []              # shell lines, e.g. module loads
-env_activate = []         # shell lines that activate the env (container or pixi), decided at machine init
+env_activate = []         # shell lines that activate the env (container or uv/pixi venv)
 [deltaai.partitions.ghx4]
 max_walltime = "48h"
 charge = 1.0
 [deltaai.partitions."ghx4-interactive"]
 max_walltime = "2h"
-charge = 2.0
+charge = 2.0              # billing weights are 2x here (already in sacct billing)
 [deltaai.paths]
 runs = "/projects/<proj>/$USER/arboria/runs"
 data = "/work/nvme/<proj>/$USER/data"

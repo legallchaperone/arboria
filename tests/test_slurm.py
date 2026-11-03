@@ -82,6 +82,19 @@ def test_fractional_mem_share_never_overbills() -> None:
     assert plan.mem_gb_per_node == 352 and plan.billed_gpus == 3
 
 
+@pytest.mark.parametrize("per_node", [1, 2, 3, 4])
+def test_measured_deltaai_defaults_bill_requested_and_fit(per_node: int) -> None:
+    """Measured 2026-11: TRESBillingWeights CPU=13.888888, Mem=9.01726G, GRES/gpu=1000
+    with PriorityFlags=MAX_TRES; node allocatable = RealMemory 488000 - MemSpecLimit
+    33760 = 454240 MB."""
+    plan = build_plan(deltaai(cpus_per_gpu=72, mem_per_gpu_gb=110.898), ask(gpus=per_node), P)
+    assert plan.billed_gpus == per_node
+    slurm_billing = max(1000 * per_node, 13.888888 * plan.cpus_per_node,
+                        9.01726 * plan.mem_gb_per_node)
+    assert slurm_billing == 1000 * per_node  # what Slurm itself will bill
+    assert plan.mem_gb_per_node * 1024 <= 454240 * per_node / 4  # schedulable
+
+
 def test_manual_over_request_is_billed_higher() -> None:
     plan = build_plan(deltaai(), ask(gpus=1, mem_gb=200), P)
     assert plan.over_billed and plan.billed_gpus == 2
@@ -255,15 +268,17 @@ def test_example_file_matches_loader(tmp_path: Path, monkeypatch) -> None:
     example = Path(__file__).parent.parent / "examples" / "clusters.toml"
     monkeypatch.setenv("ARBORIA_CONFIG_DIR", str(tmp_path))
     (tmp_path / "clusters.toml").write_text(example.read_text())
-    # shipped with TO CONFIRM zeros and placeholders: refused with a clear message
+    # shipped with <placeholders>: refused with a clear message
     with pytest.raises(ArbError, match="TO CONFIRM"):
         clusters.load_profile("deltaai")
-    filled = (example.read_text().replace("cpus_per_gpu = 0", "cpus_per_gpu = 16")
-              .replace("mem_per_gpu_gb = 0", "mem_per_gpu_gb = 100").replace("<proj>", "bdxx")
+    filled = (example.read_text().replace("<proj>", "bdxx")
               .replace('"<from `accounts`>"', '"bdxx-dtai-gh"'))
     (tmp_path / "clusters.toml").write_text(filled)
     p = clusters.load_profile("deltaai")
     assert p.host == "deltaai" and p.account == "bdxx-dtai-gh" and p.max_segments == 4
+    assert (p.cpus_per_gpu, p.mem_per_gpu_gb, p.billing_per_su) == (72, 110.898, 1000)
+    with pytest.raises(ArbError, match="charge_cmd is gone"):
+        clusters.parse_profile("deltaai", {**DELTAAI, "charge_cmd": "jobcharge"})
     with pytest.raises(ArbError, match="no machine 'polaris'.*known: deltaai"):
         clusters.load_profile("polaris")
 

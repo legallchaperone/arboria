@@ -142,14 +142,14 @@ host = "deltaai"          # ~/.ssh/config 里配了 ControlMaster 的别名
 arch = "aarch64"
 account = "<from `accounts`>"
 gpus_per_node = 4
-cpus_per_gpu = 0          # 待 machine init 时确认；必须 > 0
-mem_per_gpu_gb = 0        # 待 machine init 时确认；必须 > 0
+cpus_per_gpu = 72         # 288 核 / 4 卡：72 个 CPU 按一张卡计费
+mem_per_gpu_gb = 110.898  # DefMemPerGPU 113560 MB；再多就按更多卡计费
 default_partition = "ghx4"
 max_segments = 4
 balance_cmd = "accounts"
-charge_cmd = "jobcharge"
+billing_per_su = 1000     # sacct 里 billing=1000 跑一小时 = 1 SU（0：本地估算）
 prelude = []              # shell 行，例如 module load
-env_activate = []         # 激活环境的 shell 行（容器或 pixi），machine init 时决定
+env_activate = []         # 激活环境的 shell 行（容器或 uv/pixi venv）
 [deltaai.partitions.ghx4]
 max_walltime = "48h"
 charge = 1.0
@@ -164,7 +164,9 @@ ckpt = "/work/hdd/<proj>/$USER/ckpt"
 out  = "/projects/<proj>/$USER/arboria/out"
 ```
 
-- 标着“待确认”的值（0、`<…>` 占位符）会被拒绝，并提示是哪一项。路径必须是绝对路径，只能用字母、数字、`._-/` 和 `$USER`（`#SBATCH` 行里会换成 `%u`）。
+- 上面的数字是 2026-11 在 DeltaAI 上实测的；`arb machine init <名字>` 会在集群上重新测量并打印（加 `--write` 写入）这张表。
+- 花费：作业结束后从 `sacct` 的 `AllocTRES` 里读 `billing=N`，SU = N × 小时数 / `billing_per_su`（与 `jobcharge --detail` 一致，已含分区倍率）；读不到就按 elapsed × 计费卡数 × `charge` 本地估算。`jobcharge` 只能按时间段汇总，不能按作业查。
+- 标着“待确认”的值（`<…>` 占位符）会被拒绝，并提示是哪一项。路径必须是绝对路径，只能用字母、数字、`._-/` 和 `$USER`（`#SBATCH` 行里会换成 `%u`）。
 - `kind = "fake"` 时还需要 `root = "/某个本地目录"`：`FakeSlurm` 把“集群”模拟在本地，路径就是本地路径，适合演练整个流程。
 - 预算读 `arboria.toml` 的 `[budget] total_su`；默认机器读 `default_machine`。
 - **几个仓库可以共用一个机器配置。** run id 在每个仓库里都从 `r001` 开始，所以作业名和远程目录都带上 `arboria.toml` 的 `[project] id`（`arb init` 生成：主 worktree 目录名的 slug + `-` + 其绝对路径 sha256 的前 4 个十六进制字符，例如 `myproj-3f2a`）：作业名 `arb-<project>-<run>-s<k>`，远程目录 `<runs>/<project>/<run>`。`arb logs`、`arb remote ls` 和拉回 `ARBORIA_OUT` 只能读当前项目的 `<runs>/<project>`、`<out>/<project>`。项目 id 记在每个 run 的请求里（也算进审核单哈希），已提交的 run 一直用提交时的名字；有 run 在集群上时不要改它。

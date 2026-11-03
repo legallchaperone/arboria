@@ -33,8 +33,7 @@ SHIP_TIMEOUT_S = 1800
 FETCH_TIMEOUT_S = 3600
 FIND_WINDOW = "now-30days"
 _ABS_PATH_RE = re.compile(r"^/[A-Za-z0-9._/-]*$")
-_CHARGE_RE = re.compile(r"(?i)(?:charge[ds]?|\bsu\b)\D{0,40}?([0-9]+(?:\.[0-9]+)?)"
-                        r"|([0-9]+(?:\.[0-9]+)?)\s*SUs?\b")
+_BILLING_RE = re.compile(r"(?:^|,)billing=([0-9]+(?:\.[0-9]+)?)(?:,|$)")
 
 
 class Runner:
@@ -69,10 +68,18 @@ class Runner:
         return rc1, p2.returncode, (err1 + p2.stderr).strip()
 
 
-def parse_charge(text: str) -> float | None:
-    """The SU charged, if `charge_cmd` printed exactly one recognisable amount."""
-    values = {float(a or b) for a, b in _CHARGE_RE.findall(text or "")}
-    return values.pop() if len(values) == 1 else None
+def su_from_billing(alloc_tres: str, elapsed_s: int, billing_per_su: float) -> float | None:
+    """SU charged, from sacct's AllocTRES `billing=N`: N x hours / billing_per_su.
+
+    On DeltaAI this matches `jobcharge --detail` (billing already includes the
+    partition's weight, e.g. 2x on ghx4-interactive). `jobcharge` itself only reports
+    per-user/account sums over a time range, so it cannot be asked about one job."""
+    if billing_per_su <= 0:
+        return None
+    m = _BILLING_RE.search((alloc_tres or "").strip())
+    if not m:
+        return None
+    return float(m.group(1)) * elapsed_s / 3600 / billing_per_su
 
 
 class SshSlurm(Backend):
@@ -162,7 +169,8 @@ class SshSlurm(Backend):
         ids = check_job_ids(job_ids)
         if not ids:
             return {}
-        proc = self._remote(f"sacct -j {','.join(ids)} -n -X -P -o JobID,State,ElapsedRaw")
+        proc = self._remote(
+            f"sacct -j {','.join(ids)} -n -X -P -o JobID,State,ElapsedRaw,AllocTRES")
         out: dict[str, tuple[str, int, float | None]] = {}
         for line in proc.stdout.splitlines():
             parts = line.strip().split("|")
@@ -170,21 +178,11 @@ class SshSlurm(Backend):
                 continue
             state = map_slurm_state(parts[1])
             elapsed = int(parts[2]) if parts[2].strip().isdigit() else 0
-            out[parts[0]] = (state, elapsed, None)
-        if self.profile.charge_cmd:
-            for jid, (state, elapsed, _) in list(out.items()):
-                if state in ("completed", "failed", "cancelled", "timeout"):
-                    out[jid] = (state, elapsed, self._charge(jid))
+            su = None
+            if state in ("completed", "failed", "cancelled", "timeout") and len(parts) > 3:
+                su = su_from_billing(parts[3], elapsed, self.profile.billing_per_su)
+            out[parts[0]] = (state, elapsed, su)
         return out
-
-    def _charge(self, job_id: str) -> float | None:
-        try:
-            proc = self._remote(f"{self.profile.charge_cmd} {job_id}")
-        except NeedLogin:
-            raise
-        except BackendError:
-            return None  # fall back to the local estimate
-        return parse_charge(proc.stdout)
 
     def cancel(self, job_ids: list[str]) -> None:
         ids = check_job_ids(job_ids)

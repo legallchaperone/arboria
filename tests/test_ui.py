@@ -36,6 +36,12 @@ def _svg(text: str) -> ET.Element:
     return ET.fromstring(text)  # well-formed XML, or this raises
 
 
+def _has_cmd(html: str, text: str) -> bool:
+    """A select-all command chip (primary or secondary) showing exactly `text`."""
+    return re.search(r'<code class="cmd( alt)?"[^>]*>' + re.escape(text) + "</code>",
+                     html) is not None
+
+
 # ---------------------------------------------------------------- data layer
 
 
@@ -114,25 +120,40 @@ def test_old_schema_is_reported_not_migrated(initialized: Path) -> None:
 def test_inbox_lists_commands_not_buttons(board_project: Path) -> None:
     b = data.load(board_project)
     html = views.inbox(b)
-    for text in ('<code class="cmd">arb approve r003</code>',
-                 '<code class="cmd">arb reject r003</code>',
-                 '<code class="cmd">arb lesson accept l001</code>',
-                 '<code class="cmd">arb lesson reject l001</code>',
-                 "审核单 r003（idea exp1）", "你上次写笔记之后结束的 run", "命令 svd（新建）",
+    for text in ("arb approve r003", "arb reject r003", "arb lesson accept l001",
+                 "arb lesson reject l001"):
+        assert _has_cmd(html, text), text
+    for text in ("审核单 r003（idea exp1）", "新结束的 run", "写命令 svd",
                  "把 eval 改成每 500 步一次", "2 天前", "r006 已取消（arb cancel）"):
         assert text in html, text
-    assert html.index("<b>r006</b>") < html.index("<b>r002</b>")  # newest first
+    # the approval card stays collapsed
+    assert '<details class="more"><summary>审核单</summary><pre>审核单 r003' in html
+    assert html.index('<span class="id">r006</span>') < html.index('<span class="id">r002</span>')
     assert "<button" not in html and "<form" not in html and "<input" not in html
     header = views.header(b)
-    assert re.search(r"数据更新于 \d\d:\d\d:\d\d（来自账本；集群状态由 arb watch 更新）", header)
-    assert ">4</div><div class=\"k\">需要你处理" in header
+    assert re.search(r">更新于 \d\d:\d\d:\d\d<", header) and views.UPDATED_TIP in header
+    assert '<div class="k">需要你处理</div><div class="v">4</div>' in header
+    assert str(board_project) not in header  # no absolute path in the header
+
+
+def test_long_lists_show_the_newest_few(board_project: Path) -> None:
+    b = data.load(board_project)
+    t = b.loaded_at
+    b.notifications = [(t, f"消息 {k}") for k in range(7)]
+    html = views.inbox(b)
+    shown, _, rest = html.partition('<details class="more"><summary>更早 4 条</summary>')
+    assert "消息 2" in shown and "消息 3" not in shown and "消息 6" in rest
+    first = b.human_notes(b.idea("exp1")["id"])[0]
+    b.notes += [dict(first, id=900 + k, text=f"笔记 {k}") for k in range(4)]
+    detail = views.idea_detail(b, "exp1")
+    assert "更早 2 条" in detail and "笔记 0" in detail and "笔记 3" in detail
 
 
 def test_empty_groups_collapse(initialized: Path) -> None:
     b = data.load(initialized)
     html = views.inbox(b)
-    for title in ("待批准的 run", "待确认的经验", "未完成的待办（等 Claude 处理）"):
-        assert f'<div class="group empty">{title} · 0 · ' in html
+    for title in ("待批准的 run", "待确认的经验", "等 Claude 的待办", "最近通知"):
+        assert f'<div class="group empty">{title} · 无</div>' in html
     assert "还没有 idea" in views.tree(b)
     assert "没有选中的 idea" in views.idea_detail(b, views.default_idea(b))
     assert "未设项目预算" in views.budget(b) and "还没有花费" in views.budget(b)
@@ -145,7 +166,11 @@ def test_idea_tree_svg(board_project: Path) -> None:
     ns = "{http://www.w3.org/2000/svg}"
     labels = [t.text for t in root.iter(f"{ns}text") if t.text and t.text.startswith("exp")]
     # parents before children: exp1, its children by creation time, then exp4
-    assert labels == ["exp1", "exp2", "exp3 ✕", "exp4 ◆"]
+    assert labels == ["exp1", "exp2", "exp3", "exp4"]
+    # confidence (and merged / dropped) as a short text label at the end of each row
+    ends = ["".join(s.text or "" for s in t.iter(f"{ns}tspan")) for t in root.iter(f"{ns}text")
+            if any(True for _ in t.iter(f"{ns}tspan"))]
+    assert ends == ["初步", "猜测", "猜测 · 已放弃", "已确认 · 已合并"]
     titles = [t.text for t in root.iter(f"{ns}title")]
     assert "exp1 → exp2（从 r001 分出）" in titles and "exp1 → exp3（分支）" in titles
     ticks = [t for t in titles if re.match(r"r\d{3} · ", t)]
@@ -154,9 +179,14 @@ def test_idea_tree_svg(board_project: Path) -> None:
     assert any(t.startswith("exp4 · 置信度 已确认") for t in titles)
     dimmed = [g for g in root.iter(f"{ns}g") if g.get("opacity") == ".42"]
     assert len(dimmed) == 1 and "exp3" in ET.tostring(dimmed[0], encoding="unicode")
-    # readable in light and dark: no hard-coded black/white ink
-    assert not re.search(r"#000\b|#fff\b|black|white", svg, re.I)
-    assert "currentColor" in svg and "var(--arb-ok)" in svg
+    # readable in light and dark: every colour is a theme variable
+    assert not re.search(r"#[0-9a-f]{3,8}\b|black|white|rgb", svg, re.I)
+    # run ticks are neutral; only the exceptions are coloured
+    rects = [r.get("style", "") for r in root.iter(f"{ns}rect") if r.find(f"{ns}title") is not None]
+    assert len(rects) == 7
+    assert sum("--arb-bad" in r for r in rects) == 1 and sum("--arb-warn" in r for r in rects) == 1
+    assert sum("--arb-tick" in r for r in rects) == 5
+    assert "--arb-ok" not in svg and "--arb-run" not in svg
     # dropped rows can be collapsed
     hidden = views.tree(b, show_dropped=False)
     assert "exp3" not in views.tree_svg(b, show_dropped=False)
@@ -168,14 +198,20 @@ def test_idea_detail(board_project: Path) -> None:
     html = views.idea_detail(b, "exp1")
     nb = board_project / ".arboria" / "notebooks" / "exp1.py"
     assert f'href="vscode://file{nb}"' in html
-    assert f'<code class="cmd">marimo edit {nb}</code>' in html
+    assert _has_cmd(html, f"marimo edit {nb}")
     assert "lr: 3e-4 → 1e-4" in html and "时长: 2d12h → 1d" in html and "lr=3e-4" in html
     assert "baseline 看起来不错" in html and "置信度 → 初步" in html
     assert "<details><summary><b>r001</b>" in html  # summaries are collapsed
     assert "r005" in html and "草稿" in html
-    assert re.search(r'<td class="num">240\.00</td><td class="num">237\.50</td>', html)
+    # runs: run · 状态 · 改动 · 资源 · SU · wandb; the rest opens per row
+    assert re.search(r"<dt>估计上限</dt><dd><span class=\"num\">240\.00 SU</span></dd></div>"
+                     r"<div><dt>实际</dt><dd><span class=\"num\">237\.50 SU</span>", html)
+    assert '<span class="r">237.50</span>' in html and "config.yaml" in html
+    # branch / worktree / created behind 更多
+    more = html.split('<details class="more"><summary>更多</summary>', 1)[1]
+    assert "idea/exp1" in more.split("</details>", 1)[0]
     exp2 = views.idea_detail(b, "exp2")
-    assert "exp1（从 r001 的快照分出）" in exp2 and "命令 svd（新建）" in exp2
+    assert "exp1（从 r001 的快照分出）" in exp2 and "写命令 svd" in exp2
     # free text is escaped
     assert "<script>" not in exp2 and "&lt;script&gt;alert(1)&lt;/script&gt;" in exp2
     assert "（已删除）" in views.idea_detail(b, "exp3")
@@ -193,12 +229,27 @@ def test_idea_selection_defaults(board_project: Path) -> None:
 def test_budget_section(board_project: Path) -> None:
     b = data.load(board_project)
     html = views.budget(b)
-    assert "已用（共 400 SU" in html and "剩余" in html
-    assert "活跃作业 <span class=\"count\">1</span>" in html and "<b>r004</b>" in html
+    assert re.search(r"已用 [\d,.]+<small> / 400 SU</small>", html) and "剩余" in html
+    assert '<details class="more sub"><summary>估计 vs 实际' in html  # collapsed
+    assert "活跃作业 <span class=\"count\">1</span>" in html
+    assert '<span class="id">r004</span>' in html
     assert re.search(r"<b>r001</b>.*?<td class=\"num\">99%</td>", html, re.S)
     for part in re.findall(r"<svg.*?</svg>", html, re.S):
         _svg(part)
     assert "预算 400 SU" in views.su_line(b)  # used ≥ 25% of the budget: budget line drawn
+
+
+def test_one_stylesheet_for_the_app_and_standalone_html(board_project: Path) -> None:
+    css = (UI / "dashboard.css").read_text()
+    # dark tokens follow marimo's theme class and, without an explicit light theme, the system
+    for sel in ('body.dark', 'body[data-theme="dark"]', "@media (prefers-color-scheme: dark)",
+                'body:not(.light):not(.light-theme):not([data-theme="light"])'):
+        assert sel in css, sel
+    assert "@import" not in css and "url(" not in css  # offline: no web fonts or assets
+    page = views.page(data.load(board_project), "exp1")
+    assert page.startswith("<style>" + css) and 'class="arb-grid"' in page
+    for part in ("待你处理", "idea 树", "idea 详情 · exp1", "算力与预算"):
+        assert part in page, part
 
 
 def test_ticks() -> None:
@@ -359,7 +410,7 @@ def test_marimo_export_renders_the_dashboard(board_project: Path, tmp_path: Path
                          cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180)
     assert res.returncode == 0, res.stdout + res.stderr
     html = _decoded(out.read_text())
-    for text in ("Arboria 看板", "数据更新于", "（来自账本；集群状态由 arb watch 更新）",
+    for text in ("Arboria 看板", "更新于", views.UPDATED_TIP,
                  "待你处理", "待批准的 run", "arb approve r003", "arb lesson accept l001",
                  "idea 树", "exp1 → exp2（从 r001 分出）", "idea 详情 · exp2", "算力与预算",
                  "活跃作业", "估计 vs 实际", "&lt;script&gt;alert(1)"):

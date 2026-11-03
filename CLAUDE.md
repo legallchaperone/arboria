@@ -9,9 +9,11 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - `arb hook session-start` 绝不能失败，也不能输出多余内容：出任何错都 exit 0、不输出。
 - 任何东西提交到 Slurm 之前，都必须有人类批准过的 Decision。不要写任何自动批准的代码路径。`arb approve` 和 `arb lesson accept` 只能在人自己的终端里做（`human.require_terminal`：有 `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT` 或 stdin 不是 TTY 就拒绝，然后要人输入 id），install-claude 把它们设为 deny。`lab` 里没有任何批准函数。
 - 1a 的代码路径里不发网络请求。远端操作放在后端接口后面。
+- notebook 命令（`commands`）：arb 的命令行绝不执行命令代码（`arb commands list` 只用 `ast` 读）；只有人的 kernel 里 `lab.<名字>(...)` 才 import 并运行它。命令运行期间 `human.require_terminal` 拒绝（批准不能从 Claude 写的代码里发起）。命令待办的 kind/payload 由代码写，文字长度照常校验。
+- 推送到 Claude 会话（`sessions`）：只发给 SessionStart hook 记下的会话（`.arboria/sessions/*.json`，0600），绝不读进程环境里的 socket；不存不发 `CLAUDE_CODE_MESSAGING_TOKEN`（notebook 不是那个会话的子进程）；消息只由校验过的字段拼成；任何失败静默跳过。测试绝不能碰真会话：`tests/conftest.py` 清掉 `CLAUDE_CODE_MESSAGING_*` 并把 `ARBORIA_CONFIG_DIR` 指到临时目录，消息测试只用假 Unix socket。
 
 ## 代码结构
-`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）、human（只在人的终端里批准）、notebooks、tasks（待办）、lab（notebook API）。`tests/` 使用临时 git 仓库。
+`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）、human（只在人的终端里批准）、notebooks、tasks（待办）、lab（notebook API）、commands（notebook 命令库、命令待办、给 Claude 的 guide）、sessions（会话 socket 的记录与推送）。`tests/` 使用临时 git 仓库；`tests/test_marimo.py` 用真的 marimo（dev 依赖）跑 `marimo check --strict`、`marimo export html` 和真 kernel 里的自动重跑（`tests/marimo_session.py`，用了 marimo 私有接口，接口变了就 skip）。
 
 ## 开发
 - `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
@@ -37,6 +39,8 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 已知限制：`find_job` 用 `sacct --starttime=now-30days`；加入项目 id 之前提交的 run 不能再 approve，要重新 submit。
 - **分支 `notebook-api`**（基于 1b 之后的 main，没在真集群上跑过）：每个 idea 一个 marimo notebook（`.arboria/notebooks/<idea>.py`，worktree 里链接成 `notebook.py`，`info/exclude` 排除，备份仓库跟踪，Claude 只读）；`arboria.lab` notebook API（`lab.run` 只生成审核单，不批准）；schema v4（`runs.parent_run`、`decisions.payload_json`、`notes.author`、`tasks`）；`arb submit --from rNNN --set k=v` 和按审核单哈希的幂等提交；`arboria.toml [wandb]`/`[run]`、`ARBORIA_WANDB_ID`、`runs.wandb_url`、拉回 `out/config.yaml` 存进 `runs.config_json`；`arb todo list/done/drop`，hook 列出待办；批准只在人的终端里（见上面的约束）；`arb note` 在 Claude Code 里被拒绝。用户的真集群工作合进 main 之后，这个分支要再 rebase/合并进 main。
 - 之后：第 2 步做提交前检查、审核包和独立 AI 审稿人、基于历史的估计（以及提交前的排队估计）；第 3 步做 marimo 面板。
+
+- 已完成 notebook 命令：schema v5（`tasks.kind` ∈ plain/command_new/command_revise，`tasks.payload_json`）；`lab.<名字>(...)`（模块级 `__getattr__`）、`.revise`/`.source`/`.info`、`lab.commands()`、`arb commands list|guide`；缺命令时写待办（同名复用）并尽力推给会话（`[claude] push`）；项目命令随备份提交版本化。自动重跑：marimo 公开的响应式（`mo.state`、`mo.watch.file`、`mo.ui.refresh`）只重跑**引用了绑定到该对象的全局变量**的 cell，`lab.svd(r)` 这种 cell 碰不到，所以 `lab._cell_rerunner` 用私有接口（`ctx._kernel.graph.set_stale` + `_execute_stale_cells_callback`，对着 0.25.2 核对过，`test_marimo_private_api_still_there` 守着），拿不到就退回“重新运行这个 cell”的提示。另有 `lab.run(repeat=True)` / `arb submit --repeat`（nonce 进审核单哈希）和 `arb idea notebook`。
 
 ## 使用 arboria 的训练代码要遵守的约定
 1. 启动时把完整的解析后配置导出为 `$ARBORIA_OUT/config.yaml`（`poll` 拉回后存进 `runs.config_json`）。

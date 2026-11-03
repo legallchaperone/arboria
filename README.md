@@ -7,10 +7,11 @@ Arboria（命令 `arb`）是一个本地命令行工具，用来记录 ML 研究
 - 每个 idea 对应一个 git 分支 `idea/NAME` 和一个独立的 worktree 文件夹 `<主仓库目录名>-NAME`（与主仓库同级）。
 - 每次 `arb run new` 会把 worktree 的当前状态（包括未提交和未跟踪但未被忽略的文件）做成快照，保存为隐藏的 git ref `refs/arboria/runs/<run id>`，**不会改动你的分支、暂存区和工作区**。
 - 每个 idea 有一个 [marimo](https://marimo.io) notebook（`.arboria/notebooks/<idea>.py`，在 worktree 里链接成 `notebook.py`）：**你**在里面整理想法、发起实验、分析结果；Claude 只读它，不改它，它的活儿来自你在 notebook 里留下的待办。
+- **Claude 写命令库，你写 notebook**：`lab.svd(r012, "对 attention 权重做 SVD，画前 20 个奇异值")` 这样的分析命令第一次调用时交给 Claude 去写，以后直接运行存下来的函数（不花 token、可复现），见下文“自定义命令”。
 - 新的 Claude Code 会话启动时，SessionStart hook 会自动注入当前 idea 的简短状态（含待办）。
 - 批准上集群和接受经验**只在你自己的终端里**做，Claude 做不了。
 
-当前版本：step 1a（本地账本）+ step 1b 中不依赖真集群的部分（提交、人工批准、Slurm 作业记录、`FakeSlurm` 测试后端和 `SshSlurm` 真实后端）。`SshSlurm` 还没有在真集群（NCSA DeltaAI）上跑通过，见下文“提交与批准”。 分支 `notebook-api` 另外加了每个 idea 的 notebook、`lab` API、待办和只在你终端里的批准。
+当前版本：step 1a（本地账本）+ step 1b 中不依赖真集群的部分（提交、人工批准、Slurm 作业记录、`FakeSlurm` 测试后端和 `SshSlurm` 真实后端）+ 每个 idea 的 notebook、`lab` API、待办、只在你终端里的批准，以及 notebook 里的自定义命令。`SshSlurm` 还没有在真集群（NCSA DeltaAI）上跑通过，见下文“提交与批准”。
 
 ## 安装
 
@@ -44,7 +45,8 @@ arb idea close --merge               # 或 --drop（先存档最终快照再删�
 - `notebook.py` 写进了 `.git/info/exclude`（所有 worktree 共用），**快照永远不包含它**，改 notebook 不会让快照变化。如果你的仓库里本来就有一个被跟踪的 `notebook.py`，arb 不会覆盖它，只提示你直接打开 `.arboria/notebooks/<idea>.py`。
 - notebook 放在 `.arboria/` 里，所以关闭 idea（`--drop` 或 `--merge`）时只删掉符号链接，notebook 本身保留；备份仓库（`.arboria/` 的 git）每次备份提交都会带上 `notebooks/*.py`（marimo 的 `__marimo__/` 缓存不跟踪）。
 - notebook 是你的：`arb install-claude` 会禁止 Claude 用 Edit/Write/MultiEdit/NotebookEdit 改 `**/notebook.py` 和 `.arboria/notebooks/**`，但它可以**读**，用来理解你的想法和分析。
-- 装 marimo：`uv tool install marimo`，或者把 arboria 装成带可选依赖 `ui` 的包（`uv pip install 'arboria[ui]'`）。在 notebook 里读 wandb 曲线还需要 `wandb`（有 `pandas` 时返回 DataFrame）。
+- 装 marimo：`uv tool install marimo`，或者把 arboria 装成带可选依赖 `ui` 的包（`uv pip install 'arboria[ui]'`）。在 notebook 里读 wandb 曲线还需要 `wandb`（有 `pandas` 时返回 DataFrame）。模板按 marimo 0.25 的文件格式写，`marimo check --strict` 没有警告。
+- 以前的 idea 没有 notebook（或者你删了它）：`arb idea notebook [NAME]` 补建 notebook 和 `notebook.py` 链接；已经有了就什么都不改，只提示一句。
 
 ## Notebook 里的 `lab` API
 
@@ -66,7 +68,8 @@ lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
 - **当前 idea 怎么确定**（`lab.resolve()`，按顺序）：`lab.use("<idea>")` 手动指定 → 调用者的 `__file__`（marimo 里就是 `.arboria/notebooks/<idea>.py` 或指向它的 `notebook.py`）→ 正在运行的 marimo app（尽力而为）→ 当前目录所在的 idea worktree。都不行就报错，提示你 `lab.use(...)`。
 - `lab.run(reason=..., from_=None, set=None, gpus=None, time=None, partition=None, nodes=None, machine=None, command=None)` 和 `arb submit` 完全一样：只在本地生成快照（或复用 `from_` 的快照）和审核单，**绝不批准**。命令默认取 `arboria.toml` 的 `[run] command`，`set` 按 `[run] override_style` 接在后面。
 - **重复执行 cell 是安全的**：同一个 idea 里如果已经有一个审核单哈希相同（同一快照、命令、资源、环境）且没有被拒绝/取消/失败的 run，就直接返回它（`arb submit` 会打印“已存在：rNNN”），不会再建一个。
-- `Run` 句柄：`.id`、`.status()`、`.card()`、`.jobs()`、`.wandb_url`、`.metrics(keys)`。
+- **有意重复跑**（例如看种子方差）：`lab.run(..., repeat=True)` / `arb submit --repeat` 跳过上面的复用，每次都建一个新 run。请求里带一个随机 nonce，它也算进审核单哈希，所以批准只对这一个 run 有效；审核单上会写“⚠ 重复运行”。注意：带 `repeat=True` 的 cell 每执行一次就多一个待批准的 run。
+- `Run` 句柄：`.id`、`.status()`、`.card()`、`.jobs()`、`.wandb_url`、`.metrics(keys)`、`.local_out`（拉回来的 `ARBORIA_OUT`）、`.config`（解析后的 config）。
 - `lab` 里没有任何批准函数。写待办、置信度、指标、`prune` 记的是**你**的记录，在 Claude Code 里调用会被拒绝。
 
 ## 待办（todo）
@@ -76,6 +79,24 @@ lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
 - `arb todo done tNNN --result "..."`：Claude 做完后写一句结果（≤600 字符）；`arb todo drop tNNN [--reason "..."]`：不做了。
 - `arb note` 现在只由你写（在 Claude Code 里会被拒绝）；Claude 的结论写进待办的 result 或 `arb run summary RUN "..."`。
 
+## 自定义命令
+
+原则：**Claude 写命令库，你写 notebook。** 你在 notebook 里直接写想要的分析：
+
+```python
+lab.svd(r012, "对 attention 权重做 SVD，画前 20 个奇异值")
+```
+
+- **第一次调用**（命令还不存在）：arb 写一个命令待办（`tNNN`，记下命令名、范围、这次调用的参数和你的说明），cell 显示“命令 svd 还不存在，已交给 Claude（t007）。写好后这个 cell 会自动重跑。”，不会报错。同名命令已经有未完成的待办时直接复用，重复执行 cell 不会堆待办。
+- **Claude 去写**：它在自己的面板里干活，拿不准又没法用默认值解决时会在面板里问你；写好 `<名字>.py` 后 `arb todo done`。约定见 `arb commands guide`（ctx 的用法、返回值、只读、不联网、只写缓存目录、带 docstring）。
+- **自动重跑**：marimo 正在运行时，调用命令的 cell 会盯着命令文件（每秒看一次，文件稳定一秒后才算），文件出现或改动就自动重跑这个 cell；结果下面有一行出处：“命令 svd · v1a2b3c4d · 项目”（版本 = 文件 sha256 前 8 位）。之后每次调用都只是运行存下来的函数：不花 token、结果可复现。返回值在 marimo 里是一个带出处的包装（原始值在 `.value`）；在普通 Python 里直接是原始值。每次调用会在账本里记一个轻量事件（不做备份提交）。
+- **修改**：`lab.svd.revise("改成 log 坐标")` 生成一个修改待办；改好后用到它的 cell 会自动重跑。`lab.svd.source()` 显示文件内容，`lab.svd.info()` 显示版本和描述，`lab.commands()` / `arb commands list [--json]` 列出所有命令。
+- **两个范围**：项目 `.arboria/commands/<名字>.py`（只属于这个仓库）和全局 `~/.config/arboria/commands/<名字>.py`（`ARBORIA_CONFIG_DIR` 可改位置，所有项目共用）。同名时项目的优先。默认写进项目；想要全局的就在第一次调用时加 `scope="global"`（`scope` 是 lab 自己用的参数，不会传给命令）。名字只能是小写字母、数字和 `_`，以字母开头，不能和 `lab` 已有的函数重名。
+- **命令文件**：一个和文件同名的函数 `def svd(ctx, run, note=None, *, k=20)`，docstring 是描述。`ctx.run(r)` 给出 run 句柄（`.local_out`、`.config`、`.metrics(keys)`），`ctx.idea`（name、hypothesis、metric），`ctx.mo`（marimo 模块或 None），`ctx.cache_dir`（`.arboria/cache/commands/<名字>/`），`ctx.value(x)`（marimo 控件取 `.value`）。
+- **交给正在运行的 Claude Code 会话**（尽力而为）：SessionStart hook 把会话的收件 socket（Claude Code ≥ 2.1.224 导出的 `CLAUDE_CODE_MESSAGING_SOCKET`）记在 `.arboria/sessions/<worktree 的哈希>.json`（权限 0600；进程已退出的条目会被清掉）。notebook 生成命令待办时，arb 找到这个 idea 的 worktree 里活着的会话，发一句短消息（待办 id、命令名，以及“运行 arb commands guide 查看约定”；不含你写的说明原文）。没有会话、socket 不对、2 秒超时或任何错误都静默跳过，cell 里会多一句“在 Claude 面板里说'处理待办'即可”。在 `arboria.toml` 里设 `[claude] push = false` 可以关掉。arb 不保存也不发送 `CLAUDE_CODE_MESSAGING_TOKEN`：notebook 的 kernel 不是那个会话的子进程，不应该冒充它。
+- **会话收不收这条消息**由 Claude Code 的 `crossSessionInbound` 决定。没有设置时（默认）：普通（会弹权限确认的）会话直接收下；`bypassPermissions` 模式的会话会弹一个对话框等你批准。`arb install-claude` **不改**这个设置：项目里的 `.claude/settings.json` 只能让它更严（`hold`/`refuse`），设 `accept` 不起作用；在用户设置里设 `"crossSessionInbound": "accept"` 会对你所有会话生效，意思是本机同一个系统用户的任何进程都能往你的会话里发消息——一般不需要。想完全不收：`"crossSessionInbound": "refuse"`。
+- **安全**：命令代码由 Claude 写，却在**你的** notebook kernel 里、以**你的**权限运行（能读写你能读写的一切）。用之前先看 diff：Claude 写或改文件时它的面板里会显示改动；项目命令还会随下一次备份提交进 `.arboria/` 的备份仓库，`git -C .arboria log -p commands/` 能看到每一次改动；`lab.<名字>.source()` 显示当前内容。全局命令（`~/.config/arboria/commands/`）不在任何仓库里，想留历史就自己把那个目录放进 git。命令运行期间 `arb approve` / `arb lesson accept` 的代码路径会拒绝（“不能在 notebook 命令里运行”），这是护栏不是沙箱；提交上集群的硬保证仍然是账本里有你的批准 Decision。
+
 ## 命令列表
 
 | 命令 | 说明 |
@@ -83,9 +104,10 @@ lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
 | `arb init` | 初始化（幂等）：`.arboria/`（SQLite 账本 + 备份用 git 仓库）、`arboria.toml` 模板（已存在则不覆盖，只在缺 `[project] id` 时补上这一项，其余内容一个字节都不动）、在 `.git/info/exclude` 中排除 `.arboria/` |
 | `arb idea new NAME --hypothesis T --metric T [--parent NAME]` | 从主 worktree 的 HEAD（或父 idea 的分支）创建分支 `idea/NAME` 和 worktree，输出 worktree 路径 |
 | `arb idea list [--json]` | 列出所有 idea |
+| `arb idea notebook [NAME]` | 给没有 notebook 的 idea 补建 notebook（和 `notebook.py` 链接）；已有就不改 |
 | `arb idea close [NAME] (--merge \| --drop) [--confidence X] [--allow-large]` | 关闭 idea（NAME 默认取当前目录所属的 idea）。`--drop`：最终快照存到 `refs/arboria/ideas/NAME/final` 并打标签 `arboria/archive/NAME`，然后删除 worktree 和分支。`--merge`：要求 worktree 没有未提交改动，在主 worktree 中 `git merge --no-ff`，冲突时自动 `git merge --abort` 并报告 |
 | `arb run new --reason T [--allow-large] [--json]` | 快照当前 idea 的 worktree，创建状态为 `draft` 的 run，输出 run id |
-| `arb submit --reason T [--from RUN] [--set K=V ...] [--gpus N] [--time DUR] [--nodes 1] [--partition P] [--machine M] [--mem GB] [--cpus N] [--allow-large] [--json] [-- CMD...]` | **只在本地**：快照当前 idea 的 worktree（`--from` 时复用那个 run 的快照，资源默认取它的），生成请求、分段计划和审核单，run 状态为 `awaiting_approval`，并生成待人决定的 Decision。不连接集群。没有 `-- CMD` 时用 `[run] command`；`--set` 按 `[run] override_style` 拼到命令后面。和已有 run 完全相同时返回那个 run（“已存在：rNNN”） |
+| `arb submit --reason T [--from RUN] [--set K=V ...] [--gpus N] [--time DUR] [--nodes 1] [--partition P] [--machine M] [--mem GB] [--cpus N] [--repeat] [--allow-large] [--json] [-- CMD...]` | **只在本地**：快照当前 idea 的 worktree（`--from` 时复用那个 run 的快照，资源默认取它的），生成请求、分段计划和审核单，run 状态为 `awaiting_approval`，并生成待人决定的 Decision。不连接集群。没有 `-- CMD` 时用 `[run] command`；`--set` 按 `[run] override_style` 拼到命令后面。和已有 run 完全相同时返回那个 run（“已存在：rNNN”），除非加 `--repeat` |
 | `arb card RUN [--json]` | 按当前机器配置重新计算并显示审核单；配置变了会提示“审核单已变化” |
 | `arb approve RUN` | **只能在你自己的终端里运行**：核对审核单哈希，显示审核单，要你输入 run id 确认，记录批准 Decision，然后发送代码、逐段 `sbatch`。中途失败（包括需要重新登录）可以再次运行同一命令续交，不会重复提交 |
 | `arb reject RUN [--reason T]` | 拒绝一个待批准的 run（理由存为该 run 的笔记），不连接集群 |
@@ -98,7 +120,9 @@ lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
 | `arb doctor [NAME]` | 只读检查：profile 是否有效、ssh 配置和 master、架构、账户余额、分区时限和倍率、各路径（或最近的上级目录）可写、配额。没有 master 时只提示重新登录，不重试。NAME 默认取 `arboria.toml` 的 `default_machine` |
 | `arb run summary RUN_ID TEXT` | 为 run 写结果总结（≤10 行 / 1500 字符） |
 | `arb note TEXT [--run ID] [--confidence X]` | **只由你来写**：给当前 idea 写笔记；`--confidence` 同时更新 idea 的置信度（在 Claude Code 里被拒绝） |
-| `arb todo list [--all] [--json]` / `done ID --result T` / `drop ID [--reason T]` | notebook 里留下的待办：列出 / 完成（结果 ≤600 字符）/ 放弃 |
+| `arb todo list [--all] [--json]` / `done ID --result T` / `drop ID [--reason T]` | notebook 里留下的待办：列出 / 完成（结果 ≤600 字符）/ 放弃。命令待办标着 `[command_new]` / `[command_revise]`，`--json` 里的 `payload_json` 有调用细节 |
+| `arb commands list [--json]` | 列出项目和全局的 notebook 命令（版本、描述、被项目同名命令覆盖的、有问题的）；不执行命令代码 |
+| `arb commands guide` | 打印写 notebook 命令的约定（给 Claude 看） |
 | `arb status [--json] [--brief]` | 在 idea worktree 中：该 idea 的假设、指标、置信度、runs、最近 5 条笔记、待决事项；在主 worktree 中：所有 open idea 概览 |
 | `arb export [--out FILE]` | 导出所有 idea 的 Markdown（新的在前），可直接粘贴到 Claude Desktop |
 | `arb lesson propose TEXT [--idea NAME \| --run ID]` | 提出一条经验（单行、≤200 字符），同时生成一个待人确认的 Decision；来源默认取当前目录所属的 idea |
@@ -138,7 +162,9 @@ arb install-claude --user   # 写入 ~/.claude/settings.json（对所有项目�
 }
 ```
 
-文件规则对 Edit、Write、MultiEdit、NotebookEdit 四个工具各有一条，覆盖 `**/.arboria/notebooks/**`、`**/.arboria/ledger.db*`、`**/.arboria/backup/**`、`**/.arboria/*.toml` 和 `**/notebook.py`；读取不受限制，`.arboria/` 里的其他文件也不受限制。旧版本放在 `ask` 里的 `arb approve` / `arb lesson accept` 会被挪到 `deny`。
+文件规则对 Edit、Write、MultiEdit、NotebookEdit 四个工具各有一条，覆盖 `**/.arboria/notebooks/**`、`**/.arboria/ledger.db*`、`**/.arboria/backup/**`、`**/.arboria/*.toml`、`**/.arboria/sessions/**` 和 `**/notebook.py`；读取不受限制，`.arboria/` 里的其他文件（特别是 `.arboria/commands/`）也不受限制。旧版本放在 `ask` 里的 `arb approve` / `arb lesson accept` 会被挪到 `deny`。
+
+另外把全局命令目录（`~/.config/arboria/commands`，按 `ARBORIA_CONFIG_DIR`，写绝对路径，不存在就先建好）加进 `permissions.additionalDirectories`，Claude 才能在项目之外写全局命令。项目里的 `.claude/settings.json` 要你接受过这个文件夹的 workspace trust 之后这一项才生效；用 `--main` 安装并提交时，这个绝对路径是你自己机器上的，别人用要改。
 
 真正的保证是**只有 `arb approve` 会提交作业**，而且提交前代码会再次核对账本里有你的批准 Decision；这些 deny 规则只是额外一层，让 Claude 不能自己直接碰集群。Claude 应该用 `arb logs` / `arb remote ls` 看集群上的东西，而不是 ssh。如果你需要 Claude 上集群帮你排查问题，可以自己在 settings.json 里放宽 `Bash(ssh:*)` 这条规则（建议排查完再改回来）。
 
@@ -235,10 +261,11 @@ out  = "/projects/<proj>/$USER/arboria/out"
 
 - 主 worktree = `git rev-parse --git-common-dir` 的父目录；所有 worktree 共享 `<主 worktree>/.arboria/`。
 - `.arboria/ledger.db`：SQLite（WAL 模式），schema 版本记录在 `PRAGMA user_version`。
-- `.arboria/` 本身是一个只用于备份的小 git 仓库：在 idea 新建/关闭、笔记、新 run、决策、经验提出/接受/拒绝/退役、待办新建/完成/放弃、置信度和指标修改之后，以及 run 的提交、批准、进入队列、拒绝、取消、结束和存入 config 之后，会把数据库导出到 `.arboria/backup/ledger.sql`，连同 `notebooks/*.py` 一起提交（轮询这类心跳更新只写数据库，不提交）。
+- `.arboria/` 本身是一个只用于备份的小 git 仓库：在 idea 新建/关闭、笔记、新 run、决策、经验提出/接受/拒绝/退役、待办新建/完成/放弃、置信度和指标修改之后，以及 run 的提交、批准、进入队列、拒绝、取消、结束和存入 config 之后，会把数据库导出到 `.arboria/backup/ledger.sql`，连同 `notebooks/*.py` 和 `commands/*.py` 一起提交（轮询这类心跳更新只写数据库，不提交）。
 - `.arboria/notebooks/<idea>.py`：每个 idea 的 notebook（备份仓库每次提交都带上）。
+- `.arboria/commands/<名字>.py`：项目的 notebook 命令（Claude 写；随备份提交进备份仓库，不进快照）；`.arboria/cache/commands/<名字>/`：命令的缓存；`.arboria/sessions/`：hook 记下的 Claude Code 会话 socket（0600）。
 - `.arboria/runs/<run>/out/`：拉回来的 `ARBORIA_OUT`；其中有 `config.yaml` 时，它的内容会存进 `runs.config_json`（装了 PyYAML 就解析成 JSON，否则原文存在 `_raw_yaml` 下，最多 200 KB）。`.arboria/notifications.log`：watch/poll 的通知。
-- `arboria.toml` 位于主 worktree 根目录，应由你提交到仓库（`[project] id`、`default_machine`、`[budget] total_su`、`[claudemd] autocommit`、`[watch]`、`[wandb]`、`[run]` 已生效；review 检查清单尚未被读取）。训练命令和 wandb：
+- `arboria.toml` 位于主 worktree 根目录，应由你提交到仓库（`[project] id`、`default_machine`、`[budget] total_su`、`[claudemd] autocommit`、`[watch]`、`[wandb]`、`[run]`、`[claude] push` 已生效；review 检查清单尚未被读取）。训练命令和 wandb：
 
   ```toml
   [wandb]

@@ -18,6 +18,8 @@ NOTEBOOKS_DIR = "notebooks"
 LINK_NAME = "notebook.py"
 EXCLUDE_PATTERN = f"/{LINK_NAME}"
 EXCLUDE_COMMENT = "arboria: notebook.py links to the idea's notebook in .arboria/ (never snapshotted)"
+# The marimo file format the template follows (checked with `marimo check --strict`).
+MARIMO_FORMAT_VERSION = "0.25.2"
 
 
 def notebooks_dir(state_dir: Path) -> Path:
@@ -40,11 +42,23 @@ def idea_of_notebook(path: Path | str) -> tuple[Path, str] | None:
     return None
 
 
-def _py_str(text: str) -> str:
-    """A Python literal for `text`: a raw triple-quoted string when that is safe."""
+def _md_call(text: str) -> str:
+    """`mo.md(...)` in marimo's own layout (what `marimo check --fix` writes): a raw
+    triple-quoted string indented with the cell when that is safe, else a plain literal."""
     if '"""' not in text and not text.endswith("\\") and "\r" not in text:
-        return 'r"""\n' + text + '\n"""'
-    return repr(text)
+        body = "\n".join(("    " + line) if line else "" for line in text.splitlines())
+        return f'mo.md(r"""\n{body}\n    """)'
+    return f"mo.md(\n        {text!r}\n    )"
+
+
+def _generated_with() -> str:
+    """The marimo version recorded in the file (marimo itself is optional here)."""
+    try:
+        from importlib.metadata import version
+
+        return version("marimo")
+    except Exception:
+        return MARIMO_FORMAT_VERSION
 
 
 def header_markdown(idea: dict[str, Any], parent: str | None = None,
@@ -59,24 +73,24 @@ def header_markdown(idea: dict[str, Any], parent: str | None = None,
         lines.append(f"- **父 idea：** {parent}{origin}")
     lines += [f"- **创建：** {idea['created_at'][:10]}", "",
               "在 markdown cell 里整理想法；在 Python cell 里用 `lab.run(reason=...)` 发起实验"
-              "（只生成审核单，批准在你自己的终端里 `arb approve`）；`lab.todo(\"...\")` 给 Claude 留待办。"]
+              "（只生成审核单，批准在你自己的终端里 `arb approve`）；`lab.todo(\"...\")` 给 Claude 留待办；"
+              "`lab.<命令>(...)` 调用 Claude 写的分析命令（还没有的会交给 Claude 写，`lab.commands()` 列出现有的）。"]
     return "\n".join(lines)
 
 
 def render(idea: dict[str, Any], parent: str | None = None,
            from_run: dict[str, Any] | None = None) -> str:
     """The notebook source (marimo's file format; plain Python)."""
-    md = _py_str(header_markdown(idea, parent, from_run))
+    md = _md_call(header_markdown(idea, parent, from_run))
     return f'''import marimo
 
+__generated_with = "{_generated_with()}"
 app = marimo.App(width="medium")
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        {md}
-    )
+    {md}
     return
 
 
@@ -84,6 +98,7 @@ def _(mo):
 def _():
     import marimo as mo
     from arboria import lab
+
     return lab, mo
 
 
@@ -100,7 +115,7 @@ if __name__ == "__main__":
 
 def create(ctx: RepoContext, idea: dict[str, Any], parent: str | None = None,
            from_run: dict[str, Any] | None = None,
-           warn: Callable[[str], None] | None = None) -> Path:
+           warn: Callable[[str], None] | None = None, *, link: bool = True) -> Path:
     """Write the idea's notebook (never overwriting one) and link it into the worktree."""
     path = notebook_path(ctx.state_dir, idea["name"])
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -108,6 +123,8 @@ def create(ctx: RepoContext, idea: dict[str, Any], parent: str | None = None,
         tmp = path.with_name(f".{path.name}.arboria-tmp")
         tmp.write_text(render(idea, parent, from_run), encoding="utf-8")
         tmp.replace(path)
+    if not link:
+        return path
     ensure_excluded(ctx.common_dir, EXCLUDE_PATTERN, EXCLUDE_COMMENT)
     link = Path(idea["worktree_path"]) / LINK_NAME
     if link.is_symlink() and link.resolve() == path.resolve():

@@ -124,6 +124,31 @@ def new_idea(
     return get_idea(ledger, name) | {"notebook": str(notebooks.notebook_path(ctx.state_dir, name))}
 
 
+def ensure_notebook(ctx: RepoContext, ledger: Ledger, name: str | None,
+                    warn: Callable[[str], None] | None = None) -> tuple[dict[str, Any], Path, bool]:
+    """Create the notebook (and, for an open idea, the worktree link) of an idea that has
+    none; (idea, notebook path, created). An existing notebook is never touched."""
+    if name is None:
+        idea = current_idea(ctx, ledger)
+        if idea is None:
+            raise ArbError("not inside an idea worktree; pass the idea NAME")
+    else:
+        idea = get_idea(ledger, name)
+    path = notebooks.notebook_path(ctx.state_dir, idea["name"])
+    existed = path.exists()
+    link = idea["status"] == "open" and Path(idea["worktree_path"]).is_dir()
+    parent = ledger.one("SELECT name FROM ideas WHERE id = ?", (idea["parent_id"],)) \
+        if idea["parent_id"] else None
+    if existed:
+        if link:  # repair a missing link; never rewrite the notebook
+            notebooks.create(ctx, idea, warn=warn)
+        return idea, path, False
+    with ledger.write():
+        notebooks.create(ctx, idea, parent["name"] if parent else None, warn=warn, link=link)
+        ledger.event("notebook_new", idea["name"], {"notebook": str(path.relative_to(ctx.state_dir))})
+    return idea, path, True
+
+
 def list_ideas(ledger: Ledger) -> list[dict[str, Any]]:
     return ledger.all(
         "SELECT i.*, p.name AS parent_name,"

@@ -144,3 +144,37 @@ def test_idea_created_before_failure_leaves_no_notebook(initialized: Path, arb,
     with Ledger(initialized / ".arboria") as l:
         assert l.one("SELECT COUNT(*) AS n FROM ideas")["n"] == 0
     assert not (initialized.parent / "proj-exp1").exists()
+
+
+def test_idea_notebook_creates_a_missing_notebook(idea: Path, initialized: Path, arb) -> None:
+    nb = _nb(initialized)
+    out = arb(idea, "idea", "notebook").stdout
+    assert "already has a notebook" in out and "left as is" in out
+    nb.write_text("# mine\n")
+    (idea / "notebook.py").unlink()
+    arb(idea, "idea", "notebook")  # repairs the link, keeps the notebook
+    assert (idea / "notebook.py").resolve() == nb.resolve() and nb.read_text() == "# mine\n"
+
+    nb.unlink()
+    (idea / "notebook.py").unlink()
+    out = arb(initialized, "idea", "notebook", "exp1").stdout
+    assert out.startswith(f"created {nb}") and "**假设：** warmup helps" in nb.read_text()
+    assert (idea / "notebook.py").resolve() == nb.resolve()
+    assert git(initialized / ".arboria", "log", "-1", "--format=%s") == \
+        "arboria backup: notebook_new exp1"
+    assert "notebooks/exp1.py" in git(initialized / ".arboria", "ls-files")
+
+    # a closed idea gets the file only (its worktree is gone)
+    arb(initialized, "idea", "close", "exp1", "--drop")
+    nb.unlink()
+    assert "created" in arb(initialized, "idea", "notebook", "exp1").stdout and nb.is_file()
+    assert "not inside an idea worktree" in arb(initialized, "idea", "notebook", ok=False).stderr
+    assert "no idea named" in arb(initialized, "idea", "notebook", "nope", ok=False).stderr
+
+
+def test_template_follows_marimo_format(idea: Path, initialized: Path) -> None:
+    text = _nb(initialized).read_text()
+    assert '__generated_with = "' in text
+    assert '    mo.md(r"""\n    # exp1\n' in text
+    assert "    from arboria import lab\n\n    return lab, mo\n" in text
+    assert "lab.commands()" in text

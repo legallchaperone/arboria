@@ -122,6 +122,21 @@ def idea_new(
                f"`marimo edit {idea['notebook']}`)", err=True)
 
 
+@idea_app.command("notebook")
+@handle_errors
+def idea_notebook(
+    name: Annotated[Optional[str], typer.Argument(help="Defaults to the idea of the current directory.")] = None,
+) -> None:
+    """Create the notebook (and notebook.py link) of an idea that has none."""
+    ctx, ledger = _open()
+    with ledger:
+        idea, path, created = ideas_mod.ensure_notebook(ctx, ledger, name, warn=_warn)
+    if created:
+        typer.echo(f"created {path} (open it with `marimo edit {path}`)")
+    else:
+        typer.echo(f"{idea['name']} already has a notebook: {path} (left as is)")
+
+
 @idea_app.command("list")
 @handle_errors
 def idea_list(as_json: JsonOpt = False) -> None:

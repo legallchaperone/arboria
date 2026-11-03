@@ -161,7 +161,7 @@ arb watch              # 或 arb poll / arb logs r003 / arb remote ls r003
 - **批准只在你自己的终端里**：`arb approve` 和 `arb lesson accept` 在环境里有 `CLAUDECODE` 或 `CLAUDE_CODE_ENTRYPOINT`（Claude Code 给它的工具设置的变量）时，或者 stdin 不是终端时，直接拒绝：“批准只能在你自己的终端里做：请在终端运行 arb approve rNNN”。然后显示审核单，要你输入 run id（或经验 id）确认。批准 Decision 里记下 author = human、进程号和最多 6 层父进程（尽力而为）。这是护栏，不是沙箱；硬保证仍然是提交前代码核对账本里有你的批准 Decision。
 - **`--from` 和 `--set`**：`--from rNNN` 复用那个 run 的快照（不再做新快照），GPU、时长、节点、分区、内存、CPU 默认取它的；命令取它的命令（它当时写了 `-- CMD` 时）或当前的 `[run] command`，再加上它的 override，用新的 `--set` 覆盖同名的。审核单上会写“复用 rNNN 的快照”。
 - **相同的提交只算一次**：审核单哈希（快照、命令、资源、环境）相同、而且没被拒绝/取消/失败的 run 已经存在时，`arb submit` 直接返回它，打印“已存在：rNNN”。想重复跑同一个实验就改点什么（例如 `--set seed=2`），或加 `--repeat`。
-- **审核单**分为 检查 / 资源 / 估计 / 预算 / 审稿（第 2 步加入，暂无）。批准绑定在审核单哈希上：哈希覆盖快照 commit、命令、资源（含账户和计费卡数）、机器、分区、分段计划和环境（prelude、env_activate、路径）以及项目 id。`arb approve` 按存下的请求和**当前**机器配置重算，对不上就拒绝（“审核单已变化，请重新 arb submit”）。
+- **审核单**分为 检查 / 资源 / 估计 / 预算。批准绑定在审核单哈希上：哈希覆盖快照 commit、命令、资源（含账户和计费卡数）、机器、分区、分段计划和环境（prelude、env_activate、路径）以及项目 id。`arb approve` 按存下的请求和**当前**机器配置重算，对不上就拒绝（“审核单已变化，请重新 arb submit”）。
 - **计费**（DeltaAI 规则）：计费卡数 = max(GPU 数, ⌈内存 / 每卡内存份额⌉, ⌈CPU / 每卡 CPU 份额⌉)。默认按卡数配内存和 CPU，所以计费卡数 = 申请卡数；手动用 `--mem` / `--cpus` 多要时，审核单上会出现 ⚠ 和实际计费卡数。估计上限 = 计费卡数 × 时长（小时）× 分区倍率，按各段累加。
 - **分段**：时长超过分区上限（`ghx4` 48h，`ghx4-interactive` 2h）就拆成 ⌈T/M⌉ 段，用 `--dependency=afterany:<上一段>` 串起来，训练代码必须能从 `ARBORIA_CKPT_DIR` 续训；段数超过 `max_segments` 拒绝。某段失败时其余段会被取消；只有最后一段 `COMPLETED` 才算成功。
 - **幂等**：每段 `sbatch` 之前先在账本里记一行 `submitting`，并先按完整作业名 `arb-<project>-<run>-s<k>` 在集群上查找（只认自己的作业、名字完全相同的）；已存在就直接采用，不重复提交。中途失败（包括需要重新登录）可以再次运行 `arb approve` 续交。

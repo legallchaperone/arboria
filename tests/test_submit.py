@@ -81,9 +81,9 @@ def _backups(main: Path) -> list[str]:
 def test_submit_is_local_and_prints_card(cluster, idea: Path, initialized: Path, arb) -> None:
     res = _submit(arb, idea)
     out = res.stdout
-    for label in ("审核单 r001（idea exp1）", "检查:", "资源:", "估计:", "预算:",
-                  "审稿（第 2 步加入，暂无）"):
+    for label in ("审核单 r001（idea exp1）", "检查:", "资源:", "估计:", "预算:"):
         assert label in out, label
+    assert "审稿" not in out
     assert out.rstrip().endswith("由你批准：arb approve r001")
     assert "✓ 计费卡数 = 申请卡数 = 4" in out and "✓ 账户 acct1" in out
     assert "上限 4 卡 × 12.00 h × 1 = 48.00 SU" in out

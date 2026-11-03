@@ -21,7 +21,6 @@ from .slurm import Ask, Plan
 CARD_CHANGED = "审核单已变化，请重新 arb submit"
 LEGACY_RUN = ("run {run} 是在加入项目 id 之前提交的（request 里没有 project），作业名和远程目录"
               "可能与其他仓库冲突；请重新 arb submit")
-REVIEW_PLACEHOLDER = "审稿（第 2 步加入，暂无）"
 
 
 class Reader(Protocol):
@@ -81,7 +80,7 @@ class Card:
         lines += ["资源:", *(f"  {t}" for t in self.resources)]
         lines += ["估计:", *(f"  {t}" for t in self.estimate)]
         lines += ["预算:", *(f"  {t}" for t in self.budget)]
-        lines += [REVIEW_PLACEHOLDER, f"审核单哈希: {self.card_hash[:16]}"]
+        lines.append(f"审核单哈希: {self.card_hash[:16]}")
         return "\n".join(lines)
 
     def as_dict(self) -> dict[str, Any]:

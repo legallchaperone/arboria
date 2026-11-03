@@ -23,7 +23,7 @@ from .db import RUN_NOT_REUSABLE, Ledger, now, validate_text
 from .errors import ArbError
 from .paths import RepoContext
 from .cards import (  # noqa: F401  (re-exported: submission.request_of etc.)
-    CARD_CHANGED, LEGACY_RUN, REVIEW_PLACEHOLDER, Card, build_card, replan, request_of,
+    CARD_CHANGED, LEGACY_RUN, Card, build_card, replan, request_of,
     run_project, su_used,
 )
 from .slurm import Ask, Plan

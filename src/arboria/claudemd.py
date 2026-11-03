@@ -34,6 +34,7 @@ RULES = """\
 - 一个 idea 一个文件夹（worktree）：只在当前 idea 的文件夹里改代码。
 - `notebook.py`（marimo，链接到 `.arboria/notebooks/<idea>.py`）是人的：读它了解人的想法和分析，绝不修改。
 - 你的工作来自待办：`arb todo list` 查看，做完用 `arb todo done tNNN --result "..."`（≤600 字）交代结果。
+- 命令待办（人在 notebook 里调用了 `lab.<名字>(...)`）：先运行 `arb commands guide` 看约定，只写 `.arboria/commands/<名字>.py`（或全局命令目录）里的那个文件，再 `arb todo done`。
 - 看状态用 `arb status`。`arb note` 只由人写；你的结论写进 `arb todo done --result` 或 `arb run summary RUN "..."`。
 - 只做本地快照用 `arb run new --reason "..."`。
 - 上集群：`arb submit --reason "..." --gpus N --time 12h [-- CMD]`，或 `arb submit --from rNNN --set k=v --reason "..."`。它只在本地生成快照和审核单，不会提交。

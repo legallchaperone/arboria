@@ -118,9 +118,9 @@ def test_old_backup_gitignore_is_upgraded(initialized: Path, arb) -> None:
 
 
 def notebooks_gitignore() -> str:
-    from arboria.db import NOTEBOOKS_GITIGNORE
+    from arboria.db import COMMANDS_GITIGNORE, NOTEBOOKS_GITIGNORE
 
-    return NOTEBOOKS_GITIGNORE
+    return NOTEBOOKS_GITIGNORE + COMMANDS_GITIGNORE
 
 
 def test_idea_of_notebook(idea: Path, initialized: Path, tmp_path: Path) -> None:

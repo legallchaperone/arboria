@@ -97,12 +97,16 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
         "Bash(scp:*)", "Bash(rsync:*)", "Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
     for tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
         for pattern in ("**/.arboria/notebooks/**", "**/.arboria/ledger.db*",
-                        "**/.arboria/backup/**", "**/.arboria/*.toml", "**/notebook.py"):
+                        "**/.arboria/backup/**", "**/.arboria/*.toml",
+                        "**/.arboria/sessions/**", "**/notebook.py"):
             assert f"{tool}({pattern})" in deny
-    # reading stays allowed, and the rest of .arboria/ (e.g. a later commands/ dir) too
+    # reading stays allowed, and the rest of .arboria/ (notably commands/) too
     assert not any(r.startswith("Read(") for r in deny)
-    assert not any("**/.arboria/**" in r for r in deny)
-    assert len(deny) == 9 + 4 * 5
+    assert not any("**/.arboria/**" in r or "commands" in r for r in deny)
+    assert len(deny) == 9 + 4 * 6
+    # the global command library is a working directory Claude may write to
+    gdir = Path(os.environ["ARBORIA_CONFIG_DIR"]) / "commands"
+    assert data["permissions"]["additionalDirectories"] == [str(gdir)] and gdir.is_dir()
     assert not (initialized / ".claude").exists()
 
     res = arb(idea, "install-claude")  # idempotent

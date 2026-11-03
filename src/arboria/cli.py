@@ -11,6 +11,7 @@ from typing import Annotated, Any, Callable, Optional
 import typer
 
 from . import claudemd, human, slurm
+from . import commands as commands_mod
 from . import hook as hook_mod
 from . import ideas as ideas_mod
 from . import install as install_mod
@@ -51,6 +52,9 @@ app.add_typer(machine_app, name="machine")
 todo_app = typer.Typer(help="Todos from the idea notebooks (written by the human, done by Claude).",
                        no_args_is_help=True)
 app.add_typer(todo_app, name="todo")
+commands_app = typer.Typer(help="Notebook commands (written by Claude, called as lab.<name>(...)).",
+                           no_args_is_help=True)
+app.add_typer(commands_app, name="commands")
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
 ConfidenceOpt = Annotated[
@@ -497,7 +501,8 @@ def lesson_retire(lesson_id: Annotated[str, typer.Argument(help="Lesson id, e.g.
 
 
 def _todo_line(t: dict[str, Any]) -> str:
-    line = f"{t['id']:<5} {t['status']:<7} {t['idea']:<20} {t['text']}"
+    kind = "" if t.get("kind", "plain") == "plain" else f"[{t['kind']}] "
+    line = f"{t['id']:<5} {t['status']:<7} {t['idea']:<20} {kind}{t['text']}"
     if t["result"]:
         line += f"\n      → {t['result']}"
     return line
@@ -548,6 +553,40 @@ def todo_drop(
     with ledger:
         tasks_mod.drop(ledger, task_id, reason)
     typer.echo(f"dropped {task_id}")
+
+
+# ---------------------------------------------------------------- notebook commands
+
+
+@commands_app.command("guide")
+def commands_guide() -> None:
+    """The conventions for writing a notebook command (for Claude)."""
+    typer.echo(commands_mod.guide(), nl=False)
+
+
+@commands_app.command("list")
+@handle_errors
+def commands_list(as_json: JsonOpt = False) -> None:
+    """Commands of this project and the global library (project wins on a clash)."""
+    state_dir = None
+    try:
+        ctx = locate()
+        if ctx.initialized:
+            state_dir = ctx.state_dir
+    except NotARepoError:
+        pass
+    rows = commands_mod.discover(state_dir)
+    if as_json:
+        _echo_json(rows)
+        return
+    if not rows:
+        typer.echo("no commands yet (a notebook call lab.<name>(...) asks Claude to write one)")
+        return
+    for r in rows:
+        mark = "" if r["active"] else "  (shadowed by the project's)"
+        problem = f"  ⚠ {r['problem']}" if r["problem"] else ""
+        typer.echo(f"{r['name']:<20} {commands_mod.SCOPE_LABELS[r['scope']]:<3} v{r['version']}  "
+                   f"{r['description']}{mark}{problem}")
 
 
 # ---------------------------------------------------------------- notes / status / export

@@ -6,13 +6,14 @@ from typing import Any
 
 from .claudemd import accepted_lessons, lesson_line
 from .db import Ledger, now
-from .tasks import list_tasks
+from .tasks import list_tasks, payload
 from .ideas import current_idea
 from .paths import RepoContext
 
 BRIEF_FOOTER = (
     "Ledger rules: experiment state lives in the arboria ledger, written only by `arb`. "
     "Work comes from the todos: finish one with `arb todo done tNNN --result \"...\"`; "
+    "for a command todo read `arb commands guide` first; "
     "`notebook.py` is the human's notebook: read it, never edit it; `arb note` is human-only. "
     "Use `arb status`, `arb run summary RUN \"...\"`, "
     "`arb submit --reason \"...\" --gpus N --time T [-- CMD]`; never edit .arboria/ by hand. "
@@ -21,6 +22,7 @@ BRIEF_FOOTER = (
     "Propose reusable pitfalls with `arb lesson propose \"...\"`."
 )
 TODOS_HEADER = "来自 notebook 的待办："
+COMMAND_TODOS_HEADER = "命令待办："
 # Accepted lessons shown in status / the hook (CLAUDE.md in an idea worktree may be stale).
 STATUS_LESSONS = 10
 
@@ -146,12 +148,23 @@ def format_status(data: dict[str, Any], brief: bool = False) -> str:
 
 def todo_lines(todos: list[dict[str, Any]], brief: bool, with_idea: bool) -> list[str]:
     """Open todos the human left in a notebook (the work Claude should pick up)."""
-    if not todos:
-        return []
-    lines = [TODOS_HEADER + "（做完用 `arb todo done tNNN --result \"...\"`）"]
-    for t in todos:
-        where = f" [{t['idea']}]" if with_idea else ""
-        lines.append(f"- {t['id']}{where}: {_clip(t['text'], 300 if brief else 10_000)}")
+    plain = [t for t in todos if t.get("kind", "plain") == "plain"]
+    cmds = [t for t in todos if t.get("kind", "plain") != "plain"]
+    lines: list[str] = []
+    if cmds:
+        items = []
+        for t in cmds:
+            name = payload(t).get("name", "?")
+            extra = "，修改" if t["kind"] == "command_revise" else ""
+            where = f"，{t['idea']}" if with_idea else ""
+            items.append(f"{name}（{t['id']}{extra}{where}）")
+        lines.append(COMMAND_TODOS_HEADER + "、".join(items)
+                     + "——按 `arb commands guide` 的约定写，详情见 `arb todo list --json`")
+    if plain:
+        lines.append(TODOS_HEADER + "（做完用 `arb todo done tNNN --result \"...\"`）")
+        for t in plain:
+            where = f" [{t['idea']}]" if with_idea else ""
+            lines.append(f"- {t['id']}{where}: {_clip(t['text'], 300 if brief else 10_000)}")
     return lines
 
 

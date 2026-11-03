@@ -18,8 +18,10 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 from .errors import ArbError
 
@@ -29,8 +31,37 @@ MISMATCH = "输入的 {got!r} 与 {expected} 不符，已取消（没有做任�
 MAX_ANCESTORS = 6
 
 
+IN_COMMAND = ("{command} 不能在 notebook 命令（lab.{name}）里运行：命令代码是 Claude 写的；"
+              "请在你自己的终端里运行 {command}")
+
+# Notebook commands (lab.<name>) currently executing in this process. Their code is
+# written by Claude and runs in the human's kernel, so approvals refuse while one runs.
+# A guard rail, not a sandbox: such code could undo it, which is why the human reviews
+# command diffs (README) and `_guarded_submit` still needs a recorded human Decision.
+_commands_running: dict[int, str] = {}
+_commands_lock = threading.Lock()
+
+
 class NotHumanError(ArbError):
     """Refused: this does not look like the human's own terminal."""
+
+
+@contextmanager
+def running_command(name: str) -> Iterator[None]:
+    """Mark a notebook command as executing (see `require_not_claude`)."""
+    key = id(object())
+    with _commands_lock:
+        _commands_running[key] = name
+    try:
+        yield
+    finally:
+        with _commands_lock:
+            _commands_running.pop(key, None)
+
+
+def command_running() -> str | None:
+    with _commands_lock:
+        return next(iter(_commands_running.values()), None)
 
 
 def in_claude_code(env: Mapping[str, str] | None = None) -> str | None:
@@ -100,9 +131,12 @@ def process_chain(pid: int | None = None, limit: int = MAX_ANCESTORS) -> list[di
 
 
 def require_not_claude(command: str) -> None:
-    """Refuse when running inside Claude Code (env check only)."""
+    """Refuse inside Claude Code (env check) or while a notebook command runs."""
     if in_claude_code():
         raise NotHumanError(REFUSAL.format(command=command))
+    name = command_running()
+    if name is not None:
+        raise NotHumanError(IN_COMMAND.format(command=command, name=name))
 
 
 def require_terminal(command: str) -> None:

@@ -466,6 +466,9 @@ BACKUP_GITIGNORE = (
 # Appended to the backup repo's .gitignore (also to older ones that lack it). marimo keeps
 # session caches in notebooks/__marimo__/; only the notebook sources are versioned.
 NOTEBOOKS_GITIGNORE = "!/notebooks/\n/notebooks/*\n!/notebooks/*.py\n"
+# The project's notebook commands are versioned too, so every change Claude makes to one
+# can be reviewed later (`git -C .arboria log -p commands/`).
+COMMANDS_GITIGNORE = "!/commands/\n/commands/*\n!/commands/*.py\n"
 
 
 def ensure_backup_gitignore(state_dir: Path) -> None:
@@ -473,6 +476,8 @@ def ensure_backup_gitignore(state_dir: Path) -> None:
     text = gi.read_text() if gi.exists() else BACKUP_GITIGNORE
     if "!/notebooks/" not in text:
         text += ("" if text.endswith("\n") else "\n") + NOTEBOOKS_GITIGNORE
+    if "!/commands/" not in text:
+        text += ("" if text.endswith("\n") else "\n") + COMMANDS_GITIGNORE
     if not gi.exists() or gi.read_text() != text:
         gi.write_text(text)
 
@@ -490,7 +495,7 @@ def init_backup_repo(state_dir: Path) -> None:
 
 
 def commit_backup(state_dir: Path, message: str) -> bool:
-    """Commit backup/ledger.sql and the notebooks if anything changed. Returns True if a
+    """Commit backup/ledger.sql, the notebooks and the commands if anything changed. Returns True if a
     commit was made. What is versioned is decided by the backup repo's .gitignore."""
     ensure_backup_gitignore(state_dir)
     _backup_git(["add", "-A", "--", "."], state_dir)

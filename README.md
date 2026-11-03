@@ -5,6 +5,7 @@
 [![tests](https://github.com/legallchaperone/arboria/actions/workflows/tests.yml/badge.svg)](https://github.com/legallchaperone/arboria/actions/workflows/tests.yml)
 ![Python ≥3.11](https://img.shields.io/badge/python-%E2%89%A53.11-3776ab)
 ![status: personal research tool](https://img.shields.io/badge/status-personal%20research%20tool-lightgrey)
+[![License: MIT](https://img.shields.io/badge/license-MIT-007ec6)](LICENSE)
 
 > **In English.** Arboria (`arb`) keeps the state of ML research — ideas, runs, notes, decisions — in a local SQLite ledger outside the Claude Code chat, and gives every idea its own git worktree and [marimo](https://marimo.io) notebook. Claude writes the code and reusable analysis commands; you write the notebook, and every Slurm job (with NCSA DeltaAI billing built in) needs your approval, typed in your own terminal, of a hash-bound review card. A read-only dashboard shows what is waiting for you, how ideas branched, and where the compute went. The docs are in Chinese; the full reference is [docs/guide.md](docs/guide.md).
 
@@ -129,3 +130,7 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 - [docs/guide.md](docs/guide.md)：中文完整说明（每个命令、配置项、notebook API、命令库、看板、安全模型、DeltaAI 说明）。
 - [设计说明](https://claude.ai/artifact/NCqpKzbhDfAXSURgGTc1zn)（中文网页；可能是私有链接）。
 - [CLAUDE.md](CLAUDE.md)：给开发这个工具的 Claude 看的约束和进度。
+
+## 许可证
+
+[MIT](LICENSE) © 2026 legallchaperone

@@ -1,0 +1,117 @@
+"""The real marimo (dev dependency): template check, headless runs, auto re-run."""
+
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("marimo")
+
+SRC = Path(__file__).parent.parent / "src"
+HELPER = Path(__file__).parent / "marimo_session.py"
+
+CELLS = '''
+
+@app.cell
+def _(lab):
+    t = lab.resolve()
+    r = lab.get("r001")
+    r
+    return (r,)
+
+
+@app.cell
+def _(lab, r):
+    lab.svd(r, "对 attention 权重做 SVD，画前 20 个奇异值")
+    return
+
+
+@app.cell
+def _(lab, r):
+    lab.hello(r, "say hi")
+    return
+
+
+if __name__ == "__main__":'''
+
+HELLO = '''\
+def hello(ctx, run, note=None):
+    """Say hello to a run."""
+    r = ctx.run(run)
+    return ctx.mo.md(f"hello **{r.id}** of {ctx.idea.name} ({note})")
+'''
+
+
+def _env() -> dict[str, str]:
+    env = dict(os.environ)  # the fixtures already removed Claude Code's variables
+    env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
+    return env
+
+
+def _marimo(*args: str, cwd: Path, timeout: int = 180) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, "-m", "marimo", *args], cwd=cwd, env=_env(),
+                          capture_output=True, text=True, timeout=timeout)
+
+
+def _decoded(html: str) -> str:
+    return re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), html)
+
+
+def _notebook(idea: Path, initialized: Path, arb) -> Path:
+    arb(idea, "run", "new", "--reason", "baseline")
+    nb = idea / "notebook.py"
+    text = nb.read_text()
+    nb.write_text(text.replace('\n\nif __name__ == "__main__":', CELLS))
+    return nb
+
+
+def test_template_passes_marimo_check(idea: Path) -> None:
+    res = _marimo("check", "--strict", "notebook.py", cwd=idea)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "warning" not in (res.stdout + res.stderr).lower()
+
+
+def test_headless_run_resolves_idea_and_renders(idea: Path, initialized: Path, arb) -> None:
+    nb = _notebook(idea, initialized, arb)
+    cmds = initialized / ".arboria" / "commands"
+    cmds.mkdir()
+    (cmds / "hello.py").write_text(HELLO)
+    out = idea.parent / "out.html"
+    res = _marimo("export", "html", str(nb), "-o", str(out), cwd=idea)
+    assert res.returncode == 0, res.stdout + res.stderr
+    html = _decoded(out.read_text())
+    # lab.resolve() found the idea from the notebook; the Run handle rendered
+    assert "<strong>r001</strong> · draft · baseline" in html
+    # the missing command became a todo and a placeholder (no exception)
+    assert "命令 svd 还不存在，已交给 Claude（t001）。" in html
+    # the existing command ran, with its provenance underneath
+    assert "hello <strong>r001</strong> of exp1 (say hi)" in html
+    assert re.search(r"命令 hello · v[0-9a-f]{8} · 项目", html)
+    todos = arb(idea, "todo", "list").stdout
+    assert "t001" in todos and "[command_new]" in todos
+
+
+def test_cell_reruns_when_claude_writes_the_command(idea: Path, initialized: Path, arb) -> None:
+    """A real edit-mode kernel: the placeholder cell re-runs once the file appears, and
+    again when the command is revised."""
+    nb = _notebook(idea, initialized, arb)
+    cmd = initialized / ".arboria" / "commands" / "svd.py"
+    (initialized / ".arboria" / "commands").mkdir()
+    (initialized / ".arboria" / "commands" / "hello.py").write_text(HELLO)
+    v1 = 'def svd(ctx, run, note=None):\n    """v1"""\n    return ctx.mo.md("SVD-V1 " + ctx.run(run).id)\n'
+    v2 = v1.replace("V1", "V2")
+    try:
+        res = subprocess.run([sys.executable, str(HELPER), str(nb), str(cmd),
+                              v1, "SVD-V1 r001", v2, "SVD-V2 r001"],
+                             cwd=idea, env=_env(), capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired as exc:
+        pytest.fail(f"marimo session did not finish: {exc}")
+    if res.returncode == 77:
+        pytest.skip(res.stdout.strip())
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "RERUN-OK SVD-V1 r001" in res.stdout and "RERUN-OK SVD-V2 r001" in res.stdout

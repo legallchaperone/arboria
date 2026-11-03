@@ -39,18 +39,22 @@ ui = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "marimo" },
     { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "marimo", marker = "extra == 'ui'" },
+    { name = "marimo", marker = "extra == 'ui'", specifier = ">=0.25" },
     { name = "typer", specifier = ">=0.12" },
 ]
 provides-extras = ["ui"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=8" }]
+dev = [
+    { name = "marimo", specifier = ">=0.25.2" },
+    { name = "pytest", specifier = ">=8" },
+]
 
 [[package]]
 name = "cffi"

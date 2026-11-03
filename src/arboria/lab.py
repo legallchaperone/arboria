@@ -65,9 +65,22 @@ def _caller_file() -> str | None:
 
 
 def _marimo_file() -> str | None:
-    """The running marimo notebook's path, best effort (private API, may move)."""
+    """The running marimo notebook's path, best effort.
+
+    marimo patches `__file__` in cell globals, so step 2 (`_caller_file`) normally finds
+    the notebook already. This is the fallback: the public `mo.notebook_dir()` when that
+    folder has a `notebook.py` link (an idea worktree), else the kernel context's
+    filename (private API, may move)."""
     if "marimo" not in sys.modules:
         return None
+    try:
+        import marimo as mo
+
+        folder = mo.notebook_dir()
+        if folder is not None and (Path(folder) / notebooks.LINK_NAME).is_symlink():
+            return str(Path(folder) / notebooks.LINK_NAME)
+    except Exception:
+        pass
     try:
         from marimo._runtime.context import get_context  # type: ignore
 

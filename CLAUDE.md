@@ -18,6 +18,8 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 
 ## 开发
 - `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
+- CI：`.github/workflows/tests.yml` 在 Python 3.11 和 3.13 上跑 `uv sync --all-extras --dev` + `uv run pytest`（包括真的 marimo）。
+- 用户文档：`README.md` 只放概览和快速开始，完整说明（每个命令、配置、notebook API、命令库、看板、安全模型、DeltaAI）在 `docs/guide.md`；改了命令或行为要同步 guide。
 - commit 要小、逻辑清楚。
 - 本机（macOS）会给整个 `.venv` 加 `hidden` 标志，Python 3.13 跳过 hidden 的 `.pth`，editable 安装就失效（`No module named 'arboria'`）。所以 pytest 配了 `pythonpath = ["src"]`，起子进程的测试要自己传 `PYTHONPATH`。
 

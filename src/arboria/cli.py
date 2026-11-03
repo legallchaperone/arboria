@@ -114,7 +114,11 @@ NEXT_STEPS = """
   2. arb install-claude          # hook、权限规则、CLAUDE.md 区块
   3. arb idea new NAME --hypothesis "..." --metric "..."
      # 建分支、worktree 和 notebook；之后看板上就有这个 idea 了
-  4. 用 VS Code 打开那个 worktree，notebook.py 就是这个 idea 的 notebook"""
+  4. 打开那个 worktree 里的 notebook.py（这个 idea 的 notebook）：VS Code 装 marimo 扩展，
+     或者 marimo edit notebook.py
+     marimo 默认打开时不运行 cell；想一打开就看到 lab.runs() 等，在 ~/.config/marimo/marimo.toml 里写
+       [runtime]
+       auto_instantiate = true"""
 
 
 # ---------------------------------------------------------------- ideas
@@ -133,8 +137,9 @@ def idea_new(
     with ledger:
         idea = ideas_mod.new_idea(ctx, ledger, name, hypothesis, metric, parent, warn=_warn)
     typer.echo(idea["worktree_path"])
-    typer.echo(f"notebook: {idea['notebook']} (linked as notebook.py; open it with "
-               f"`marimo edit {idea['notebook']}`)", err=True)
+    typer.echo(f"notebook: {idea['notebook']} (linked as notebook.py; open it in VS Code "
+               f"with the marimo extension, or `marimo edit notebook.py` in the worktree)",
+               err=True)
 
 
 @idea_app.command("notebook")

@@ -56,8 +56,10 @@ arb init                  # .arboria/ 账本 + arboria.toml 模板
 $EDITOR arboria.toml      # default_machine、[wandb] entity/project、[run] command，然后 commit
 arb install-claude        # SessionStart hook、权限规则、CLAUDE.md 区块
 arb idea new lr-warmup --hypothesis "warmup 能稳定早期训练" --metric "val/loss @10k steps"
-cd ../myproj-lr-warmup && marimo edit notebook.py
+cd ../myproj-lr-warmup && marimo edit notebook.py   # 或在 VS Code 里用 marimo 扩展打开
 ```
+
+marimo 默认打开 notebook 时不运行 cell；建议在 `~/.config/marimo/marimo.toml` 里设 `[runtime]` `auto_instantiate = true`，一打开就能看到 run 的状态。
 
 机器配置写在 `~/.config/arboria/clusters.toml`（示例 [`examples/clusters.toml`](examples/clusters.toml)，`arb machine init deltaai --write` 可以在集群上实测后生成）。
 
@@ -67,7 +69,7 @@ cd ../myproj-lr-warmup && marimo edit notebook.py
 from arboria import lab
 
 r = lab.run(reason="warmup 1k", gpus=4, time="12h", set={"lr": 3e-4})  # 只生成审核单
-r                                   # 等你在终端 arb approve；之后显示作业、花费、wandb 链接
+r                                   # r001 · 待批准 · warmup 1k，下面一行是 arb approve r001
 
 r.metrics(["val/loss"])             # wandb 曲线
 lab.compare(["r001", "r002"], "val/loss")

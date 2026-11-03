@@ -73,11 +73,20 @@ arb status
 arb idea close --merge               # 或 --drop（先存档最终快照再删除分支）
 ```
 
-`arb init` 第一次运行后会打印下一步：编辑 `arboria.toml`（`default_machine`、`[wandb] entity/project`、`[run] command`）并提交；`arb install-claude`；`arb idea new …`；用编辑器打开那个 worktree，`notebook.py` 就是这个 idea 的 notebook。
+`arb init` 第一次运行后会打印下一步：编辑 `arboria.toml`（`default_machine`、`[wandb] entity/project`、`[run] command`）并提交；`arb install-claude`；`arb idea new …`；打开那个 worktree 里的 `notebook.py`（这个 idea 的 notebook）。
 
 ## Notebook：每个 idea 一个
 
-- `arb idea new` 会同时创建 `.arboria/notebooks/<idea>.py`：一个普通的 marimo notebook（纯 Python 文件，创建时不需要装 marimo），开头是一个 markdown cell（idea 名、假设、指标、父 idea、创建日期），还有一个 `from arboria import lab` 的 cell。worktree 里的 `notebook.py` 是指向它的符号链接，用 `marimo edit notebook.py` 打开即可。
+- `arb idea new` 会同时创建 `.arboria/notebooks/<idea>.py`：一个普通的 marimo notebook（纯 Python 文件，创建时不需要装 marimo），开头是一个只显示渲染结果（代码折叠）的 markdown cell（idea 名、假设、指标、父 idea、创建日期），然后是 `from arboria import lab` 和 `lab.runs()` 两个 cell。worktree 里的 `notebook.py` 是指向它的符号链接。模板只在新建时写入，以后不会改你的 notebook。
+- **打开 notebook**：在 VS Code 里装 marimo 扩展后直接打开 `notebook.py`，或者在 worktree 里 `marimo edit notebook.py`。
+- **打开时自动运行**：marimo（0.25）默认打开 notebook 时**不运行** cell，要手动点运行。想一打开就看到 `lab.runs()`、run 的状态和图，在 `~/.config/marimo/marimo.toml`（有 `$XDG_CONFIG_HOME` 时在它下面）里写：
+
+  ```toml
+  [runtime]
+  auto_instantiate = true
+  ```
+
+  这是你自己的设置，arb 不会替你改；notebook 文件里的同名设置 marimo 出于安全会忽略。打开就重跑是安全的：见下面“重复执行 cell 是安全的”。
 - `notebook.py` 写进了 `.git/info/exclude`（所有 worktree 共用），**快照永远不包含它**，改 notebook 不会让快照变化。如果你的仓库里本来就有一个被跟踪的 `notebook.py`，arb 不会覆盖它，只提示你直接打开 `.arboria/notebooks/<idea>.py`。
 - notebook 放在 `.arboria/` 里，所以关闭 idea（`--drop` 或 `--merge`）时只删掉符号链接，notebook 本身保留；备份仓库（`.arboria/` 的 git）每次备份提交都会带上 `notebooks/*.py`（marimo 的 `__marimo__/` 缓存不跟踪）。
 - notebook 是你的：`arb install-claude` 会禁止 Claude 用 Edit/Write/MultiEdit/NotebookEdit 改 `**/notebook.py` 和 `.arboria/notebooks/**`，但它可以**读**，用来理解你的想法和分析。
@@ -90,9 +99,9 @@ arb idea close --merge               # 或 --drop（先存档最终快照再删�
 from arboria import lab
 
 r = lab.run(reason="warmup 1k", gpus=4, time="12h", set={"lr": 3e-4})   # 只生成审核单
-r                       # 等你批准时显示审核单；批准后显示作业、花费、wandb 链接
+r                       # 一行状态 + 一行提示（待批准时是 arb approve 命令），审核单折叠在下面
 r2 = lab.run(reason="lr 小一点", from_=r, set={"lr": 1e-4})             # 同一快照，只改参数
-lab.runs()              # 当前 idea 的所有 run（有 pandas 时是 DataFrame）
+lab.runs()              # 当前 idea 的 run 一览；lab.runs(raw=True) 是账本里的所有列
 lab.get("r001")         # 按 id 取一个 run 句柄
 r2.metrics(["val/loss"])                       # wandb 曲线（需要 wandb）
 lab.compare(["r001", "r002"], "val/loss")
@@ -107,7 +116,10 @@ lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
 - **重复执行 cell 是安全的**：同一个 idea 里如果已经有一个审核单哈希相同（同一快照、命令、资源、环境）且没有被拒绝/取消/失败的 run，就直接返回它（`arb submit` 会打印“已存在：rNNN”），不会再建一个。
 - **有意重复跑**（例如看种子方差）：`lab.run(..., repeat=True)` / `arb submit --repeat` 跳过上面的复用，每次都建一个新 run。请求里带一个随机 nonce，它也算进审核单哈希，所以批准只对这一个 run 有效；审核单上会写“⚠ 重复运行”。注意：带 `repeat=True` 的 cell 每执行一次就多一个待批准的 run。
 - `Run` 句柄：`.id`、`.status()`、`.card()`、`.jobs()`、`.wandb_url`、`.metrics(keys)`、`.local_out`（拉回来的 `ARBORIA_OUT`）、`.config`（解析后的 config）。
+- **`Run` 在 notebook 里怎么显示**：第一行是 `r003 · 待批准 · 原因 · 来自 r002`（状态用中文：草稿、待批准、已批准、排队中、运行中、成功、失败、已取消、已拒绝，和看板一致）；第二行随状态变：待批准时是 `arb approve r003`，运行中是已运行多久（分段时是第几段），成功时是用时、SU 和 wandb 链接，失败时是失败原因（`arb watch` 记下的那一行日志，没有时是失败作业的状态）。审核单、作业表、run 总结都折叠在下面（“审核单”/“详情”）。账本里的文字一律转义后显示。
+- **`lab.runs()`** 的列：run、状态、父 run、原因、资源（`4 GPU × 12h`）、SU（结束后是实际花费，之前是 `≤ 估计上限`）、创建（本地时间，`月-日 时:分`）；空值是空字符串。要原始数据（`status`、`est_cost`、`request_json` 等全部列）用 `lab.runs(raw=True)`。有 pandas 时都是 DataFrame，否则是 dict 的列表。
 - `lab` 里没有任何批准函数。写待办、置信度、指标、`prune` 记的是**你**的记录，在 Claude Code 里调用会被拒绝。
+- 这些记录在 cell 重跑时也不会重复：`lab.conf(...)`、`lab.metric(...)` 的值没变就什么都不写（没有事件、没有备份提交）；`lab.todo("...")` 遇到这个 idea 已有一模一样的未完成待办时直接返回它。
 
 ## 待办（todo）
 
@@ -128,7 +140,7 @@ lab.svd(r012, "对 attention 权重做 SVD，画前 20 个奇异值")
 - **Claude 去写**：它在自己的面板里干活，拿不准又没法用默认值解决时会在面板里问你；写好 `<名字>.py` 后 `arb todo done`。约定见 `arb commands guide`（ctx 的用法、返回值、只读、不联网、只写缓存目录、带 docstring）。
 - **自动重跑**：marimo 正在运行时，调用命令的 cell 会盯着命令文件（每秒看一次，文件稳定一秒后才算），文件出现或改动就自动重跑这个 cell；结果下面有一行出处：“命令 svd · v1a2b3c4d · 项目”（版本 = 文件 sha256 前 8 位）。之后每次调用都只是运行存下来的函数：不花 token、结果可复现。返回值在 marimo 里是一个带出处的包装（原始值在 `.value`）；在普通 Python 里直接是原始值。每次调用会在账本里记一个轻量事件（不做备份提交）。
   - 实现细节：marimo 公开的响应式只重跑引用了被改动全局变量的 cell，`lab.svd(r)` 这种 cell 碰不到，所以这里用了 marimo 的私有接口（对着 0.25.2 核对过，测试守着）；拿不到时退回成“重新运行这个 cell”的提示。
-- **修改**：`lab.svd.revise("改成 log 坐标")` 生成一个修改待办；改好后用到它的 cell 会自动重跑。`lab.svd.source()` 显示文件内容，`lab.svd.info()` 显示版本和描述，`lab.commands()` / `arb commands list [--json]` 列出所有命令。
+- **修改**：`lab.svd.revise("改成 log 坐标")` 生成一个修改待办；改好后用到它的 cell 会自动重跑。`lab.svd.source()` 显示文件内容，`lab.svd.info()` 显示版本和描述，`lab.commands()` / `arb commands list [--json]` 列出所有命令（`lab.commands()` 在 marimo 里是一张表，在普通 Python 里每个命令一行：名字、范围、版本、描述）。
 - **两个范围**：项目 `.arboria/commands/<名字>.py`（只属于这个仓库）和全局 `~/.config/arboria/commands/<名字>.py`（`ARBORIA_CONFIG_DIR` 可改位置，所有项目共用）。同名时项目的优先。默认写进项目；想要全局的就在第一次调用时加 `scope="global"`（`scope` 是 lab 自己用的参数，不会传给命令）。名字只能是小写字母、数字和 `_`，以字母开头，不能和 `lab` 已有的函数重名。
 - **命令文件**：一个和文件同名的函数 `def svd(ctx, run, note=None, *, k=20)`，docstring 是描述。`ctx.run(r)` 给出 run 句柄（`.local_out`、`.config`、`.metrics(keys)`），`ctx.idea`（name、hypothesis、metric），`ctx.mo`（marimo 模块或 None），`ctx.cache_dir`（`.arboria/cache/commands/<名字>/`），`ctx.value(x)`（marimo 控件取 `.value`）。
 - **`arb commands list` 不执行命令代码**：它只用 `ast` 读文件（版本、描述、被项目同名命令覆盖的、有问题的）。只有你 kernel 里的 `lab.<名字>(...)` 才 import 并运行它。

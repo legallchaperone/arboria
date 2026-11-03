@@ -22,7 +22,7 @@ from . import tasks as tasks_mod
 from .config import project_config, require_project_id
 from .db import Ledger
 from .errors import ArbError, NotARepoError
-from .paths import RepoContext, locate
+from .paths import RepoContext, ensure_excluded, locate
 from .state import init_state
 
 app = typer.Typer(
@@ -718,7 +718,8 @@ def install_claude(
     main: Annotated[bool, typer.Option("--main", help="Write into the main worktree instead.")] = False,
     user: Annotated[bool, typer.Option("--user", help="Write into ~/.claude/settings.json instead.")] = False,
 ) -> None:
-    """Add the SessionStart hook and permission rules to .claude/settings.json."""
+    """Add the SessionStart hook and permission rules to .claude/settings.json (the
+    machine-specific global commands dir goes into .claude/settings.local.json)."""
     if main and user:
         raise ArbError("use only one of --main / --user")
     ctx: RepoContext | None = None
@@ -733,7 +734,11 @@ def install_claude(
         root = ctx.main if main else ctx.toplevel
         if root is None:
             raise ArbError("not inside a worktree")
-    path, changes = install_mod.install(root)
+    path, changes = install_mod.install(root, local=not user)
+    if not user and ctx is not None:  # the local file is per machine: keep it out of git
+        if ensure_excluded(ctx.common_dir, install_mod.LOCAL_EXCLUDE, install_mod.LOCAL_COMMENT):
+            changes.append(f"added {install_mod.LOCAL_EXCLUDE} to "
+                           f"{ctx.common_dir / 'info' / 'exclude'}")
     if changes:
         for c in changes:
             typer.echo(c)

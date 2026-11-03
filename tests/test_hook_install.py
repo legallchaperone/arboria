@@ -104,14 +104,44 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     assert not any(r.startswith("Read(") for r in deny)
     assert not any("**/.arboria/**" in r or "commands" in r for r in deny)
     assert len(deny) == 9 + 4 * 6
-    # the global command library is a working directory Claude may write to
+    # the global command library is a working directory Claude may write to; its absolute
+    # path is this machine's, so it goes into the uncommitted settings.local.json
     gdir = Path(os.environ["ARBORIA_CONFIG_DIR"]) / "commands"
-    assert data["permissions"]["additionalDirectories"] == [str(gdir)] and gdir.is_dir()
+    assert "additionalDirectories" not in data["permissions"]
+    local = json.loads((idea / ".claude" / "settings.local.json").read_text())
+    assert local == {"permissions": {"additionalDirectories": [str(gdir)]}} and gdir.is_dir()
+    assert "/.claude/settings.local.json" in (initialized / ".git" / "info" / "exclude").read_text()
+    assert git(idea, "status", "--porcelain", "--untracked-files=all") == "?? .claude/settings.json"
     assert not (initialized / ".claude").exists()
 
     res = arb(idea, "install-claude")  # idempotent
     assert "already up to date" in res.stdout
     assert json.loads(path.read_text()) == data
+    assert json.loads((idea / ".claude" / "settings.local.json").read_text()) == local
+
+
+def test_install_claude_moves_the_commands_dir_out_of_settings_json(initialized: Path,
+                                                                    arb) -> None:
+    """Older versions wrote the machine-specific dir into the committed settings.json."""
+    gdir = str(Path(os.environ["ARBORIA_CONFIG_DIR"]) / "commands")
+    claude = initialized / ".claude"
+    claude.mkdir()
+    (claude / "settings.json").write_text(json.dumps({"permissions": {
+        "additionalDirectories": ["/data/shared", gdir, "/home/alice/.config/arboria/commands"]}}))
+    (claude / "settings.local.json").write_text(json.dumps({"model": "opus"}))
+    out = arb(initialized, "install-claude", "--main").stdout
+    assert f"permissions.additionalDirectories -= {gdir}" in out
+    data = json.loads((claude / "settings.json").read_text())
+    assert data["permissions"]["additionalDirectories"] == ["/data/shared"]  # the user's stays
+    local = json.loads((claude / "settings.local.json").read_text())
+    assert local == {"model": "opus", "permissions": {"additionalDirectories": [gdir]}}
+    # only our own dir, and the key goes away once nothing is left
+    (claude / "settings.json").write_text(json.dumps({"permissions": {
+        "additionalDirectories": [gdir]}}))
+    arb(initialized, "install-claude", "--main")
+    assert "additionalDirectories" not in json.loads((claude / "settings.json").read_text())[
+        "permissions"]
+    assert "already up to date" in arb(initialized, "install-claude", "--main").stdout
 
 
 def test_install_claude_preserves_existing(initialized: Path, arb) -> None:
@@ -150,7 +180,11 @@ def test_install_claude_main_flag_from_worktree(idea: Path, initialized: Path, a
 def test_install_claude_user_level(idea: Path, arb, tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     arb(idea, "install-claude", "--user")
-    assert (tmp_path / ".claude" / "settings.json").exists()
+    data = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    # ~/.claude/settings.json is personal already: the commands dir stays there
+    gdir = Path(os.environ["ARBORIA_CONFIG_DIR"]) / "commands"
+    assert data["permissions"]["additionalDirectories"] == [str(gdir)]
+    assert not (tmp_path / ".claude" / "settings.local.json").exists()
 
 
 def test_install_rejects_invalid_json(initialized: Path, arb) -> None:

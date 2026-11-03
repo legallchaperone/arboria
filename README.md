@@ -131,7 +131,7 @@ lab.svd(r012, "对 attention 权重做 SVD，画前 20 个奇异值")
 | `arb lesson retire ID` | 退役一条已确认的经验，并从 CLAUDE.md 中移除 |
 | `arb claudemd sync [--no-commit]` | 重写主 worktree 中 CLAUDE.md 的 arboria 区块 |
 | `arb hook session-start` | Claude Code SessionStart hook（从 stdin 读取 hook JSON） |
-| `arb install-claude [--main \| --user]` | 把 hook 和权限规则合并进 `.claude/settings.json`，并同步 CLAUDE.md 区块 |
+| `arb install-claude [--main \| --user]` | 把 hook 和权限规则合并进 `.claude/settings.json`（全局命令目录写进不提交的 `.claude/settings.local.json`），并同步 CLAUDE.md 区块 |
 
 置信度取值：`guess`、`prelim`、`confirmed`、`rejected`。
 
@@ -164,7 +164,7 @@ arb install-claude --user   # 写入 ~/.claude/settings.json（对所有项目�
 
 文件规则对 Edit、Write、MultiEdit、NotebookEdit 四个工具各有一条，覆盖 `**/.arboria/notebooks/**`、`**/.arboria/ledger.db*`、`**/.arboria/backup/**`、`**/.arboria/*.toml`、`**/.arboria/sessions/**` 和 `**/notebook.py`；读取不受限制，`.arboria/` 里的其他文件（特别是 `.arboria/commands/`）也不受限制。旧版本放在 `ask` 里的 `arb approve` / `arb lesson accept` 会被挪到 `deny`。
 
-另外把全局命令目录（`~/.config/arboria/commands`，按 `ARBORIA_CONFIG_DIR`，写绝对路径，不存在就先建好）加进 `permissions.additionalDirectories`，Claude 才能在项目之外写全局命令。项目里的 `.claude/settings.json` 要你接受过这个文件夹的 workspace trust 之后这一项才生效；用 `--main` 安装并提交时，这个绝对路径是你自己机器上的，别人用要改。
+另外把全局命令目录（`~/.config/arboria/commands`，按 `ARBORIA_CONFIG_DIR`，写绝对路径，不存在就先建好）加进 `permissions.additionalDirectories`，Claude 才能在项目之外写全局命令。这个绝对路径只属于你这台机器，所以在项目里它写进 **`.claude/settings.local.json`**（arb 把它加进 `.git/info/exclude`，不会被提交），`.claude/settings.json` 保持可移植、可以提交；旧版本写在 `settings.json` 里的这一项（以及别人机器上的 `…/arboria/commands`）会被挪走。`--user` 时仍写在 `~/.claude/settings.json` 里。项目里的设置要你接受过这个文件夹的 workspace trust 之后才生效。
 
 真正的保证是**只有 `arb approve` 会提交作业**，而且提交前代码会再次核对账本里有你的批准 Decision；这些 deny 规则只是额外一层，让 Claude 不能自己直接碰集群。Claude 应该用 `arb logs` / `arb remote ls` 看集群上的东西，而不是 ssh。如果你需要 Claude 上集群帮你排查问题，可以自己在 settings.json 里放宽 `Bash(ssh:*)` 这条规则（建议排查完再改回来）。
 

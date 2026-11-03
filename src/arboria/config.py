@@ -57,6 +57,11 @@ class RunConfig:
 
 
 @dataclass(frozen=True)
+class ClaudeConfig:
+    push: bool = True  # tell the running Claude Code session about new command todos
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     default_machine: str
     total_su: float  # 0 = no budget set
@@ -64,6 +69,7 @@ class ProjectConfig:
     watch: WatchConfig
     wandb: WandbConfig = WandbConfig("", "")
     run: RunConfig = RunConfig((), DEFAULT_OVERRIDE_STYLE)
+    claude: ClaudeConfig = ClaudeConfig()
 
 
 def load_toml(path, what: str) -> dict[str, Any]:
@@ -157,6 +163,14 @@ def _run(cfg: dict[str, Any], path) -> RunConfig:
     return RunConfig(command=command, override_style=style)
 
 
+def _claude(cfg: dict[str, Any], path) -> ClaudeConfig:
+    table = _table(cfg, "claude", path)
+    push = table.get("push", True)
+    if not isinstance(push, bool):
+        raise ArbError(f"{path}: [claude] push must be true or false")
+    return ClaudeConfig(push=push)
+
+
 def project_config(ctx: RepoContext) -> ProjectConfig:
     path = ctx.config_path
     cfg = load_toml(path, "project config") if path.is_file() else {}
@@ -171,7 +185,8 @@ def project_config(ctx: RepoContext) -> ProjectConfig:
         raise ArbError(f"{path}: [budget] total_su must be a number >= 0")
     return ProjectConfig(default_machine=machine.strip(), total_su=float(total),
                          project_id=_project_id(cfg, path), watch=_watch(cfg, path),
-                         wandb=_wandb(cfg, path), run=_run(cfg, path))
+                         wandb=_wandb(cfg, path), run=_run(cfg, path),
+                         claude=_claude(cfg, path))
 
 
 def require_project_id(ctx: RepoContext) -> str:

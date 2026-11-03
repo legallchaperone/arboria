@@ -47,6 +47,20 @@ def human_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(human, "stdin_is_tty", lambda: True)
 
 
+@pytest.fixture(autouse=True)
+def no_real_claude_session(tmp_path_factory: pytest.TempPathFactory,
+                           monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never reach a real Claude Code session or the user's config.
+
+    This suite may run inside Claude Code, which exports its own inbox socket and token;
+    the SessionStart hook (run in-process here) would record that socket and a notebook
+    command todo would then be posted into the real session. Tests that exercise
+    messaging use a fake Unix-socket server (tests/test_sessions.py)."""
+    for var in ("CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("ARBORIA_CONFIG_DIR", str(tmp_path_factory.mktemp("arboria-config")))
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     """A main worktree `proj` with one commit, a .gitignore and some files."""

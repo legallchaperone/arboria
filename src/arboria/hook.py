@@ -8,8 +8,9 @@ import traceback
 from pathlib import Path
 from typing import IO
 
+from . import sessions
 from .db import Ledger, now
-from .paths import locate
+from .paths import RepoContext, locate
 from .report import status_data, status_parts
 
 MAX_CONTEXT_CHARS = 4000
@@ -41,6 +42,7 @@ def build_output(cwd: Path) -> str | None:
         return None
     if not ctx.initialized:
         return None
+    remember_session(ctx)
     with Ledger(ctx.state_dir) as ledger:
         head, tail = status_parts(status_data(ctx, ledger), brief=True)
     # Lessons + rules (tail) are kept whole; the state part is truncated to fit.
@@ -50,6 +52,15 @@ def build_output(cwd: Path) -> str | None:
         {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}},
         ensure_ascii=False,
     )
+
+
+def remember_session(ctx: RepoContext) -> None:
+    """Record this session's inbox socket for its worktree (see sessions.py); silent."""
+    try:
+        if ctx.toplevel is not None:
+            sessions.record(ctx.state_dir, ctx.toplevel)
+    except Exception:
+        _log_error(ctx.cwd)
 
 
 def _log_error(cwd: Path | None) -> None:

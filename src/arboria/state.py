@@ -61,6 +61,11 @@ project = ""
 command = "{command}"
 # --set k=v（lab.run(set=...)）怎么接到命令后面：hydra → k=v；argparse / tyro → --k v
 override_style = "{style}"
+
+[claude]
+# notebook 里调用一个还不存在的命令（lab.svd(...)）时，除了写待办，还把待办发进这个 idea
+# worktree 里正在运行的 Claude Code 会话（本机的会话 socket，不经过网络）。false：只写待办。
+push = true
 """
 
 

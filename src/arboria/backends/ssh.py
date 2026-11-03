@@ -82,13 +82,12 @@ def su_from_billing(alloc_tres: str, elapsed_s: int, billing_per_su: float) -> f
     return float(m.group(1)) * elapsed_s / 3600 / billing_per_su
 
 
-class SshSlurm(Backend):
-    def __init__(self, profile: Profile, project: str, runner: Runner | None = None):
-        super().__init__(profile, project)
-        self.host = profile.host
-        self.runner = runner or Runner()
+class SshSession:
+    """Commands on `host` over the user's existing ssh master connection, nothing else."""
 
-    # ------------------------------------------------------------ plumbing
+    def __init__(self, host: str, runner: Runner | None = None):
+        self.host = host
+        self.runner = runner or Runner()
 
     def ssh_argv(self, remote_cmd: str) -> list[str]:
         return ["ssh", *SSH_OPTS, self.host, remote_cmd]
@@ -99,8 +98,8 @@ class SshSlurm(Backend):
         if proc.returncode != 0:
             raise NeedLogin(need_login_message(self.host))
 
-    def _remote(self, remote_cmd: str, *, input: str | None = None, ok_codes: tuple = (0,),
-                timeout: float = TIMEOUT_S) -> subprocess.CompletedProcess[str]:
+    def remote(self, remote_cmd: str, *, input: str | None = None, ok_codes: tuple = (0,),
+               timeout: float = TIMEOUT_S) -> subprocess.CompletedProcess[str]:
         self.gate()
         proc = self.runner.run(self.ssh_argv(remote_cmd), input=input, timeout=timeout)
         if proc.returncode not in ok_codes:
@@ -108,6 +107,37 @@ class SshSlurm(Backend):
             raise BackendError(f"`{remote_cmd}` on {self.host} failed (exit {proc.returncode})"
                                + (f": {detail[-1]}" if detail else ""))
         return proc
+
+    def local_config(self) -> dict[str, str]:
+        """`ssh -G host`: the effective client config (local, opens no connection)."""
+        proc = self.runner.run(["ssh", "-G", self.host], timeout=30)
+        if proc.returncode != 0:
+            raise BackendError(f"`ssh -G {self.host}` failed: {proc.stderr.strip()}")
+        out: dict[str, str] = {}
+        for line in proc.stdout.splitlines():
+            key, _, value = line.strip().partition(" ")
+            if key:
+                out.setdefault(key.lower(), value.strip())
+        return out
+
+
+class SshSlurm(Backend):
+    def __init__(self, profile: Profile, project: str, runner: Runner | None = None):
+        super().__init__(profile, project)
+        self.session = SshSession(profile.host, runner)
+        self.host = profile.host
+        self.runner = self.session.runner
+
+    # ------------------------------------------------------------ plumbing
+
+    def ssh_argv(self, remote_cmd: str) -> list[str]:
+        return self.session.ssh_argv(remote_cmd)
+
+    def gate(self) -> None:
+        self.session.gate()
+
+    def _remote(self, remote_cmd: str, **kw) -> subprocess.CompletedProcess[str]:
+        return self.session.remote(remote_cmd, **kw)
 
     # ------------------------------------------------------------ Backend
 

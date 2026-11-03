@@ -15,10 +15,11 @@ from . import hook as hook_mod
 from . import ideas as ideas_mod
 from . import install as install_mod
 from . import lessons as lessons_mod
+from . import machine as machine_mod
 from . import monitor, records, report, submission
-from .config import require_project_id
+from .config import project_config, require_project_id
 from .db import Ledger
-from .errors import ArbError
+from .errors import ArbError, NotARepoError
 from .paths import RepoContext, locate
 from .state import init_state
 
@@ -43,6 +44,9 @@ app.add_typer(lesson_app, name="lesson")
 remote_app = typer.Typer(help="Read-only views of a run's files on the cluster.",
                          no_args_is_help=True)
 app.add_typer(remote_app, name="remote")
+machine_app = typer.Typer(help="Cluster machine profiles (~/.config/arboria/clusters.toml).",
+                          no_args_is_help=True)
+app.add_typer(machine_app, name="machine")
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
 ConfidenceOpt = Annotated[
@@ -496,6 +500,66 @@ def export(
     else:
         out.write_text(md, encoding="utf-8")
         typer.echo(f"wrote {out}")
+
+
+# ---------------------------------------------------------------- machines
+
+
+@machine_app.command("init")
+@handle_errors
+def machine_init(
+    name: Annotated[str, typer.Argument(help="Machine name, e.g. deltaai.")],
+    host: Annotated[Optional[str], typer.Option("--host", help="~/.ssh/config alias (default: the profile's host, else NAME).")] = None,
+    account: Annotated[Optional[str], typer.Option("--account", help="Slurm account, if you have several.")] = None,
+    write: Annotated[bool, typer.Option("--write", help="Write the profile into clusters.toml.")] = False,
+    replace: Annotated[bool, typer.Option("--replace", help="With --write: rewrite an existing profile (keeps a backup).")] = False,
+) -> None:
+    """Measure a Slurm machine over your ssh master (read-only) and print its profile."""
+    res = machine_mod.machine_init(name, host=host, account=account, write=write,
+                                   replace=replace)
+    for problem in res.ssh_problems:
+        _warn(f"ssh: {problem}; add to ~/.ssh/config:\n"
+              + machine_mod.SSH_BLOCK.format(host=res.proposal.values["host"]))
+    for w in res.proposal.warnings:
+        _warn(w)
+    typer.echo(res.text, nl=False)
+    if res.proposal.other_partitions:
+        typer.echo(f"# also usable, left out: {', '.join(res.proposal.other_partitions)}")
+    if res.written:
+        typer.echo(f"wrote [{name}] to {res.path}"
+                   + (f" (backup {res.backup.name})" if res.backup else ""))
+    else:
+        typer.echo(f"(not written; rerun with --write to save it to {res.path})")
+    if res.still_invalid:
+        _warn(f"still to fill in: {res.still_invalid}")
+    elif not res.proposal.values["env_activate"]:
+        _warn("env_activate is empty: decide the job environment, then set it")
+
+
+@app.command()
+@handle_errors
+def doctor(
+    name: Annotated[Optional[str], typer.Argument(help="Machine (default: arboria.toml default_machine).")] = None,
+) -> None:
+    """Read-only checks of a machine profile, the ssh setup and the cluster side."""
+    project_id = None
+    try:
+        ctx = locate()
+    except NotARepoError:
+        ctx = None
+    if ctx is not None and ctx.initialized:
+        cfg = project_config(ctx)
+        name = name or cfg.default_machine or None
+        project_id = cfg.project_id
+    if not name:
+        raise ArbError("which machine? pass a name or set default_machine in arboria.toml")
+    checks = machine_mod.doctor(name, project_id=project_id)
+    marks = {"ok": "ok  ", "warn": "WARN", "fail": "FAIL", "info": "    "}
+    for c in checks:
+        typer.echo(f"{marks[c.level]} {c.what}")
+    failed = sum(c.level == "fail" for c in checks)
+    typer.echo(f"{failed} problem(s)" if failed else "all checks passed")
+    raise typer.Exit(1 if failed else 0)
 
 
 # ---------------------------------------------------------------- Claude Code integration

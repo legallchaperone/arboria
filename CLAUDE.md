@@ -16,7 +16,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 ## 开发
 - `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
 - commit 要小、逻辑清楚。
-- macOS 上 `.venv/.../arboria.pth` 有时会被加上 `hidden` 标志，Python 3.13 会跳过它，表现为 `No module named 'arboria'`（`uv run` 会重新同步，标志又回来）。临时办法：`PYTHONPATH=$PWD/src .venv/bin/python -m pytest`。
+- 本机（macOS）会给整个 `.venv` 加 `hidden` 标志，Python 3.13 跳过 hidden 的 `.pth`，editable 安装就失效（`No module named 'arboria'`）。所以 pytest 配了 `pythonpath = ["src"]`，起子进程的测试要自己传 `PYTHONPATH`。
 
 ## 进度
 - 已完成 1a：本地账本、idea 生命周期、快照、note、status/export、hook、install-claude、托管的 CLAUDE.md 区块与 lesson。

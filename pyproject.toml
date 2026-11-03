@@ -22,3 +22,5 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# macOS may flag .venv files hidden, and Python 3.13 skips hidden .pth files
+pythonpath = ["src"]

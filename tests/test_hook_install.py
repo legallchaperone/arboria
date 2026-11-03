@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -75,6 +76,7 @@ def test_hook_corrupt_db_exits_zero(idea: Path, initialized: Path) -> None:
     proc = subprocess.run(
         [sys.executable, "-c", "from arboria.cli import app; app()", "hook", "session-start"],
         input=json.dumps({"cwd": str(idea)}), capture_output=True, text=True,
+        env={**os.environ, "PYTHONPATH": str(Path(__file__).resolve().parent.parent / "src")},
     )
     assert proc.returncode == 0 and proc.stdout == ""
     assert "Traceback" in (initialized / ".arboria" / "hook.log").read_text()

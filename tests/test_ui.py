@@ -241,6 +241,8 @@ def test_budget_section(board_project: Path) -> None:
 
 def test_one_stylesheet_for_the_app_and_standalone_html(board_project: Path) -> None:
     css = (UI / "dashboard.css").read_text()
+    app = (UI / "dashboard.py").read_text()
+    assert 'css_file="dashboard.css"' in app and 'width="full"' in app
     # dark tokens follow marimo's theme class and, without an explicit light theme, the system
     for sel in ('body.dark', 'body[data-theme="dark"]', "@media (prefers-color-scheme: dark)",
                 'body:not(.light):not(.light-theme):not([data-theme="light"])'):
@@ -401,6 +403,7 @@ def test_marimo_export_renders_the_dashboard(board_project: Path, tmp_path: Path
     app = tmp_path / "app" / "dashboard.py"  # a copy: export writes __marimo__/ beside it
     app.parent.mkdir()
     shutil.copy(APP, app)
+    shutil.copy(APP.with_name("dashboard.css"), app.with_name("dashboard.css"))
     out = tmp_path / "out.html"
     env = {**os.environ, "PYTHONPATH": str(SRC) + os.pathsep + os.environ.get("PYTHONPATH", "")}
     env.pop("ARBORIA_UI_ROOT", None)
@@ -410,7 +413,7 @@ def test_marimo_export_renders_the_dashboard(board_project: Path, tmp_path: Path
                          cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180)
     assert res.returncode == 0, res.stdout + res.stderr
     html = _decoded(out.read_text())
-    for text in ("Arboria 看板", "更新于", views.UPDATED_TIP,
+    for text in ("Arboria 看板", "更新于", views.UPDATED_TIP, "--arb-accent",
                  "待你处理", "待批准的 run", "arb approve r003", "arb lesson accept l001",
                  "idea 树", "exp1 → exp2（从 r001 分出）", "idea 详情 · exp2", "算力与预算",
                  "活跃作业", "估计 vs 实际", "&lt;script&gt;alert(1)"):

@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.25.2"
-app = marimo.App(width="full", app_title="Arboria 看板")
+app = marimo.App(width="full", app_title="Arboria 看板", css_file="dashboard.css")
 
 
 @app.cell
@@ -31,7 +31,7 @@ def _(mo, os):
         root = str(locate().main)
     refresh = mo.ui.refresh(options=["30s", "1m", "5m"], default_interval="30s",
                             label="自动刷新")
-    show_dropped = mo.ui.switch(value=True, label="显示已放弃的 idea")
+    show_dropped = mo.ui.switch(value=True, label="显示已放弃")
     get_selected, set_selected = mo.state(requested_idea)
     return get_selected, refresh, requested_idea, root, set_selected, show_dropped
 
@@ -50,13 +50,7 @@ def _(ArbError, data, mo, refresh, root):
 
 @app.cell
 def _(board, mo, refresh, views):
-    mo.hstack([mo.Html(views.header(board)), refresh], justify="space-between", align="start")
-    return
-
-
-@app.cell
-def _(board, mo, views):
-    mo.Html(views.inbox(board))
+    mo.Html(views.header(board, controls=refresh.text))
     return
 
 
@@ -65,21 +59,18 @@ def _(board, get_selected, mo, requested_idea, set_selected, views):
     _options = views.idea_options(board)
     _name = views.default_idea(board, get_selected() or requested_idea)
     _label = next((k for k, v in _options.items() if v == _name), None)
-    picker = mo.ui.dropdown(options=_options, value=_label, label="选择 idea",
+    picker = mo.ui.dropdown(options=_options, value=_label,
                             on_change=set_selected)
     return (picker,)
 
 
 @app.cell
 def _(board, mo, picker, show_dropped, views):
-    mo.vstack([mo.Html(views.tree(board, show_dropped.value, picker.value)),
-               mo.hstack([picker, show_dropped], justify="start", gap=2)])
-    return
-
-
-@app.cell
-def _(board, mo, picker, views):
-    mo.Html(views.idea_detail(board, picker.value))
+    # inbox on the left; the idea tree and the selected idea's detail on the right
+    mo.Html(views.columns(
+        views.inbox(board),
+        views.tree(board, show_dropped.value, picker.value, controls=show_dropped.text)
+        + views.idea_detail(board, picker.value, controls=picker.text)))
     return
 
 

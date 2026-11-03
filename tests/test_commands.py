@@ -312,6 +312,9 @@ def test_ctx_value_and_source(idea: Path, initialized: Path) -> None:
     assert lab.Ctx.value(FakeUI()) == 7 and lab.Ctx.value(3) == 3
     rows = lab.commands()
     assert [(r["name"], r["scope"]) for r in rows] == [("svd", "project")]
+    # outside marimo: one readable line per command, not a truncated table
+    assert repr(rows) == f"svd  项目 · v{rows[0]['version']} · {rows[0]['description']}"
+    assert repr(lab.CommandList()).startswith("还没有命令")
 
 
 def test_revise_creates_command_revise_todo(idea: Path, initialized: Path, config_dir: Path) -> None:

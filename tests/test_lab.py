@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -78,18 +79,34 @@ def test_run_creates_card_and_never_approves(cluster, idea: Path, initialized: P
     req = json.loads(_run(initialized)["request_json"])
     assert req["command"] == ["python", "train.py", "lr=0.0003", "amp=true"]
     md = r._repr_markdown_()
-    assert "等你批准：在你自己的终端运行 `arb approve r001`" in md and "审核单 r001" in md
+    assert md.startswith("**r001** · 待批准 · baseline\n\n在你自己的终端里批准：`arb approve r001`\n\n")
+    assert "审核单 r001" in md and "审稿" not in md
+    html = r._repr_html_()
+    assert "<strong>r001</strong> · " in html and "待批准</span> · baseline</div>" in html
+    assert "在你自己的终端里批准：<code>arb approve r001</code>" in html
+    # the card is there, but collapsed
+    assert "<details" in html and html.index("<details") < html.index("审核单 r001")
     assert "审核单 r001" in r.card() and r.jobs() == [] and r.wandb_url is None
     assert cluster.calls() == []
 
     again = lab.run(reason="re-executed cell", gpus=1, time="1h", set={"lr": 3e-4, "amp": True})
-    assert again.id == "r001" and again.existed and "没有重复提交" in again._repr_markdown_()
+    assert again.id == "r001" and again.existed
+    head = again._repr_html_().split("<details")[0]
+    assert "没有重复提交" not in head and "没有重复提交" in again._repr_html_()
     child = lab.run(reason="lower lr", from_=r, set={"lr": 1e-4})
-    assert child.id == "r002" and "来自 r001" in child._repr_markdown_()
+    assert child.id == "r002" and "**r002** · 待批准 · lower lr · 来自 r001\n" in \
+        child._repr_markdown_()
     assert json.loads(_run(initialized, "r002")["request_json"])["command"][-2:] == \
         ["lr=0.0001", "amp=true"]
     rows = lab.runs()
-    assert [x["id"] for x in rows] == ["r001", "r002"] and rows[1]["parent_run"] == "r001"
+    assert list(rows[0]) == ["run", "状态", "父 run", "原因", "资源", "SU", "创建"]
+    assert [x["run"] for x in rows] == ["r001", "r002"]
+    assert rows[0] | {"创建": ""} == {"run": "r001", "状态": "待批准", "父 run": "", "原因": "baseline",
+                                    "资源": "1 GPU × 1h", "SU": "≤ 1", "创建": ""}
+    assert rows[1]["父 run"] == "r001" and re.fullmatch(r"\d\d-\d\d \d\d:\d\d", rows[1]["创建"])
+    raw = lab.runs(raw=True)
+    assert raw[1]["parent_run"] == "r001" and raw[1]["status"] == "awaiting_approval"
+    assert "request_json" in raw[1] and raw[1]["est_cost"] == 1.0
     assert "approve" not in [n for n in dir(lab) if not n.startswith("_")]
 
 
@@ -102,9 +119,42 @@ def test_run_status_rendering_after_approval(cluster, idea: Path, initialized: P
     cluster.advance(10)
     arb(idea, "poll")
     md = r._repr_markdown_()
-    assert "**r001** · running" in md and "| s1 | 1001 | running | 10s | " in md
-    assert "估计上限 8.00" in md and "等你批准" not in md
+    assert md.startswith("**r001** · 运行中 · x\n\n已运行 10s\n\n")
+    assert "| s1 | 1001 | 运行中 | 10s | " in md and "approve" not in md
     assert r.jobs()[0]["job_id"] == "1001"
+    cluster.advance(3600)
+    arb(idea, "poll")
+    md = r._repr_markdown_()
+    assert md.startswith("**r001** · 成功 · x\n\n用时 1h · 1.50 SU\n\n"), md
+    assert "<span style=\"color:#2f855a\">成功</span>" in r._repr_html_()
+
+
+def test_run_display_failure_reason_and_escaping(cluster, idea: Path, initialized: Path, arb,
+                                                 monkeypatch) -> None:
+    monkeypatch.chdir(idea)
+    toml = initialized / "arboria.toml"
+    toml.write_text(toml.read_text().replace('entity = ""', 'entity = "team"')
+                    .replace('project = ""', 'project = "lm"'))
+    cluster.script(jn(cluster, "r001", 1), run_s=7200,
+                   log="step 1\nRuntimeError: CUDA out of memory. <b>x</b>\n")
+    r = lab.run(reason="<script>alert(1)</script> big batch", gpus=4, time="2h")
+    arb(idea, "approve", "r001")
+    cluster.advance(120)
+    arb(idea, "watch", "--once")
+    html = r._repr_html_()
+    assert "<script>" not in html and "&lt;script&gt;alert(1)&lt;/script&gt; big batch" in html
+    assert "<b>x</b>" not in html and "失败</span>" in html
+    line = html.split("</div>")[1]
+    assert "s1 日志出现异常（匹配 CUDA out of memory）" in line and "wandb</a>" in line
+    assert "href=\"https://wandb.ai/team/lm/runs/" in line
+
+    # without a reason in the run_final event: the failed jobs' states
+    cluster.script(jn(cluster, "r002", 1), run_s=60, state="timeout")
+    r2 = lab.run(reason="y", gpus=1, time="1h")
+    arb(idea, "approve", "r002")
+    cluster.advance(120)
+    arb(idea, "poll")
+    assert r2._repr_markdown_().split("\n\n")[1].startswith("s1 超时"), r2._repr_markdown_()
 
 
 class FakeWandbRun:

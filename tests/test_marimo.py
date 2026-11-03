@@ -86,7 +86,7 @@ def test_headless_run_resolves_idea_and_renders(idea: Path, initialized: Path, a
     assert res.returncode == 0, res.stdout + res.stderr
     html = _decoded(out.read_text())
     # lab.resolve() found the idea from the notebook; the Run handle rendered
-    assert "<strong>r001</strong> · draft · baseline" in html
+    assert "<strong>r001</strong> · 草稿 · baseline" in html
     # the missing command became a todo and a placeholder (no exception)
     assert "命令 svd 还不存在，已交给 Claude（t001）。" in html
     # the existing command ran, with its provenance underneath

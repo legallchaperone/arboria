@@ -21,7 +21,7 @@ import json
 import os
 import sys
 import time as _time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterable, Mapping
@@ -35,7 +35,6 @@ from .paths import RepoContext, locate
 
 HUMAN_ONLY = ("{what} 只由人在 notebook 里做；Claude 请用 `arb todo done tNNN --result \"...\"` "
               "或 `arb run summary RUN \"...\"`")
-AWAITING = "等你批准：在你自己的终端运行 `arb approve {run}`"
 
 _use: tuple[str, Path | None] | None = None
 
@@ -173,6 +172,145 @@ def _wandb_path(url: str | None, run_id: str) -> str:
 # ---------------------------------------------------------------- runs
 
 
+def status_label(status: str) -> str:
+    """The Chinese label of a run status (the dashboard's)."""
+    from .ui.views import RUN_STATUS
+
+    return RUN_STATUS.get(status, (status, ""))[0]
+
+
+def job_state_label(state: str) -> str:
+    from .ui.views import JOB_STATE
+
+    return JOB_STATE.get(state, state)
+
+
+def _short(seconds: int | float | None) -> str:
+    """9h42m, 25m, 40s (no seconds once it is over a minute)."""
+    s = int(seconds or 0)
+    return slurm.human_duration(s - s % 60 if s >= 60 else s)
+
+
+def _clip(text: str, n: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def _esc(text: Any) -> str:
+    import html
+
+    return html.escape("" if text is None else str(text), quote=True)
+
+
+STATUS_COLOR = {"awaiting_approval": "#b7791f", "failed": "#c53030", "succeeded": "#2f855a"}
+MUTED = "opacity:.62"
+JOB_HEAD = ("段", "作业", "状态", "时长", "SU")
+
+
+@dataclass
+class _RunView:
+    """What a Run shows in a notebook; rendered as HTML (marimo, Jupyter) or Markdown."""
+
+    run_id: str
+    label: str
+    status: str
+    reason: str
+    origin: str | None
+    line: list[tuple[str, ...]] = field(default_factory=list)  # (kind, text[, url])
+    detail_title: str | None = None
+    pre: str | None = None
+    table: list[list[str]] = field(default_factory=list)
+    text: str | None = None
+    foot: str | None = None
+
+    def _join(self, parts: list[str]) -> str:
+        """Parts joined with ' · ', except right after a lead-in ending in '：'."""
+        out = parts[0]
+        for prev, part in zip(self.line, parts[1:]):
+            out += ("" if prev[1].endswith("：") else " · ") + part
+        return out
+
+    def html(self) -> str:
+        color = STATUS_COLOR.get(self.status)
+        label = (f'<span style="color:{color}">{_esc(self.label)}</span>' if color
+                 else _esc(self.label))
+        head = f"<strong>{_esc(self.run_id)}</strong> · {label} · {_esc(self.reason)}"
+        if self.origin:
+            head += f' · <span style="{MUTED}">{_esc(self.origin)}</span>'
+        out = [f"<div>{head}</div>"]
+        if self.line:
+            parts = []
+            for kind, text, *url in self.line:
+                if kind == "code":
+                    parts.append(f"<code>{_esc(text)}</code>")
+                elif kind == "link" and url and url[0].startswith(("https://", "http://")):
+                    parts.append(f'<a href="{_esc(url[0])}" target="_blank" '
+                                 f'rel="noopener">{_esc(text)}</a>')
+                elif kind == "warn":
+                    parts.append(f'<span style="color:#c53030">{_esc(text)}</span>')
+                else:
+                    parts.append(_esc(text))
+            style = "opacity:.85" if self.status == "awaiting_approval" else MUTED
+            out.append(f'<div style="margin-top:2px;{style}">{self._join(parts)}</div>')
+        if self.detail_title:
+            inner = []
+            if self.text:
+                inner.append(f'<div style="white-space:pre-wrap;margin:6px 0">{_esc(self.text)}</div>')
+            if self.table:
+                cells = "".join(f'<th style="text-align:left;padding:2px 14px 2px 0;'
+                                f'font-weight:500">{h}</th>' for h in JOB_HEAD)
+                rows = "".join("<tr>" + "".join(f'<td style="padding:2px 14px 2px 0">{_esc(c)}</td>'
+                                                for c in r) + "</tr>" for r in self.table)
+                inner.append(f'<table style="font-size:.9em;border-collapse:collapse;margin:4px 0">'
+                             f"<tr>{cells}</tr>{rows}</table>")
+            if self.pre:
+                inner.append('<pre style="font-size:12px;line-height:1.5;margin:6px 0 0;'
+                             'padding:10px 12px;border-radius:6px;white-space:pre-wrap;'
+                             f'background:rgba(127,127,127,.08)">{_esc(self.pre)}</pre>')
+            if self.foot:
+                inner.append(f'<div style="{MUTED};font-size:.85em;margin-top:4px">'
+                             f"{_esc(self.foot)}</div>")
+            out.append(f'<details style="margin-top:6px"><summary style="cursor:pointer;'
+                       f'{MUTED};font-size:.9em">{_esc(self.detail_title)}</summary>'
+                       + "".join(inner) + "</details>")
+        return '<div class="arb-run" style="line-height:1.7">' + "".join(out) + "</div>"
+
+    def markdown(self) -> str:
+        def md(text: Any) -> str:
+            import html
+
+            return html.escape("" if text is None else str(text), quote=False)
+
+        head = f"**{md(self.run_id)}** · {md(self.label)} · {md(self.reason)}"
+        if self.origin:
+            head += f" · {md(self.origin)}"
+        blocks = [head]
+        if self.line:
+            parts = []
+            for kind, text, *url in self.line:
+                if kind == "code":
+                    parts.append(f"`{text}`")
+                elif kind == "link" and url:
+                    parts.append(f"[{md(text)}]({url[0]})")
+                else:
+                    parts.append(md(text))
+            blocks.append(self._join(parts))
+        if self.text:
+            blocks.append(md(self.text))
+        if self.table:
+            rows = ["| " + " | ".join(JOB_HEAD) + " |", "|" + " --- |" * len(JOB_HEAD)]
+            rows += ["| " + " | ".join(md(c) for c in r) + " |" for r in self.table]
+            blocks.append("\n".join(rows))
+        if self.pre:
+            fence = "`" * max(3, max((len(r) for r in _backtick_runs(self.pre)), default=0) + 1)
+            blocks.append(f"{fence}text\n{self.pre}\n{fence}")
+        if self.foot:
+            blocks.append(f"_{md(self.foot)}_")
+        return "\n\n".join(blocks)
+
+
+
+
 class Run:
     """A handle on one run; every accessor reads the ledger afresh."""
 
@@ -227,31 +365,86 @@ class Run:
         """wandb metrics: a DataFrame if pandas is installed, else a list of dicts."""
         return _table(self.history(keys))
 
-    def _repr_markdown_(self) -> str:
-        run = self.row()
-        lines = [f"**{self.id}** · {run['status']} · {run['change_reason']}"
-                 + ("（已存在，没有重复提交）" if self.existed else "")]
-        if run["parent_run"]:
-            lines.append(f"来自 {run['parent_run']}（同一快照）")
-        if run["status"] == "awaiting_approval":
-            lines += ["", AWAITING.format(run=self.id), "", "```text", self.card(), "```"]
-            return "\n".join(lines)
-        jobs = self.jobs()
-        if jobs:
-            lines += ["", "| 段 | 作业 | 状态 | 时长 | SU |", "| --- | --- | --- | --- | --- |"]
-            for j in jobs:
-                elapsed = slurm.human_duration(j["elapsed_s"]) if j["elapsed_s"] else "-"
-                su = f"{j['billed_su']:.2f}" if j["billed_su"] is not None else "-"
-                lines.append(f"| s{j['segment']} | {j['job_id'] or '-'} | {j['state']} | "
-                             f"{elapsed} | {su} |")
-        if run["est_cost"] is not None:
-            cost = run["actual_cost"] or 0
-            lines += ["", f"花费 {cost:.2f} SU（估计上限 {run['est_cost']:.2f}）"]
-        if run["wandb_url"]:
-            lines.append(f"[wandb]({run['wandb_url']})")
+    # -- display: one status line, one short line that depends on the status, and the
+    # rest (approval card, jobs, summary) collapsed. Ledger text is escaped (some of it
+    # is written by an LLM).
+
+    def _view(self) -> _RunView:
+        with self._ledger() as ledger:
+            run = records.get_run(ledger, self.id)
+            jobs = ledger.all("SELECT segment, job_id, state, elapsed_s, billed_su FROM jobs"
+                              " WHERE run_id = ? ORDER BY segment", (self.id,))
+            final = ledger.one("SELECT payload_json FROM events WHERE subject = ? AND kind IN"
+                               " ('run_final', 'run_reject') ORDER BY id DESC LIMIT 1",
+                               (self.id,))
+            payload = json.loads(final["payload_json"] or "{}") if final else {}
+            note = None
+            if payload.get("note"):
+                note = ledger.one("SELECT text FROM notes WHERE id = ?", (payload["note"],))
+            card_text, card_ok = None, True
+            if run["status"] == "awaiting_approval":
+                try:
+                    card, card_ok = submission.card_for(self._target.ctx, ledger, self.id)
+                    card_text = card.text()
+                except ArbError as exc:
+                    card_text, card_ok = f"审核单算不出来：{exc}", False
+        status = run["status"]
+        v = _RunView(self.id, status_label(status), status, run["change_reason"],
+                     f"来自 {run['parent_run']}" if run["parent_run"] else None)
+        cost = run["actual_cost"]
+        su = [("text", f"{cost:.2f} SU")] if cost else []
+        if status == "awaiting_approval":
+            v.line = ([("text", "在你自己的终端里批准："), ("code", f"arb approve {self.id}")]
+                      if card_ok else [("warn", f"⚠ {submission.CARD_CHANGED}")])
+            v.detail_title = "审核单"
+            v.pre = card_text
+        elif status == "queued":
+            ids = ", ".join(j["job_id"] for j in jobs if j["job_id"])
+            v.line = [("text", "排队中" + (f"，作业 {ids}" if ids else ""))]
+        elif status == "running":
+            elapsed = sum(j["elapsed_s"] or 0 for j in jobs)
+            done = sum(1 for j in jobs if j["state"] in ("completed",))
+            parts = [f"已运行 {_short(elapsed)}"]
+            if len(jobs) > 1:
+                parts.append(f"第 {min(done + 1, len(jobs))}/{len(jobs)} 段")
+            v.line = [("text", " · ".join(parts))]
+        elif status == "succeeded":
+            elapsed = sum(j["elapsed_s"] or 0 for j in jobs)
+            v.line = ([("text", f"用时 {_short(elapsed)}")] if elapsed else []) + su
+            if run["wandb_url"]:
+                v.line.append(("link", "wandb", run["wandb_url"]))
+        elif status == "failed":
+            reason = payload.get("reason")
+            if not reason:
+                bad = [f"s{j['segment']} {job_state_label(j['state'])}" for j in jobs
+                       if j["state"] in ("failed", "timeout", "cancelled")]
+                reason = "，".join(bad) or None
+            v.line = ([("text", _clip(reason, 160))] if reason else []) + su
+            if run["wandb_url"]:
+                v.line.append(("link", "wandb", run["wandb_url"]))
+        elif status == "cancelled":
+            v.line = su
+        elif status == "rejected" and note:
+            v.line = [("text", _clip(note["text"], 160))]
+        if jobs and status != "awaiting_approval":
+            v.detail_title = "详情"
+            v.table = [[f"s{j['segment']}", j["job_id"] or "", job_state_label(j["state"]),
+                        _short(j["elapsed_s"]) if j["elapsed_s"] else "",
+                        f"{j['billed_su']:.2f}" if j["billed_su"] is not None else ""]
+                       for j in jobs]
         if run["summary"]:
-            lines += ["", run["summary"]]
-        return "\n".join(lines)
+            v.detail_title = v.detail_title or "详情"
+            v.text = run["summary"]
+        if self.existed:
+            v.detail_title = v.detail_title or "详情"
+            v.foot = "这个 cell 重新运行时复用了已有的 run，没有重复提交"
+        return v
+
+    def _repr_html_(self) -> str:
+        return self._view().html()
+
+    def _repr_markdown_(self) -> str:
+        return self._view().markdown()
 
     def __repr__(self) -> str:
         return f"Run({self.id!r})"
@@ -295,17 +488,41 @@ def get(run_id: str) -> Run:
     return Run(t, run_id)
 
 
-RUN_COLUMNS = ("id", "status", "change_reason", "parent_run", "machine", "gpus", "walltime",
-               "est_cost", "actual_cost", "wandb_url", "summary", "created_at")
+def _local_short(ts: str | None) -> str:
+    """'2026-10-31T14:02:11Z' -> '10-31 22:02' in local time."""
+    if not ts:
+        return ""
+    from datetime import datetime
+
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone().strftime(
+            "%m-%d %H:%M")
+    except ValueError:
+        return ts[:16]
 
 
-def runs() -> Any:
-    """This idea's runs as a table (DataFrame if pandas is installed, else list of dicts)."""
+def _su(row: dict[str, Any]) -> str:
+    if row["actual_cost"] is not None:
+        return f"{row['actual_cost']:.2f}"
+    return f"≤ {row['est_cost']:g}" if row["est_cost"] is not None else ""
+
+
+def run_rows(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """The compact table `lab.runs()` shows (all strings; empty, never NaN)."""
+    return [{"run": r["id"], "状态": status_label(r["status"]), "父 run": r["parent_run"] or "",
+             "原因": r["change_reason"] or "",
+             "资源": f"{r['gpus']} GPU × {r['walltime']}" if r["gpus"] and r["walltime"] else "",
+             "SU": _su(r), "创建": _local_short(r["created_at"])} for r in rows]
+
+
+def runs(raw: bool = False) -> Any:
+    """This idea's runs as a compact table: run, 状态, 父 run, 原因, 资源, SU (actual, or
+    `≤ estimate` before it is known), 创建. `raw=True` gives every column of the ledger's
+    runs table instead. A DataFrame if pandas is installed, else a list of dicts."""
     t, ledger, idea = _open()
     with ledger:
-        rows = ledger.all(f"SELECT {', '.join(RUN_COLUMNS)} FROM runs WHERE idea_id = ?"
-                          " ORDER BY id", (idea["id"],))
-    return _table(rows)
+        rows = ledger.all("SELECT * FROM runs WHERE idea_id = ? ORDER BY id", (idea["id"],))
+    return _table(rows if raw else run_rows(rows))
 
 
 def compare(run_ids: Iterable[str | Run], key: str | Iterable[str]) -> Any:
@@ -721,15 +938,38 @@ class Command:
         return f"lab.{self.name}"
 
 
+class CommandList(list):
+    """`lab.commands()` outside marimo: the rows, printed one command per line."""
+
+    def __repr__(self) -> str:
+        if not self:
+            return "还没有命令（在 notebook 里调用 lab.<名字>(...) 就会交给 Claude 写）"
+        width = max(len(r["name"]) for r in self)
+        lines = []
+        for r in self:
+            line = (f"{r['name']:<{width}}  {_commands.SCOPE_LABELS[r['scope']]} · "
+                    f"v{r['version']}" + (f" · {r['description']}" if r["description"] else ""))
+            lines.append(line + (f"  ⚠ {r['problem']}" if r["problem"] else ""))
+        return "\n".join(lines)
+
+    __str__ = __repr__
+
+
 def commands() -> Any:
-    """The command library: name, scope, version, description (DataFrame with pandas)."""
+    """The command library: name, scope, version, description. In marimo a table, else
+    a list of dicts that prints one command per line."""
     try:
         state_dir: Path | None = resolve().ctx.require_initialized().state_dir
     except ArbError:
         state_dir = None
-    rows = [r for r in _commands.discover(state_dir) if r["active"]]
-    return _table([{k: r[k] for k in ("name", "scope", "version", "description", "problem")}
-                   for r in rows])
+    rows = [{k: r[k] for k in ("name", "scope", "version", "description", "problem")}
+            for r in _commands.discover(state_dir) if r["active"]]
+    if not _in_marimo_notebook():
+        return CommandList(rows)
+    problems = any(r["problem"] for r in rows)
+    return _table([{"命令": r["name"], "范围": _commands.SCOPE_LABELS[r["scope"]],
+                    "版本": r["version"], "说明": r["description"]}
+                   | ({"问题": r["problem"] or ""} if problems else {}) for r in rows])
 
 
 def __getattr__(name: str) -> Command:

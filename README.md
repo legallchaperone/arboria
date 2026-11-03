@@ -11,7 +11,7 @@ Arboria（命令 `arb`）是一个本地命令行工具，用来记录 ML 研究
 - 新的 Claude Code 会话启动时，SessionStart hook 会自动注入当前 idea 的简短状态（含待办）。
 - 批准上集群和接受经验**只在你自己的终端里**做，Claude 做不了。
 
-当前版本：step 1a（本地账本）+ step 1b 中不依赖真集群的部分（提交、人工批准、Slurm 作业记录、`FakeSlurm` 测试后端和 `SshSlurm` 真实后端）+ 每个 idea 的 notebook、`lab` API、待办、只在你终端里的批准，以及 notebook 里的自定义命令。`SshSlurm` 还没有在真集群（NCSA DeltaAI）上跑通过，见下文“提交与批准”。
+当前版本：step 1a（本地账本）+ step 1b 中不依赖真集群的部分（提交、人工批准、Slurm 作业记录、`FakeSlurm` 测试后端和 `SshSlurm` 真实后端）+ 每个 idea 的 notebook、`lab` API、待办、只在你终端里的批准、notebook 里的自定义命令，以及只读看板 `arb ui`。`SshSlurm` 还没有在真集群（NCSA DeltaAI）上跑通过，见下文“提交与批准”。
 
 ## 安装
 
@@ -97,6 +97,27 @@ lab.svd(r012, "对 attention 权重做 SVD，画前 20 个奇异值")
 - **会话收不收这条消息**由 Claude Code 的 `crossSessionInbound` 决定。没有设置时（默认）：普通（会弹权限确认的）会话直接收下；`bypassPermissions` 模式的会话会弹一个对话框等你批准。`arb install-claude` **不改**这个设置：项目里的 `.claude/settings.json` 只能让它更严（`hold`/`refuse`），设 `accept` 不起作用；在用户设置里设 `"crossSessionInbound": "accept"` 会对你所有会话生效，意思是本机同一个系统用户的任何进程都能往你的会话里发消息——一般不需要。想完全不收：`"crossSessionInbound": "refuse"`。
 - **安全**：命令代码由 Claude 写，却在**你的** notebook kernel 里、以**你的**权限运行（能读写你能读写的一切）。用之前先看 diff：Claude 写或改文件时它的面板里会显示改动；项目命令还会随下一次备份提交进 `.arboria/` 的备份仓库，`git -C .arboria log -p commands/` 能看到每一次改动；`lab.<名字>.source()` 显示当前内容。全局命令（`~/.config/arboria/commands/`）不在任何仓库里，想留历史就自己把那个目录放进 git。命令运行期间 `arb approve` / `arb lesson accept` 的代码路径会拒绝（“不能在 notebook 命令里运行”），这是护栏不是沙箱；提交上集群的硬保证仍然是账本里有你的批准 Decision。
 
+## 看板：`arb ui`
+
+每个 idea 的 notebook 是你干活的地方；看板是总览：什么在等你、idea 怎么随时间分叉、算力花在哪了。**它只读，什么都不改。**
+
+```bash
+arb ui                    # 在主 worktree 或任一 idea worktree 里运行；浏览器自动打开
+arb ui --idea lr-warmup   # 预先选中某个 idea（在 idea worktree 里运行时默认选中那个 idea）
+arb ui --port 2718
+```
+
+- 需要 marimo，而且要装在 arb 自己的环境里（看板会 import arboria）：在 arboria 源码目录 `uv tool install --force '.[ui]'`，或 `pip install 'arboria[ui]'`。没装时 `arb ui` 会直接告诉你怎么装。
+- `arb ui` 在 `127.0.0.1` 上运行包里自带的 marimo app（`marimo run`，带 marimo 的会话 token），项目根目录通过 `--` 后的参数和 `ARBORIA_UI_ROOT` 传进去。Ctrl-C 结束。
+- **只读**：账本用 SQLite 的只读模式打开（`file:…?mode=ro`），看板的代码不 import 任何写入路径；不连网、不 ssh、不调 wandb API。数据只来自账本、`.arboria/notifications.log`、`.arboria/runs/<run>/out/` 的文件列表、`arboria.toml`、`clusters.toml`（重算审核单）和 notebooks 目录。集群状态是 `arb watch` / `arb poll` 最后写进账本的样子，页面顶部写着“数据更新于 HH:MM:SS（来自账本；集群状态由 arb watch 更新）”。每 30 秒自动重读一次（右上角可改间隔）。
+- **没有会动手的按钮**：批准、接受经验、取消都留在你自己的终端里；看板只把要运行的命令显示成可以一键选中复制的文本，例如 `arb approve r014`。
+- 内容，从上到下：
+  1. **待你处理**：待批准的 run（审核单全文，和 `arb card` 一样；配置变了会标出“审核单已变化”）和 `arb approve` / `arb reject` 命令；你上次给那个 idea 写笔记之后结束的 run（写一条笔记后就不再列出）；待确认的经验和 `arb lesson accept` / `reject`；还没完成的待办（普通和命令待办，带时间）；最近 10 条 watch 通知。每组有数量，空的组缩成一行灰字。
+  2. **idea 树**：横轴是时间，每个 idea 一行，父 idea 到子 idea 有连线（从某个 run 的快照分出的从那个 run 连出），圆点颜色是置信度，◆ 已合并，✕ 已放弃（变淡，可以用开关隐藏），run 是行上的小竖条、颜色是状态。鼠标悬停看详情；用下拉框选 idea。
+  3. **idea 详情**：假设、指标、置信度、状态、分支和 worktree、notebook（`vscode://` 链接和 `marimo edit` 命令）、runs 表（父 run、状态、GPU × 时长、分区、估计/实际 SU、wandb 链接、相对父 run 改了哪些参数 `k: 旧 → 新`、拉回的输出文件数）、你的笔记、run 总结（折叠）、未完成的待办。
+  4. **算力与预算**：已用 / 总预算（`arboria.toml [budget] total_su`）、进行中和待批准的 run 估计还会花多少、各 idea 已用 SU、累计花费曲线、活跃作业、已结束 run 的估计 vs 实际。
+- 有东西在等你（待批准的 run、待确认的经验、你还没看过的已结束 run）时，`arb status` 和 SessionStart hook 会多一行“看板：arb ui”。
+
 ## 命令列表
 
 | 命令 | 说明 |
@@ -124,6 +145,7 @@ lab.svd(r012, "对 attention 权重做 SVD，画前 20 个奇异值")
 | `arb commands list [--json]` | 列出项目和全局的 notebook 命令（版本、描述、被项目同名命令覆盖的、有问题的）；不执行命令代码 |
 | `arb commands guide` | 打印写 notebook 命令的约定（给 Claude 看） |
 | `arb status [--json] [--brief]` | 在 idea worktree 中：该 idea 的假设、指标、置信度、runs、最近 5 条笔记、待决事项；在主 worktree 中：所有 open idea 概览 |
+| `arb ui [--idea NAME] [--port N]` | 打开只读看板（marimo，127.0.0.1）：待你处理的事、idea 树、idea 详情、算力与预算；需要可选依赖 `ui` |
 | `arb export [--out FILE]` | 导出所有 idea 的 Markdown（新的在前），可直接粘贴到 Claude Desktop |
 | `arb lesson propose TEXT [--idea NAME \| --run ID]` | 提出一条经验（单行、≤200 字符），同时生成一个待人确认的 Decision；来源默认取当前目录所属的 idea |
 | `arb lesson list [--all] [--json]` | 列出经验（默认只列待确认和已确认的，`--all` 含已退役/已拒绝的） |

@@ -236,12 +236,14 @@ def run(*, reason: str, from_: str | Run | None = None,
         set: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None,  # noqa: A002
         gpus: int | None = None, time: str | None = None, partition: str | None = None,
         nodes: int | None = None, machine: str | None = None,
-        command: list[str] | None = None) -> Run:
+        command: list[str] | None = None, repeat: bool = False) -> Run:
     """Create a run awaiting the human's approval (like `arb submit`); never approves.
 
     `from_` reuses that run's snapshot and defaults (resources, command, overrides);
     `set` adds/replaces overrides (`{"lr": 1e-3}` → `lr=0.001` or `--lr 0.001`).
-    Re-running the same cell returns the same run instead of a duplicate."""
+    Re-running the same cell returns the same run instead of a duplicate, unless
+    `repeat=True` (e.g. seed-variance repeats): then every execution is a new run with
+    its own card (careful: re-executing that cell creates another one)."""
     t, ledger, idea = _open()
     with ledger:
         if idea["status"] != "open":
@@ -249,7 +251,8 @@ def run(*, reason: str, from_: str | Run | None = None,
         parent = from_.id if isinstance(from_, Run) else from_
         res, _card = submission.submit(
             t.ctx, ledger, idea, reason, command, gpus=gpus, time=time, nodes=nodes,
-            partition=partition, machine=machine, from_run=parent, overrides=_pairs(set))
+            partition=partition, machine=machine, from_run=parent, overrides=_pairs(set),
+            repeat=repeat)
     return Run(t, res["id"], existed=res["existed"])
 
 

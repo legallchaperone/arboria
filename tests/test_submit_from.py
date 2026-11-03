@@ -312,3 +312,60 @@ def test_submit_api_returns_existing_flag(cluster, idea: Path, initialized: Path
         again, card = submission.submit(ctx, l, i, "y", ["python", "t.py"], gpus=1, time="1h")
     assert not run["existed"] and again["existed"] and again["id"] == run["id"]
     assert again["decision_id"] == run["decision_id"] and card.run_id == run["id"]
+
+
+# ---------------------------------------------------------------- --repeat
+
+
+def test_repeat_creates_a_new_run_bound_to_its_own_card(cluster, idea: Path, initialized: Path,
+                                                        arb, monkeypatch) -> None:
+    from arboria import lab
+
+    lab.use(None)
+    base = ["submit", "--reason", "seed variance", "--gpus", "1", "--time", "1h"]
+    arb(idea, *base)
+    assert "已存在：r001" in arb(idea, *base).stdout
+    out = arb(idea, *base, "--repeat").stdout
+    assert "已存在" not in out and "审核单 r002" in out
+    assert "⚠ 重复运行（--repeat " in out
+    arb(idea, *base, "--repeat")
+    r1, r2, r3 = (_run(initialized, f"r00{i}") for i in (1, 2, 3))
+    assert r1["snapshot_commit"] == r2["snapshot_commit"] == r3["snapshot_commit"]
+    assert len({r1["card_hash"], r2["card_hash"], r3["card_hash"]}) == 3
+    nonce = _req(initialized, "r002")["ask"]["repeat"]
+    assert nonce and _req(initialized, "r001")["ask"]["repeat"] is None
+    # the card is recomputed from the stored request: still matches, so it can be approved
+    card = json.loads(arb(idea, "card", "r002", "--json").stdout)
+    assert card["matches_submitted"] and card["card_hash"] == r2["card_hash"]
+    arb(idea, "approve", "r002")
+    assert _run(initialized, "r002")["status"] in ("approved", "queued")
+    assert _run(initialized, "r001")["status"] == "awaiting_approval"
+    # without --repeat, the original is still the one an identical submit returns
+    assert "已存在：r001" in arb(idea, *base).stdout
+
+    monkeypatch.chdir(idea)
+    a = lab.run(reason="seed", gpus=1, time="1h")
+    assert a.id == "r001" and a.existed
+    b = lab.run(reason="seed", gpus=1, time="1h", repeat=True)
+    assert b.id == "r004" and not b.existed
+    c = lab.run(reason="seed", from_="r002", repeat=True)  # the parent's nonce is not reused
+    assert _req(initialized, c.id)["ask"]["repeat"] not in (None, nonce)
+
+
+def test_card_hash_without_repeat_is_unchanged(cluster) -> None:
+    """Runs submitted before --repeat existed keep their hash: no `repeat` key unless set."""
+    import dataclasses
+
+    from arboria.clusters import load_profile
+
+    ask = slurm.Ask(command=["python", "t.py"], gpus=1, nodes=1, walltime_s=3600,
+                    partition="", machine="fake")
+    old = {k: v for k, v in dataclasses.asdict(ask).items() if k != "repeat"}
+    assert slurm.Ask.from_dict(old) == ask
+    profile = load_profile("fake")
+    plan = slurm.build_plan(profile, dataclasses.replace(ask, partition=profile.default_partition),
+                            "proj-0000")
+    assert "repeat" not in slurm.card_payload("c" * 40, plan)
+    again = slurm.build_plan(profile, dataclasses.replace(plan.ask, repeat="ab12"), "proj-0000")
+    assert slurm.card_payload("c" * 40, again)["repeat"] == "ab12"
+    assert slurm.card_hash("c" * 40, plan) != slurm.card_hash("c" * 40, again)

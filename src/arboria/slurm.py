@@ -107,12 +107,15 @@ class Ask:
     machine: str
     mem_gb: int | None = None  # per node; None = gpus x mem_per_gpu_gb
     cpus: int | None = None  # per node; None = gpus x cpus_per_gpu
+    # A deliberate repeat of an otherwise identical run (`--repeat`): a random nonce that
+    # goes into the card hash, so the approval binds to this run and not its twin.
+    repeat: str | None = None
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Ask":
         return cls(command=list(d["command"]), gpus=d["gpus"], nodes=d["nodes"],
                    walltime_s=d["walltime_s"], partition=d["partition"], machine=d["machine"],
-                   mem_gb=d.get("mem_gb"), cpus=d.get("cpus"))
+                   mem_gb=d.get("mem_gb"), cpus=d.get("cpus"), repeat=d.get("repeat"))
 
 
 @dataclass(frozen=True)
@@ -262,7 +265,7 @@ def render_overrides(style: str, overrides: list[tuple[str, str]]) -> list[str]:
 
 def card_payload(snapshot_commit: str, plan: Plan) -> dict[str, Any]:
     """Everything an approval is bound to."""
-    return {
+    payload = {
         "snapshot_commit": snapshot_commit,
         "project": plan.project,
         "command": plan.ask.command,
@@ -277,6 +280,9 @@ def card_payload(snapshot_commit: str, plan: Plan) -> dict[str, Any]:
         "segments": plan.segments,
         "env": plan.env,
     }
+    if plan.ask.repeat is not None:  # absent otherwise, so earlier hashes stay valid
+        payload["repeat"] = plan.ask.repeat
+    return payload
 
 
 def canonical_json(obj: Any) -> str:

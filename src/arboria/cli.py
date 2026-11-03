@@ -227,10 +227,12 @@ def submit(
     mem: Annotated[Optional[int], typer.Option("--mem", help="Memory per node in GB (default: GPU share; more is billed as extra GPUs).")] = None,
     cpus: Annotated[Optional[int], typer.Option("--cpus", help="CPUs per node (default: GPU share; more is billed as extra GPUs).")] = None,
     allow_large: Annotated[bool, typer.Option("--allow-large", help="Snapshot large untracked files anyway.")] = False,
+    repeat: Annotated[bool, typer.Option("--repeat", help="Always a new run, even if identical to an earlier one (e.g. seed variance).")] = False,
     as_json: JsonOpt = False,
 ) -> None:
     """Snapshot the idea worktree (or reuse --from's) and ask the human to approve a
-    cluster run (local only). An identical earlier run is returned instead of a new one."""
+    cluster run (local only). An identical earlier run is returned instead of a new one,
+    unless --repeat."""
     ctx, ledger = _open()
     with ledger:
         idea = ideas_mod.require_current_idea(ctx, ledger)
@@ -238,7 +240,8 @@ def submit(
         run, card = submission.submit(ctx, ledger, idea, reason, command or None, gpus=gpus,
                                       time=time, nodes=nodes, partition=partition,
                                       machine=machine, mem_gb=mem, cpus=cpus, from_run=from_run,
-                                      overrides=overrides, allow_large=allow_large, warn=_warn)
+                                      overrides=overrides, allow_large=allow_large,
+                                      repeat=repeat, warn=_warn)
     if as_json:
         _echo_json({"run": run, "card": card.as_dict(), "card_text": card.text(),
                     "existed": run["existed"]})

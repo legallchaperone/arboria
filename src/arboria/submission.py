@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import secrets
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -155,6 +156,9 @@ def build_card(ctx: RepoContext, ledger: Ledger, run: dict[str, Any], idea: dict
     card.checks.append((True, f"快照 {run['snapshot_commit'][:12]}（不含被 .gitignore 忽略的文件）"))
     if run.get("parent_run"):
         card.checks.append((True, f"复用 {run['parent_run']} 的快照，只改了命令参数和资源"))
+    if a.repeat:
+        card.checks.append((False, f"重复运行（--repeat {a.repeat}）：可能和已有的 run 完全相同，"
+                                   "这是有意再跑一次"))
     card.checks += [(False, f"快照警告：{w}") for w in warnings or []]
     card.checks.append((True, f"账户 {plan.account}"))
     if plan.over_billed:
@@ -283,13 +287,16 @@ def submit(
     from_run: str | None = None,
     overrides: list[tuple[str, str]] | None = None,
     allow_large: bool = False,
+    repeat: bool = False,
     warn: Callable[[str], None] | None = None,
 ) -> tuple[dict[str, Any], Card]:
     """Snapshot (or the parent run's snapshot) + request + card + open Decision.
 
     Never touches a backend. If this idea already has a usable run with the same card
     hash (same snapshot, command and resources), that run is returned with
-    `existed = True` and nothing is written: re-executing a notebook cell is safe."""
+    `existed = True` and nothing is written: re-executing a notebook cell is safe.
+    `repeat=True` skips that and always creates a new run; a random nonce in the
+    request makes its card hash unique."""
     reason = validate_text("change_reason", reason)
     project = require_project_id(ctx)
     cfg = project_config(ctx)
@@ -322,7 +329,8 @@ def submit(
               or profile.default_partition,
               machine=machine,
               mem_gb=mem_gb if mem_gb is not None else (pask.mem_gb if same_machine else None),
-              cpus=cpus if cpus is not None else (pask.cpus if same_machine else None))
+              cpus=cpus if cpus is not None else (pask.cpus if same_machine else None),
+              repeat=secrets.token_hex(4) if repeat else None)
     plan = slurm.build_plan(profile, ask, project)  # refuses before anything is written
 
     warnings: list[str] = []
@@ -342,7 +350,7 @@ def submit(
             snap = records.take_snapshot(ledger, idea, allow_large=allow_large, warn=collect)
             commit, tree = snap.commit, snap.tree
         h = slurm.card_hash(commit, plan)
-        existing = find_same_run(ledger, idea["id"], h)
+        existing = None if repeat else find_same_run(ledger, idea["id"], h)
         if existing is None:
             run_id = records.insert_run_at(ledger, idea, reason, commit, tree,
                                            parent_run=parent["id"] if parent else None)
@@ -361,7 +369,8 @@ def submit(
             ledger.event("run_submit", run_id, {"idea": idea["name"], "commit": commit,
                                                  "machine": machine, "card_hash": h,
                                                  "est_su": plan.est_su, "decision": dec_id,
-                                                 "parent_run": parent["id"] if parent else None})
+                                                 "parent_run": parent["id"] if parent else None,
+                                                 "repeat": ask.repeat})
     if existing is not None:
         dec = _open_run_decision(ledger, existing["id"])
         card = build_card(ctx, ledger, existing, idea, profile, plan, warnings)

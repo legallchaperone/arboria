@@ -204,6 +204,7 @@ def _esc(text: Any) -> str:
 
 STATUS_COLOR = {"awaiting_approval": "#b7791f", "failed": "#c53030", "succeeded": "#2f855a"}
 MUTED = "opacity:.62"
+CODE = "padding:1px 6px;border-radius:4px;background:rgba(127,127,127,.12)"
 JOB_HEAD = ("段", "作业", "状态", "时长", "SU")
 
 
@@ -242,7 +243,7 @@ class _RunView:
             parts = []
             for kind, text, *url in self.line:
                 if kind == "code":
-                    parts.append(f"<code>{_esc(text)}</code>")
+                    parts.append(f'<code style="{CODE}">{_esc(text)}</code>')
                 elif kind == "link" and url and url[0].startswith(("https://", "http://")):
                     parts.append(f'<a href="{_esc(url[0])}" target="_blank" '
                                  f'rel="noopener">{_esc(text)}</a>')

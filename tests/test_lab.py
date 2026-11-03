@@ -83,7 +83,7 @@ def test_run_creates_card_and_never_approves(cluster, idea: Path, initialized: P
     assert "审核单 r001" in md and "审稿" not in md
     html = r._repr_html_()
     assert "<strong>r001</strong> · " in html and "待批准</span> · baseline</div>" in html
-    assert "在你自己的终端里批准：<code>arb approve r001</code>" in html
+    assert re.search(r"在你自己的终端里批准：<code[^>]*>arb approve r001</code>", html)
     # the card is there, but collapsed
     assert "<details" in html and html.index("<details") < html.index("审核单 r001")
     assert "审核单 r001" in r.card() and r.jobs() == [] and r.wandb_url is None

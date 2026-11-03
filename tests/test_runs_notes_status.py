@@ -10,6 +10,7 @@ import pytest
 from arboria import records
 from arboria.db import Ledger
 from arboria.errors import ArbError
+from arboria.report import BOARD_LINE
 
 from .conftest import git
 
@@ -126,3 +127,14 @@ def test_export_markdown(idea: Path, initialized: Path, arb, tmp_path: Path) -> 
         return [line for line in s.splitlines() if not line.startswith("_Exported")]
 
     assert body(out.read_text()) == body(md)
+
+
+def test_board_line_only_when_something_waits(idea: Path, initialized: Path, arb) -> None:
+    assert BOARD_LINE not in arb(idea, "status").stdout
+    hook = arb(idea, "hook", "session-start", input=json.dumps({"cwd": str(idea)})).stdout
+    assert BOARD_LINE not in hook
+    arb(idea, "lesson", "propose", "先固定种子")
+    assert BOARD_LINE in arb(idea, "status").stdout
+    assert BOARD_LINE in arb(initialized, "status", "--brief").stdout
+    hook = arb(idea, "hook", "session-start", input=json.dumps({"cwd": str(idea)})).stdout
+    assert BOARD_LINE in json.loads(hook)["hookSpecificOutput"]["additionalContext"]

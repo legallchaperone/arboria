@@ -60,6 +60,23 @@ def pending_approvals(ledger: Ledger) -> int:
     return ledger.one("SELECT COUNT(*) AS n FROM runs WHERE status = 'awaiting_approval'")["n"]
 
 
+# Finished runs of open ideas that ended after the idea's last human note (notes without an
+# author predate v4 and were the human's). The dashboard lists them (ui/data.py).
+FINISHED_UNSEEN_SQL = (
+    "SELECT COUNT(*) AS n FROM runs r JOIN ideas i ON i.id = r.idea_id"
+    " WHERE i.status = 'open' AND r.status IN ('succeeded', 'failed', 'cancelled')"
+    " AND COALESCE((SELECT MAX(e.ts) FROM events e WHERE e.kind = 'run_final'"
+    "               AND e.subject = r.id), r.updated_at)"
+    "   > COALESCE((SELECT MAX(n.created_at) FROM notes n WHERE n.idea_id = r.idea_id"
+    "               AND (n.author IS NULL OR n.author = 'human')), '')"
+)
+BOARD_LINE = "看板：arb ui"
+
+
+def finished_unseen(ledger: Ledger) -> int:
+    return ledger.one(FINISHED_UNSEEN_SQL)["n"]
+
+
 def jobs_line(run: dict[str, Any]) -> str | None:
     """`s1 1001 completed, s2 1002 running; 3.20 SU` (None for runs never submitted)."""
     jobs = run.get("jobs") or []
@@ -97,7 +114,8 @@ def _lesson_data(ledger: Ledger) -> dict[str, Any]:
 
 def status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
     return (_status_data(ctx, ledger) | _lesson_data(ledger)
-            | {"pending_approvals": pending_approvals(ledger)})
+            | {"pending_approvals": pending_approvals(ledger),
+               "finished_unseen": finished_unseen(ledger)})
 
 
 def _status_data(ctx: RepoContext, ledger: Ledger) -> dict[str, Any]:
@@ -238,6 +256,8 @@ def status_parts(data: dict[str, Any], brief: bool = False) -> tuple[str, str]:
     if data.get("pending_approvals"):
         tail.insert(0, f"待你批准的 run：{data['pending_approvals']} 个"
                        "（`arb card RUN` 看审核单，由你运行 `arb approve RUN`）")
+    if data.get("pending_approvals") or data.get("proposed_lessons") or data.get("finished_unseen"):
+        tail.append(BOARD_LINE)  # something waits for the human
     if brief:
         tail.append(BRIEF_FOOTER)
     return "\n".join(lines), "\n".join(tail)

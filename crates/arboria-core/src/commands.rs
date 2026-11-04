@@ -75,7 +75,7 @@ pub fn validate_name(name: &str, check_reserved: bool) -> Result<()> {
 
 /// `$ARBORIA_CONFIG_DIR/commands` (default `~/.config/arboria/commands`).
 pub fn global_dir() -> PathBuf {
-    todo!("port of arboria.commands.global_dir")
+    crate::clusters::config_dir().join(COMMANDS_DIR)
 }
 
 /// `<state dir>/commands`.

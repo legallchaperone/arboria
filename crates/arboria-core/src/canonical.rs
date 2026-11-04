@@ -49,14 +49,69 @@ pub fn to_ledger_json<T: Serialize + ?Sized>(v: &T) -> crate::Result<String> {
     Ok(ledger_json(&serde_json::to_value(v)?))
 }
 
-/// Serialize with sorted keys and the given separators.
-pub fn dumps(v: &Value, sep: Separators) -> String {
+/// `json.dumps(v, indent=2, ensure_ascii=False)`: keys in the map's order (insertion
+/// order, serde_json's `preserve_order`), what arb writes into settings files and prints
+/// for `--json`.
+pub fn python_pretty(v: &Value) -> String {
     let mut out = String::new();
-    write_value(&mut out, v, sep);
+    write_pretty(&mut out, v, 0);
     out
 }
 
-fn write_value(out: &mut String, v: &Value, sep: Separators) {
+fn write_pretty(out: &mut String, v: &Value, depth: usize) {
+    let pad = |out: &mut String, d: usize| {
+        out.push('\n');
+        out.push_str(&"  ".repeat(d));
+    };
+    match v {
+        Value::Array(items) if !items.is_empty() => {
+            out.push('[');
+            for (i, x) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                pad(out, depth + 1);
+                write_pretty(out, x, depth + 1);
+            }
+            pad(out, depth);
+            out.push(']');
+        }
+        Value::Object(map) if !map.is_empty() => {
+            out.push('{');
+            for (i, (k, x)) in map.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                pad(out, depth + 1);
+                write_string(out, k);
+                out.push_str(": ");
+                write_pretty(out, x, depth + 1);
+            }
+            pad(out, depth);
+            out.push('}');
+        }
+        Value::Array(_) => out.push_str("[]"),
+        Value::Object(_) => out.push_str("{}"),
+        v => write_value(out, v, Separators::Spaced, false),
+    }
+}
+
+/// Serialize with sorted keys and the given separators.
+pub fn dumps(v: &Value, sep: Separators) -> String {
+    let mut out = String::new();
+    write_value(&mut out, v, sep, true);
+    out
+}
+
+/// `json.dumps(v, ensure_ascii=False)`: keys in the map's (insertion) order, spaced
+/// separators (the hook's output line).
+pub fn python_dumps(v: &Value) -> String {
+    let mut out = String::new();
+    write_value(&mut out, v, Separators::Spaced, false);
+    out
+}
+
+fn write_value(out: &mut String, v: &Value, sep: Separators, sort: bool) {
     let (item, key) = match sep {
         Separators::Compact => (",", ":"),
         Separators::Spaced => (", ", ": "),
@@ -72,7 +127,7 @@ fn write_value(out: &mut String, v: &Value, sep: Separators) {
                 if i > 0 {
                     out.push_str(item);
                 }
-                write_value(out, x, sep);
+                write_value(out, x, sep, sort);
             }
             out.push(']');
         }
@@ -80,7 +135,9 @@ fn write_value(out: &mut String, v: &Value, sep: Separators) {
             // Sort explicitly: the Map type depends on serde_json features of the whole
             // dependency graph (`preserve_order`). String order is code-point order.
             let mut entries: Vec<(&String, &Value)> = map.iter().collect();
-            entries.sort_by(|a, b| a.0.cmp(b.0));
+            if sort {
+                entries.sort_by(|a, b| a.0.cmp(b.0));
+            }
             out.push('{');
             for (i, (k, x)) in entries.into_iter().enumerate() {
                 if i > 0 {
@@ -88,7 +145,7 @@ fn write_value(out: &mut String, v: &Value, sep: Separators) {
                 }
                 write_string(out, k);
                 out.push_str(key);
-                write_value(out, x, sep);
+                write_value(out, x, sep, sort);
             }
             out.push('}');
         }

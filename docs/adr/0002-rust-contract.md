@@ -4,24 +4,24 @@
 
 ## Workspace
 - 根 `Cargo.toml`：resolver 2，edition 2021，`rust-toolchain.toml` 固定 1.97.0（带 rustfmt、clippy），`unsafe_code = "forbid"`。`Cargo.lock` 提交。
-- 依赖（精确版本，发布都早于 2026-10-21；传递依赖也按这条锁住）：clap 4.6.7（derive）、rusqlite 0.40.2（bundled）、serde 1.0.229、serde_json 1.0.154（float_roundtrip）、toml 1.1.8、thiserror 2.0.21、tracing 0.1.44、sha2 0.11.1（default-features 关，2026-11-04 加）；anyhow 1.0.104 只给 `arb`。核心不用 tokio，不用 git2/gix/russh（`tests/guards.rs` 守着）。以后要加的：正则（`fail_patterns`，Python `re` 语法）、YAML（`config.yaml`），同样精确锁版本。
+- 依赖（精确版本，发布都早于 2026-10-21；传递依赖也按这条锁住）：clap 4.6.7（derive）、rusqlite 0.40.2（bundled）、serde 1.0.229、serde_json 1.0.154（float_roundtrip）、toml 1.1.8、thiserror 2.0.21、tracing 0.1.44、sha2 0.11.1（default-features 关）、regex 1.13.1（2026-11-04 加这两个；toml 开了 `preserve_order`）；anyhow 1.0.104 只给 `arb`。核心不用 tokio，不用 git2/gix/russh（`tests/guards.rs` 守着）。以后要加的：YAML（`config.yaml`），同样精确锁版本。
 - `crates/arboria-core`（lib）：每个模块一个文件，文件头注释写明移植哪个 Python 模块和要守的约束。
 - `crates/arb`（bin `arb-rs`，替换 Python `arb` 之前用这个名字）：clap 树和 Python CLI 一致。
 
 ## 模块对照
 | Rust 模块 | 移植自 | 备注 |
 |---|---|---|
-| `paths` | `paths` | |
-| `config` | `config` | `arboria.toml` |
-| `clusters` | `clusters` | 机器 profile；新增 kind local/ssh/runpod/modal，键还没设计，解析时先拒绝 |
+| `paths` | `paths` | **已实现**；另有 `resolve`（Python 非 strict 的 `Path.resolve()`）、`ensure_state_excluded` |
+| `config` | `config` | **已实现**；`parse_project_config`、`project_id_for` 是不碰文件的部分，`py_repr_toml` 是消息里的 `repr()` |
+| `clusters` | `clusters` | **已实现**；新增 kind local/ssh/runpod/modal，键还没设计，解析时先拒绝 |
 | `canonical` | `slurm.canonical_json`、`json.dumps(sort_keys, ensure_ascii=False)` | **已实现** |
 | `slurm` | `slurm` | **已实现**：纯函数；另有 `py_round2`、`shlex_join` |
-| `cards` | `cards`、`slurm.card_payload/card_hash` | **已实现**；`replan`、`build_card` 要等 clusters / config；`card_with_budget` 是不读 `arboria.toml` 的 `build_card`；`sha256_hex` 在这里 |
+| `cards` | `cards`、`slurm.card_payload/card_hash` | **已实现**；`card_with_budget` 是不读 `arboria.toml` 的 `build_card`；`sha256_hex` 在这里 |
 | `schema` | `db` 的 SQL 常量 | **已实现**：v1–v7 逐字节照抄，v8 见下 |
 | `db` | `db`（连接、迁移、`Ledger`、备份仓库） | **已实现**：open、迁移到 v8、`write`（flock + `BEGIN IMMEDIATE`）、`event`、`next_id`、`data_version`、只读打开；备份仓库未实现 |
 | `model` | `db` 的枚举元组 + 账本行 | **已实现**：id newtype 与校验、枚举、事件 kind、触发备份的事件 |
 | `records` | `records` + `db.validate_text/validate_name/validate_choice` | **已实现**：长度校验；写入未实现 |
-| `gitutil` / `snapshot` | 同名 | 系统 `git`；快照绝不碰用户的分支、index、工作区 |
+| `gitutil` / `snapshot` | 同名 | 系统 `git`；快照绝不碰用户的分支、index、工作区。gitutil 的 run / out / ok / rev_parse / ref_exists / identity_env **已实现** |
 | `ideas` | `ideas` + `seeds` + `cli._idea_route` | 种子是 stage=seed 的 idea |
 | `submission` | `submission` | `SubmitPermit` 只有本模块能造，`Backend::submit` 要它 |
 | `human` | `human` | **已实现**：终端检查；输入确认、进程链未实现 |
@@ -50,7 +50,7 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 
 ## 测试
 - `crates/arboria-core/tests/schema.rs`：v1–v7 与 `tests/fixtures/migrations_v1_v7.sql`（由 `gen_fixtures.py` 从 Python 生成）逐字节一致；v7 的 `sqlite_master` 与 Python 账本一致；Python 生成的 v7 账本迁移到 v8 不丢行；v8 的 CHECK；锁、回滚、`BEGIN IMMEDIATE`、`data_version`；probe 的写入和启用哈希。
-- `tests/vectors.rs`：读 `tests/vectors/<name>.json`。已接上 canonical_json、validate_text、validate_name、check_project、wandb_id、next_id、check_job_ids、constants，以及 slurm / cards 的 26 个文件；其余每个文件一个 `#[ignore]` 测试，`every_vector_file_is_known` 保证新文件不会被漏掉。Python 的 `quirk-*`（正则 `$` 放过结尾换行）照做。
+- `tests/vectors.rs`：读 `tests/vectors/<name>.json`。已接上 canonical_json、validate_text、validate_name、check_project、wandb_id、next_id、check_job_ids、constants，以及 slurm / cards / config / clusters 的 33 个文件；其余每个文件一个 `#[ignore]` 测试，`every_vector_file_is_known` 保证新文件不会被漏掉。Python 的 `quirk-*`（正则 `$` 放过结尾换行）照做。
 - `tests/guards.rs`：源码扫描（只有 submission 调 `.submit(`、`probe_results` 只有一个写入点、probe 碰不到 decisions / submit、核心不联网不异步）。
 - `crates/arb/tests/cli_tree.rs`：clap 树与 `python_commands.txt`（`gen_python_commands.py` 从 Python CLI 生成）逐行一致，帮助分组同 `cli.HELP_PANELS`；`arb probe` 是 Rust 独有的，比较时排除。CI 的 `python-snapshots` 任务重新生成这两类快照，过期就失败。
 
@@ -63,9 +63,10 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 
 ## 移植时别扭的地方（记下来，接手的人先看）
 - 签名改动（2026-11-04）：`slurm::parse_job_name` 返回 `(ProjectId, String, u32)`，不是 `RunId`：Python 认任何 `[a-z0-9]+`（`arb-a-b-s1` → run `b`，向量里有）。路径函数和 `job_name` 仍收 `&RunId`，向量里不是 `RunId` 的 run id 跳过。
+- Python 的 `$` 放过结尾换行，在 `check_remote_path` 里是逐段匹配，所以 `/a\n/b` 这种中间带换行的远程路径也能过（向量 `quirk-inner-newline-accepted`），换行会进到 `#SBATCH` 行和 sbatch 脚本里；host 也一样（`quirk-host-trailing-newline-accepted`）。现在照做，要和 Python 一起修。
 - 向量里 Python 接受、Rust 类型表达不了的输入（非字符串、`R-1/x` 这种 run id、list 值）一律 `Got::Skip`，测试输出里列出来；只有能表达的才比较。
 - 命令的签名和 docstring 靠 Python `ast` 读（`commands.describe`）：Rust 没有现成的 Python 解析器，要么起 `python -I` 跑一个只读脚本（像 probe 宿主），要么用 tree-sitter-python。绝不 import。
-- `fail_patterns` 是 Python `re` 语法（`(?i)\b…`）：Rust 的 regex 大体兼容，但回溯、look-around 不支持；只能接受能编译的，不能静默跳过。
+- `fail_patterns` 是 Python `re` 语法（`(?i)\b…`）：定了用 `regex` crate（线性时间，日志里的长行不会卡住）。默认的四条和常见写法都能编译；look-around、反向引用编译不了，`arboria.toml` 就报错（带 crate 的消息），不静默跳过。`\b`、`\d`、`\w` 两边都是 Unicode 语义。
 - Python 在 `ledger.write()` 里跑 git（`submit` 的快照在锁里做）；Rust 版最好先快照、再进事务。
 - 行是 `dict`，`submit` 返回 `run | {"existed": …}`：Rust 用 `#[serde(flatten)]` 的结构体，`--json` 的键顺序会跟 Python 不同（内容相同）。
 - v8 里种子的 `status` 是 `open`：Python 的 `WHERE status = 'open'` 在家目录账本里会把种子算成 idea；Rust 一律按 `stage` 查。

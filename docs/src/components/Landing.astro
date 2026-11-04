@@ -1,0 +1,348 @@
+---
+// The landing page below the hero: four sections that show (screenshots of demo
+// data, one diagram), then the short “why”. Copy in Chinese and English.
+import { Image } from 'astro:assets';
+import { LinkButton } from '@astrojs/starlight/components';
+import ApprovalFlow from './ApprovalFlow.astro';
+import seedGarden from '../assets/shots/seed-garden.webp';
+import seedNotebook from '../assets/shots/seed-notebook.webp';
+import nbPlot from '../assets/shots/nb-plot.webp';
+import nbCard from '../assets/shots/nb-card.webp';
+import dashLight from '../assets/shots/dashboard-light.webp';
+import dashDark from '../assets/shots/dashboard-dark.webp';
+
+interface Props {
+	lang?: 'zh' | 'en';
+}
+const { lang = 'zh' } = Astro.props;
+const zh = lang === 'zh';
+const docs = (p: string) => `/${p}/`; // the docs themselves are Chinese only
+
+const c = zh
+	? {
+			demo: '截图里都是演示数据。',
+			s1: {
+				kicker: '种子',
+				title: '从种子到实验',
+				body: '还没有仓库的想法先记成种子，各有一个 marimo notebook，放在 ~/arboria。想清楚了，在仓库里 arb seed plant，它就成了一个有分支、worktree 和 notebook 的 idea，开头带着种子里的思路。',
+				a: '种子园（arb ui，仓库之外）：思考中、已种下、已放弃，和等 Claude 的待办。',
+				b: '种子 notebook：观察、猜想、一个玩具实验。只有你写，Claude 只读。',
+				link: ['种子园', 'guides/seeds'],
+			},
+			s2: {
+				kicker: 'notebook',
+				title: 'notebook 就是实验台',
+				body: '每个 idea 一个 notebook，只有你写。lab.run 生成审核单，结果和曲线回到同一页。分析命令由 Claude 写，存成函数，之后每次直接运行，不花 token。',
+				a: 'lab.plot_loss 是 Claude 写的项目命令，下面一行是它的出处和版本。',
+				b: 'lab.run 只生成审核单：快照、资源、估计、预算和哈希。批准要去你的终端。',
+				link: ['notebook 与 lab', 'guides/notebook'],
+			},
+			s3: {
+				kicker: '看板',
+				title: '一眼看全局',
+				body: 'arb ui 打开只读看板：什么在等你、idea 怎么随时间分叉、算力花在了哪里。没有会动手的按钮，要做的事显示成可以复制的命令。',
+				a: '左边是待你处理的事，右边是 idea 树和选中 idea 的详情。',
+				link: ['看板', 'guides/dashboard'],
+			},
+			s4: {
+				kicker: '批准',
+				title: '只有你能批准',
+				body: 'Claude 和 notebook 只能生成审核单。作业只在你自己的终端里、你输入 run id 确认之后才会交给 Slurm；审核单的任何一项变了，旧的批准就作废。',
+				link: ['提交与批准', 'guides/submit'],
+			},
+			why: {
+				title: '为什么',
+				items: [
+					['状态在对话之外', 'idea、run、笔记和决定记在本地 SQLite 账本里，只经 arb 写入。新会话由 hook 注入一屏摘要，会话随开随清。'],
+					['notebook 是你的', '每个 idea 有自己的分支、worktree 和 marimo notebook。Claude 能读，不能改；它的活来自你留下的待办。'],
+					['Claude 写代码和命令', '在 notebook 里写 lab.svd(r, "画前 20 个奇异值")。命令不存在时交给 Claude，写好后 cell 自动重跑。'],
+					['算力层被封装', '分段、计费（含 DeltaAI 的规则）、预算、Duo 登录、观察期内自动取消，都由 arb 处理。'],
+					['每个 run 都由你批准', '审核单绑定快照、命令、资源和环境的哈希。没有自动批准的代码路径。'],
+					['护栏，不是沙箱', '它防的是 Claude 顺手照做，不防同一台机器上以你的身份运行的蓄意对手。'],
+				],
+			},
+			end: {
+				title: '先在本地看看',
+				body: '装好 arb，在任意 git 仓库里建一个 idea 和它的 notebook。上集群之前需要一台机器配置。',
+				start: '快速开始',
+				concepts: '核心概念',
+				status: '个人研究工具，还在开发。测试覆盖了整个流程；真集群上的第一个 run 还没跑通。',
+				statusLink: '路线图',
+			},
+		}
+	: {
+			demo: 'All screenshots show demo data.',
+			s1: {
+				kicker: 'Seeds',
+				title: 'From a seed to an experiment',
+				body: 'An idea with no repo yet is a seed, with its own marimo notebook in ~/arboria. When it is ready, arb seed plant turns it into an idea in a repo — a branch, a worktree and a notebook that starts with the seed’s notes.',
+				a: 'The seed garden (arb ui outside a repo): thinking, planted, dropped, and todos for Claude.',
+				b: 'A seed notebook: observations, a guess, a toy experiment. You write it; Claude only reads.',
+				link: ['Seeds (Chinese)', 'guides/seeds'],
+			},
+			s2: {
+				kicker: 'Notebook',
+				title: 'The notebook is the bench',
+				body: 'Each idea has one notebook, and only you write it. lab.run creates a review card; results and curves come back to the same page. Analysis commands are written by Claude once, saved as functions, and then run without spending tokens.',
+				a: 'lab.plot_loss is a project command Claude wrote; the line below names it and its version.',
+				b: 'lab.run only creates a review card: snapshot, resources, estimate, budget, hash. Approval happens in your terminal.',
+				link: ['Notebook and lab (Chinese)', 'guides/notebook'],
+			},
+			s3: {
+				kicker: 'Dashboard',
+				title: 'Everything at a glance',
+				body: 'arb ui opens a read-only dashboard: what is waiting for you, how ideas branched over time, and where the compute went. No buttons that act; actions are shown as commands to copy.',
+				a: 'Left: what needs you. Right: the idea tree and the selected idea.',
+				link: ['Dashboard (Chinese)', 'guides/dashboard'],
+			},
+			s4: {
+				kicker: 'Approval',
+				title: 'Only you approve',
+				body: 'Claude and the notebook can only create review cards. A job reaches Slurm only from your own terminal, after you type the run id; if anything on the card changes, the old approval no longer counts.',
+				link: ['Submitting and approving (Chinese)', 'guides/submit'],
+			},
+			why: {
+				title: 'Why',
+				items: [
+					['State lives outside the chat', 'Ideas, runs, notes and decisions live in a local SQLite ledger that only arb writes. A new session gets a one-screen summary from a hook.'],
+					['The notebook is yours', 'Each idea has its own branch, worktree and marimo notebook. Claude can read it, not edit it; its work comes from the todos you leave.'],
+					['Claude writes code and commands', 'Write lab.svd(r, "plot the top 20 singular values") in the notebook. If the command does not exist, Claude writes it and the cell re-runs.'],
+					['The compute layer is wrapped', 'Segments, billing (with DeltaAI’s rules), budgets, Duo logins and early cancellation are handled by arb.'],
+					['You approve every run', 'The review card is bound to a hash of snapshot, command, resources and environment. No code path approves on its own.'],
+					['Guard rails, not a sandbox', 'They stop Claude from going along with a stray instruction, not a deliberate adversary running as you on the same machine.'],
+				],
+			},
+			end: {
+				title: 'Try it locally first',
+				body: 'Install arb and create an idea and its notebook in any git repository. Before running on a cluster you need a machine profile. The documentation is in Chinese.',
+				start: 'Quick start (Chinese)',
+				concepts: 'Concepts (Chinese)',
+				status: 'A personal research tool under active development. The tests cover the whole flow; the first real run on the cluster has not happened yet.',
+				statusLink: 'Roadmap (Chinese)',
+			},
+		};
+
+const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
+---
+
+<div class="landing not-content" lang={zh ? 'zh-CN' : 'en'}>
+	<section class="block">
+		<header>
+			<p class="kicker">{c.s1.kicker}</p>
+			<h2>{c.s1.title}</h2>
+			<p class="body">{c.s1.body}</p>
+			<a class="more" href={docs(c.s1.link[1])}>{c.s1.link[0]} →</a>
+		</header>
+		<div class="pair">
+			<figure class="shot">
+				<Image src={seedGarden} widths={[640, 960, 1262]} sizes={sizes} alt={zh ? 'Arboria 种子园看板：四个种子的卡片，状态是思考中、已种下，右边一个等 Claude 的待办' : 'The Arboria seed garden: four seed cards (thinking, planted) and one todo waiting for Claude'} />
+				<figcaption>{c.s1.a}</figcaption>
+			</figure>
+			<figure class="shot">
+				<Image src={seedNotebook} widths={[640, 960, 1180]} sizes={sizes} alt={zh ? '种子 loss-spikes 的 marimo notebook：一句话想法、假设、指标，下面是观察和猜想' : 'The marimo notebook of the seed loss-spikes: the idea, hypothesis and metric, then observations and a guess'} />
+				<figcaption>{c.s1.b}</figcaption>
+			</figure>
+		</div>
+	</section>
+
+	<section class="block">
+		<header>
+			<p class="kicker">{c.s2.kicker}</p>
+			<h2>{c.s2.title}</h2>
+			<p class="body">{c.s2.body}</p>
+			<a class="more" href={docs(c.s2.link[1])}>{c.s2.link[0]} →</a>
+		</header>
+		<div class="pair">
+			<figure class="shot">
+				<Image src={nbPlot} widths={[640, 960, 1180]} sizes={sizes} alt={zh ? 'idea notebook 里的 lab.plot_loss 对比两个 run 的 loss 曲线，baseline 前 2k 步有几次尖峰' : 'lab.plot_loss in an idea notebook comparing the loss curves of two runs; the baseline has spikes in the first 2k steps'} />
+				<figcaption>{c.s2.a}</figcaption>
+			</figure>
+			<figure class="shot">
+				<Image src={nbCard} widths={[640, 960, 1094]} sizes={sizes} alt={zh ? 'lab.run 的输出：r003 待批准，下面展开的审核单列出检查、资源、估计、预算和审核单哈希' : 'Output of lab.run: r003 awaiting approval, with the review card expanded: checks, resources, estimate, budget and card hash'} />
+				<figcaption>{c.s2.b}</figcaption>
+			</figure>
+		</div>
+	</section>
+
+	<section class="block">
+		<header>
+			<p class="kicker">{c.s3.kicker}</p>
+			<h2>{c.s3.title}</h2>
+			<p class="body">{c.s3.body}</p>
+			<a class="more" href={docs(c.s3.link[1])}>{c.s3.link[0]} →</a>
+		</header>
+		<figure class="shot wide">
+			<Image class="arb-light-only" src={dashLight} widths={[800, 1250]} sizes="(min-width: 72rem) 66rem, 94vw" alt={zh ? 'Arboria 看板：顶部是需要你处理的数量、进行中的 idea、活跃作业和已用 SU；左边是待你处理，右边是 idea 树和 idea 详情' : 'The Arboria dashboard: counts on top, what needs you on the left, the idea tree and idea details on the right'} />
+			<Image class="arb-dark-only" src={dashDark} widths={[800, 1250]} sizes="(min-width: 72rem) 66rem, 94vw" alt="" />
+			<figcaption>{c.s3.a}</figcaption>
+		</figure>
+	</section>
+
+	<section class="block">
+		<header>
+			<p class="kicker">{c.s4.kicker}</p>
+			<h2>{c.s4.title}</h2>
+			<p class="body">{c.s4.body}</p>
+			<a class="more" href={docs(c.s4.link[1])}>{c.s4.link[0]} →</a>
+		</header>
+		<ApprovalFlow lang={lang} />
+	</section>
+
+	<section class="block why">
+		<h2>{c.why.title}</h2>
+		<ul>
+			{
+				c.why.items.map(([title, text]) => (
+					<li>
+						<h3>{title}</h3>
+						<p>{text}</p>
+					</li>
+				))
+			}
+		</ul>
+	</section>
+
+	<section class="end">
+		<h2>{c.end.title}</h2>
+		<p>{c.end.body}</p>
+		<div class="actions">
+			<LinkButton href={docs('start/quickstart')}>{c.end.start}</LinkButton>
+			<LinkButton href={docs('start/concepts')} variant="minimal">{c.end.concepts}</LinkButton>
+		</div>
+		<p class="fine">
+			{c.end.status} <a href={docs('project/status')}>{c.end.statusLink}</a> · {c.demo}
+		</p>
+	</section>
+</div>
+
+<style>
+	.landing {
+		display: flex;
+		flex-direction: column;
+		gap: 0;
+	}
+	.block {
+		padding-block: 3.5rem;
+		border-top: 1px solid var(--sl-color-hairline);
+	}
+	header {
+		max-width: 40rem;
+		margin-bottom: 2rem;
+	}
+	.kicker {
+		margin: 0 0 0.5rem;
+		font-size: var(--sl-text-xs);
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--arb-accent);
+	}
+	h2 {
+		margin: 0 0 0.75rem;
+		font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+		font-weight: 600;
+		line-height: 1.25;
+		color: var(--sl-color-white);
+	}
+	.body {
+		margin: 0;
+		font-size: var(--sl-text-base);
+		line-height: 1.8;
+		color: var(--sl-color-gray-2);
+	}
+	.more {
+		display: inline-block;
+		margin-top: 0.75rem;
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-text-accent);
+		text-decoration: none;
+	}
+	.more:hover {
+		text-decoration: underline;
+	}
+	.pair {
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 1.75rem;
+	}
+	@media (min-width: 50rem) {
+		.pair {
+			grid-template-columns: 1fr 1fr;
+			gap: 1.5rem;
+		}
+	}
+	.shot {
+		margin: 0;
+	}
+	.shot :global(img) {
+		display: block;
+		width: 100%;
+		height: auto;
+		border: 1px solid var(--arb-line);
+		border-radius: 0.6rem;
+		box-shadow: var(--arb-shot-shadow);
+		background: #fff;
+	}
+	.shot figcaption {
+		margin-top: 0.75rem;
+		font-size: var(--sl-text-sm);
+		line-height: 1.6;
+		color: var(--sl-color-gray-3);
+	}
+	.why ul {
+		list-style: none;
+		margin: 1.5rem 0 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: 1fr;
+		gap: 0;
+	}
+	@media (min-width: 50rem) {
+		.why ul {
+			grid-template-columns: 1fr 1fr 1fr;
+			column-gap: 2rem;
+		}
+	}
+	.why li {
+		padding-block: 1.25rem;
+		border-top: 1px solid var(--sl-color-hairline);
+	}
+	.why h3 {
+		margin: 0 0 0.4rem;
+		font-size: var(--sl-text-base);
+		font-weight: 600;
+		color: var(--sl-color-white);
+	}
+	.why p {
+		margin: 0;
+		font-size: var(--sl-text-sm);
+		line-height: 1.75;
+		color: var(--sl-color-gray-3);
+	}
+	.end {
+		padding-block: 3rem 1rem;
+		border-top: 1px solid var(--sl-color-hairline);
+		max-width: 40rem;
+	}
+	.end h2 {
+		font-size: var(--sl-text-xl);
+	}
+	.end > p {
+		margin: 0;
+		color: var(--sl-color-gray-2);
+	}
+	.end .actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 1rem;
+		margin-top: 1.25rem;
+	}
+	.end .fine {
+		margin-top: 2rem;
+		font-size: var(--sl-text-xs);
+		color: var(--sl-color-gray-3);
+	}
+	.end .fine a {
+		color: var(--sl-color-text-accent);
+	}
+</style>

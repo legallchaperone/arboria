@@ -1,0 +1,161 @@
+---
+// notebook → 审核单 → your terminal (arb approve) → Slurm → results back; Claude on
+// the side: writes code and commands, cannot approve. Inline SVG, theme tokens.
+interface Props {
+	lang?: 'zh' | 'en';
+}
+const { lang = 'zh' } = Astro.props;
+const t =
+	lang === 'en'
+		? {
+				title: 'Only you approve: the path from a notebook to the cluster',
+				nb: ['Notebook', 'lab.run(…)'],
+				card: ['Review card', 'snapshot · resources · hash'],
+				term: ['Your terminal', 'arb approve r014'],
+				slurm: ['Slurm', 'sbatch, segments'],
+				back: 'arb watch: state, SU, ARBORIA_OUT pulled back',
+				claude: ['Claude Code', 'code and commands'],
+				todo: 'todos ⇄ code',
+				no: 'cannot approve',
+				onlyLocal: 'local only',
+			}
+		: {
+				title: '只有你能批准：从 notebook 到集群的路径',
+				nb: ['notebook', 'lab.run(…)'],
+				card: ['审核单', '快照 · 资源 · 哈希'],
+				term: ['你的终端', 'arb approve r014'],
+				slurm: ['Slurm', 'sbatch · 分段'],
+				back: 'arb watch：状态、花费，拉回 ARBORIA_OUT',
+				claude: ['Claude Code', '写代码和命令'],
+				todo: '待办 ⇄ 代码',
+				no: '不能批准',
+				onlyLocal: '只在本地',
+			};
+---
+
+<figure class="arb-flow">
+	<svg viewBox="0 0 760 270" role="img" aria-labelledby="arb-flow-title">
+		<title id="arb-flow-title">{t.title}</title>
+		<defs>
+			<marker id="arb-flow-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+				<path class="head" d="M0 0L10 5L0 10z"></path>
+			</marker>
+		</defs>
+
+		<!-- Claude, above -->
+		<rect class="box dashed" x="20" y="14" width="150" height="52" rx="10"></rect>
+		<text class="t1" x="36" y="37">{t.claude[0]}</text>
+		<text class="t3" x="36" y="55">{t.claude[1]}</text>
+		<path class="ln dashed" d="M95 66 V 104" marker-end="url(#arb-flow-head)"></path>
+		<text class="t3" x="104" y="90">{t.todo}</text>
+		<path class="ln dashed" d="M170 40 H 462 V 84"></path>
+		<g class="no">
+			<circle cx="462" cy="92" r="8"></circle>
+			<path d="M458 88 L466 96 M466 88 L458 96"></path>
+		</g>
+		<text class="t3 no-label" x="474" y="62">{t.no}</text>
+
+		<!-- the path -->
+		<rect class="box" x="20" y="106" width="150" height="64" rx="10"></rect>
+		<text class="t1" x="36" y="133">{t.nb[0]}</text>
+		<text class="t2 mono" x="36" y="153">{t.nb[1]}</text>
+
+		<rect class="box" x="206" y="106" width="168" height="64" rx="10"></rect>
+		<text class="t1" x="222" y="133">{t.card[0]}</text>
+		<text class="t3" x="222" y="153">{t.card[1]}</text>
+
+		<rect class="box main" x="398" y="106" width="172" height="64" rx="10"></rect>
+		<text class="t1 accent" x="414" y="133">{t.term[0]}</text>
+		<text class="t2 mono" x="414" y="153">{t.term[1]}</text>
+
+		<rect class="box" x="594" y="106" width="146" height="64" rx="10"></rect>
+		<text class="t1" x="610" y="133">{t.slurm[0]}</text>
+		<text class="t3" x="610" y="153">{t.slurm[1]}</text>
+
+		<path class="ln" d="M170 138 H 204" marker-end="url(#arb-flow-head)"></path>
+		<path class="ln" d="M374 138 H 396" marker-end="url(#arb-flow-head)"></path>
+		<path class="ln" d="M570 138 H 592" marker-end="url(#arb-flow-head)"></path>
+		<text class="t3" x="188" y="190" text-anchor="middle">{t.onlyLocal}</text>
+
+		<!-- results back -->
+		<path class="ln" d="M667 170 V 222 H 95 V 172" marker-end="url(#arb-flow-head)"></path>
+		<text class="t3" x="381" y="246" text-anchor="middle">{t.back}</text>
+	</svg>
+</figure>
+
+<style>
+	.arb-flow {
+		margin: 0;
+		padding: 1.25rem 1rem;
+		border: 1px solid var(--arb-line-soft);
+		border-radius: 0.75rem;
+		background: var(--arb-surface);
+		overflow-x: auto;
+	}
+	.arb-flow svg {
+		display: block;
+		width: 100%;
+		min-width: 40rem;
+		height: auto;
+		font-family: var(--__sl-font);
+	}
+	.box {
+		fill: var(--arb-surface);
+		stroke: var(--arb-line);
+		stroke-width: 1.25;
+	}
+	.box.main {
+		fill: var(--arb-accent-soft);
+		stroke: var(--arb-accent);
+		stroke-width: 1.75;
+	}
+	.box.dashed {
+		fill: none;
+		stroke: var(--arb-faint);
+		stroke-dasharray: 4 4;
+	}
+	.ln {
+		fill: none;
+		stroke: var(--arb-faint);
+		stroke-width: 1.4;
+	}
+	.ln.dashed {
+		stroke-dasharray: 4 4;
+	}
+	.head {
+		fill: var(--arb-faint);
+	}
+	.no circle {
+		fill: var(--arb-surface);
+		stroke: var(--arb-bad);
+		stroke-width: 1.4;
+	}
+	.no path {
+		stroke: var(--arb-bad);
+		stroke-width: 1.6;
+		stroke-linecap: round;
+	}
+	text {
+		fill: var(--arb-ink);
+	}
+	.t1 {
+		font-size: 14px;
+		font-weight: 600;
+	}
+	.t1.accent {
+		fill: var(--arb-accent);
+	}
+	.t2 {
+		font-size: 12.5px;
+	}
+	.t3 {
+		font-size: 12px;
+		fill: var(--arb-muted);
+	}
+	.no-label {
+		fill: var(--arb-bad);
+	}
+	.mono {
+		font-family: var(--__sl-font-mono);
+	}
+</style>

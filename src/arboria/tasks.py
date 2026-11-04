@@ -1,4 +1,5 @@
-"""Todos: written by the human (in a notebook, `lab.todo`), done by Claude (`arb todo done`).
+"""Todos: written by the human (in a notebook, `lab.todo`), done by Claude (`arb todo done`;
+an inspect todo is delivered with `arb inspect done`, see inspection.py).
 
 The todo text is the human's; the result is one of the free-text fields an LLM may
 write (≤600 chars, see db.LIMITS). A todo belongs to an idea (a project ledger) or to a
@@ -119,7 +120,13 @@ def _close(ledger: Ledger, task_id: str, status: str, result: str | None) -> dic
     return get_task(ledger, task_id)
 
 
+INSPECT_DONE = ("{id} 是读代码待办：用 `arb inspect done {id} --file …` 交付答案（代码由 arb 从 "
+                "git 取），约定见 `arb inspect guide`；做不了就 `arb todo drop {id}`")
+
+
 def done(ledger: Ledger, task_id: str, result: str) -> dict[str, Any]:
+    if get_task(ledger, task_id).get("kind") == "inspect":
+        raise ArbError(INSPECT_DONE.format(id=task_id))
     return _close(ledger, task_id, "done", validate_text("result", result))
 
 

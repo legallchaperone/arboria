@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .claudemd import accepted_lessons, lesson_line
+from .inspection import VIEW_LABELS
 from .db import Ledger, now
 from .tasks import list_tasks, owner_name, payload
 from .ideas import current_idea
@@ -13,7 +14,8 @@ from .paths import RepoContext
 BRIEF_FOOTER = (
     "Ledger rules: experiment state lives in the arboria ledger, written only by `arb`. "
     "Work comes from the todos: finish one with `arb todo done tNNN --result \"...\"`; "
-    "for a command todo read `arb commands guide` first; "
+    "for a command todo read `arb commands guide` first, for an inspect todo "
+    "`arb inspect guide` (deliver with `arb inspect done`, not `arb todo done`); "
     "`notebook.py` is the human's notebook: read it, never edit it; `arb note` is human-only. "
     "Use `arb status`, `arb run summary RUN \"...\"`, "
     "`arb submit --reason \"...\" --gpus N --time T [-- CMD]`; never edit .arboria/ by hand. "
@@ -23,6 +25,7 @@ BRIEF_FOOTER = (
 )
 TODOS_HEADER = "来自 notebook 的待办："
 COMMAND_TODOS_HEADER = "命令待办："
+INSPECT_TODOS_HEADER = "读代码待办："
 # Accepted lessons shown in status / the hook (CLAUDE.md in an idea worktree may be stale).
 STATUS_LESSONS = 10
 
@@ -167,7 +170,8 @@ def format_status(data: dict[str, Any], brief: bool = False) -> str:
 def todo_lines(todos: list[dict[str, Any]], brief: bool, with_idea: bool) -> list[str]:
     """Open todos the human left in a notebook (the work Claude should pick up)."""
     plain = [t for t in todos if t.get("kind", "plain") == "plain"]
-    cmds = [t for t in todos if t.get("kind", "plain") != "plain"]
+    cmds = [t for t in todos if t.get("kind", "plain") in ("command_new", "command_revise")]
+    reads = [t for t in todos if t.get("kind", "plain") == "inspect"]
     lines: list[str] = []
     if cmds:
         items = []
@@ -178,6 +182,15 @@ def todo_lines(todos: list[dict[str, Any]], brief: bool, with_idea: bool) -> lis
             items.append(f"{name}（{t['id']}{extra}{where}）")
         lines.append(COMMAND_TODOS_HEADER + "、".join(items)
                      + "——按 `arb commands guide` 的约定写，详情见 `arb todo list --json`")
+    if reads:
+        items = []
+        for t in reads:
+            p = payload(t)
+            view = VIEW_LABELS.get(p.get("view"), "?")
+            where = f"，{owner_name(t)}" if with_idea else ""
+            items.append(f"{_clip(p.get('question'), 60)}（{t['id']}，{view}{where}）")
+        lines.append(INSPECT_TODOS_HEADER + "、".join(items)
+                     + "——按 `arb inspect guide` 的约定读代码，用 `arb inspect done` 交付")
     if plain:
         lines.append(TODOS_HEADER + "（做完用 `arb todo done tNNN --result \"...\"`）")
         for t in plain:

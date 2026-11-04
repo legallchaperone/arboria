@@ -19,7 +19,7 @@ from typing import Any
 from .. import cards
 from ..config import project_config
 from ..errors import ArbError
-from ..paths import CONFIG_NAME, DB_NAME, STATE_DIR_NAME, RepoContext
+from ..paths import CONFIG_NAME, DB_NAME, STATE_DIR_NAME, Home, RepoContext, home
 
 # Copies of db constants (importing db would import the ledger's write path);
 # tests/test_ui.py checks they match.
@@ -97,6 +97,7 @@ class Board:
     lessons: list[dict[str, Any]] = field(default_factory=list)  # proposed
     notifications: list[tuple[datetime | None, str]] = field(default_factory=list)  # newest first
     cards: dict[str, dict[str, Any]] = field(default_factory=dict)  # awaiting runs
+    home_thinking: int | None = None  # seeds 思考中 in the home (None: no home)
 
     @property
     def state_dir(self) -> Path:
@@ -301,4 +302,75 @@ def load(root: Path | str, now: datetime | None = None) -> Board:
         for r in board.awaiting():
             board.cards[r["id"]] = _card(ctx, ledger, r, board.idea_by_id(r["idea_id"]))
     board.notifications = _notifications(board.state_dir)
+    board.home_thinking = home_thinking(home())
     return board
+
+
+# ---------------------------------------------------------------- the seed home (种子园)
+
+
+def _iso(ts: float) -> str:
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@dataclass
+class Garden:
+    """One read of the seed home (`arb ui --home`)."""
+
+    root: Path
+    loaded_at: datetime  # aware, UTC
+    seeds: list[dict[str, Any]] = field(default_factory=list)  # most recently edited first
+    todos: list[dict[str, Any]] = field(default_factory=list)  # open, of live seeds
+
+    def with_status(self, status: str) -> list[dict[str, Any]]:
+        return [s for s in self.seeds if s["status"] == status]
+
+    def count(self, status: str) -> int:
+        return len(self.with_status(status))
+
+
+def _check_version(ledger: ReadOnlyLedger) -> None:
+    version = ledger.version()
+    if version != SCHEMA_VERSION:
+        raise ArbError(f"ledger schema v{version}, the dashboard reads v{SCHEMA_VERSION}: "
+                       "run any arb command (e.g. `arb seed list`) once to upgrade it, or "
+                       "upgrade arb")
+
+
+def load_home(root: Path | str, now: datetime | None = None) -> Garden:
+    """Read the seed home at `root`: its ledger (read-only) and its notebooks' mtimes."""
+    h = Home(Path(root).resolve())
+    garden = Garden(root=h.root, loaded_at=now or datetime.now(timezone.utc))
+    with ReadOnlyLedger(h.state_dir) as ledger:
+        _check_version(ledger)
+        planted: dict[int, list[dict[str, Any]]] = {}
+        for p in ledger.all("SELECT * FROM plantings ORDER BY id"):
+            planted.setdefault(p["seed_id"], []).append(p)
+        seeds = ledger.all("SELECT * FROM seeds ORDER BY id")
+        garden.todos = ledger.all(
+            "SELECT t.*, s.name AS seed FROM tasks t JOIN seeds s ON s.id = t.seed_id"
+            " WHERE t.status = 'open' AND s.status != 'dropped' ORDER BY t.id")
+    for s in seeds:
+        nb = h.notebook(s["name"])
+        try:
+            edited = max(s["updated_at"], _iso(nb.stat().st_mtime))
+        except OSError:
+            edited = s["updated_at"]
+        s.update(notebook=nb, notebook_exists=nb.is_file(), last_edited=edited,
+                 planted_to=planted.get(s["id"], []))
+    garden.seeds = sorted(seeds, key=lambda s: (s["last_edited"], s["id"]), reverse=True)
+    return garden
+
+
+def home_thinking(h: Home) -> int | None:
+    """How many seeds are 思考中 (for the project dashboard's header); None without a
+    home, or when it cannot be read."""
+    if not h.initialized:
+        return None
+    try:
+        with ReadOnlyLedger(h.state_dir) as ledger:
+            if ledger.version() != SCHEMA_VERSION:
+                return None
+            return ledger.one("SELECT COUNT(*) AS n FROM seeds WHERE status = 'thinking'")["n"]
+    except (ArbError, sqlite3.Error, OSError):
+        return None

@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 from ..errors import ArbError
-from . import APP
+from . import APP, GARDEN
 from .data import ReadOnlyLedger
 
 HOST = "127.0.0.1"
@@ -44,15 +44,30 @@ def idea_of_worktree(state_dir: Path, toplevel: Path | None) -> str | None:
     return row["name"] if row else None
 
 
-def command(root: Path, idea: str | None = None, port: int | None = None) -> list[str]:
-    cmd = [sys.executable, "-m", "marimo", "run", str(APP), "--host", HOST, "--token",
-           "--no-sandbox"]
+def command(root: Path, idea: str | None = None, port: int | None = None, *,
+            garden: bool = False) -> list[str]:
+    cmd = [sys.executable, "-m", "marimo", "run", str(GARDEN if garden else APP),
+           "--host", HOST, "--token", "--no-sandbox"]
     if port is not None:
         cmd += ["--port", str(port)]
-    cmd += ["--", "--root", str(root)]
+    cmd += ["--", "--home", str(root)] if garden else ["--", "--root", str(root)]
     if idea:
         cmd += ["--idea", idea]
     return cmd
+
+
+def _check(port: int | None) -> None:
+    if port is not None and not 1 <= port <= 65535:
+        raise ArbError("--port must be between 1 and 65535")
+    if not marimo_available():
+        raise ArbError(NO_MARIMO)
+
+
+def launch_home(root: Path, *, port: int | None = None) -> int:
+    """The seed home's dashboard (种子园)."""
+    _check(port)
+    env = dict(os.environ, ARBORIA_UI_HOME=str(root))
+    return run_marimo(command(root, port=port, garden=True), env)
 
 
 def run_marimo(cmd: list[str], env: dict[str, str]) -> int:
@@ -65,10 +80,7 @@ def run_marimo(cmd: list[str], env: dict[str, str]) -> int:
 
 def launch(root: Path, *, toplevel: Path | None = None, idea: str | None = None,
            port: int | None = None) -> int:
-    if port is not None and not 1 <= port <= 65535:
-        raise ArbError("--port must be between 1 and 65535")
-    if not marimo_available():
-        raise ArbError(NO_MARIMO)
+    _check(port)
     state_dir = Path(root) / ".arboria"
     if idea:
         check_idea(state_dir, idea)

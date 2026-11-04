@@ -24,7 +24,7 @@ from typing import Any, Iterable
 from urllib.parse import quote
 
 from ..slurm import human_duration
-from .data import RUN_FINAL, Board, notebook_path, out_files, parse_ts
+from .data import RUN_FINAL, Board, Garden, notebook_path, out_files, parse_ts
 
 CSS_FILE = Path(__file__).with_name("dashboard.css")
 UPDATED = "更新于 {time}"
@@ -230,6 +230,10 @@ def header(board: Board, controls: str = "") -> str:
     ])
     project = _e(board.project_id or board.root.name)
     updated = _e(UPDATED.format(time=local(board.loaded_at).strftime("%H:%M:%S")))
+    if board.home_thinking:  # a quiet pointer to the seed home
+        updated += (f'<span class="sep">·</span><span class="garden-link">种子园：'
+                    f"{board.home_thinking} 个在思考中</span>"
+                    f'<span class="sep">·</span><code>arb ui --home</code>')
     warn = (f'<div class="warn-line">{_e(board.config_error)}</div>'
             if board.config_error else "")
     ctl = f'<div class="controls">{controls}</div>' if controls else ""
@@ -805,3 +809,115 @@ def budget(board: Board) -> str:
                           ("估计上限", True), ("实际", True), ("实际/估计", True)], est_rows)
                 + "</details>") if done else ""
     return _section("budget", _head("算力与预算"), head, charts, jobs_html, est_html)
+
+
+# ---------------------------------------------------------------- 种子园 (arb ui --home)
+
+SEED_STATUS = {"thinking": ("思考中", "run"), "planted": ("已种下", "ok"),
+               "dropped": ("已放弃", "slate")}
+SHELL_SAFE = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                       "/._-~")
+
+
+def short_path(path: Path) -> str:
+    """`~/arboria/seeds/x.py` under the home directory, else the full path."""
+    try:
+        return "~/" + str(Path(path).relative_to(Path.home()))
+    except ValueError:
+        return str(path)
+
+
+def edit_command(path: Path) -> str:
+    """`marimo edit <path>`, with `~` when the path needs no quoting."""
+    short = short_path(path)
+    if set(short) <= SHELL_SAFE:
+        return f"marimo edit {short}"
+    return f"marimo edit {shlex.quote(str(path))}"
+
+
+def seed_pill(status: str) -> str:
+    label, color = SEED_STATUS.get(status, (status, "slate"))
+    return f'<span class="pill s-{color}">{_e(label)}</span>'
+
+
+def garden_header(g: Garden, controls: str = "") -> str:
+    def kpi(label: str, value: int) -> str:
+        return (f'<div class="kpi"><div class="k">{_e(label)}</div>'
+                f'<div class="v">{value}</div></div>')
+
+    kpis = "".join(kpi(SEED_STATUS[k][0], g.count(k)) for k in ("thinking", "planted", "dropped"))
+    updated = _e(UPDATED.format(time=local(g.loaded_at).strftime("%H:%M:%S")))
+    ctl = f'<div class="controls">{controls}</div>' if controls else ""
+    return (f'<section class="arb head"><div class="titlebar"><div>'
+            f'<h1>Arboria 种子园<span class="proj">{_e(short_path(g.root))}</span></h1>'
+            f'<div class="meta">{updated}</div></div>{ctl}</div>'
+            f'<div class="kpis three">{kpis}</div></section>')
+
+
+def _planted(seed: dict[str, Any]) -> str:
+    return "、".join(f"{_e(Path(p['repo']).name)} · {_e(p['idea'])}" for p in seed["planted_to"])
+
+
+def seed_card(g: Garden, seed: dict[str, Any]) -> str:
+    nb = seed["notebook"]
+    when = f'<span class="when" title="{_e(fmt_time(seed["last_edited"], True))}">' \
+           f'{_e(age(seed["last_edited"], g.loaded_at))}</span>'
+    parts = [f'<div class="seed-top"><span class="seed-name">{_e(seed["name"])}</span>'
+             f'{seed_pill(seed["status"])}{when}</div>']
+    if seed.get("gist"):
+        parts.append(f'<div class="gist">{_e(seed["gist"])}</div>')
+    if seed.get("hypothesis"):
+        parts.append(f'<div class="seed-hyp"><span class="faint">假设</span> '
+                     f'{_e(seed["hypothesis"])}</div>')
+    if seed["planted_to"]:
+        parts.append(f'<div class="seed-planted"><span class="faint">种在</span> '
+                     f"{_planted(seed)}</div>")
+    if seed.get("notebook_exists", True):
+        foot = (f"{cmd(edit_command(nb), alt=True)}"
+                f'<a class="vscode" href="{_e(vscode_link(nb))}" title="{_e(nb)}">VS Code</a>')
+    else:
+        foot = '<span class="faint">notebook 不在了</span>'
+    parts.append(f'<div class="seed-foot">{foot}</div>')
+    return f'<div class="seed s-{_e(seed["status"])}">' + "".join(parts) + "</div>"
+
+
+def seeds_section(g: Garden) -> str:
+    live = [s for s in g.seeds if s["status"] != "dropped"]
+    dropped = g.with_status("dropped")
+    if live:
+        body = '<div class="seeds">' + "".join(seed_card(g, s) for s in live) + "</div>"
+    else:
+        body = ('<div class="muted">还没有种子 · '
+                f'{cmd("arb seed new NAME " + chr(34) + "一句话想法" + chr(34))}</div>')
+    more = ""
+    if dropped:
+        rows = "".join(f'<div class="item">' + _line(
+            f'<span class="id">{_e(s["name"])}</span>', _e(s.get("gist") or ""),
+            f'<span class="when">{_e(age(s["last_edited"], g.loaded_at))}</span>') + "</div>"
+            for s in dropped)
+        more = (f'<details class="more"><summary>已放弃 {len(dropped)} 个</summary>'
+                f"{rows}</details>")
+    return _section("garden", _head("种子", len(live)), body, more)
+
+
+def garden_todos(g: Garden) -> str:
+    items = []
+    for t in g.todos:
+        kind = todo_kind(t)
+        tag = f'<span class="tag">{_e(kind)}</span> ' if kind else ""
+        text = _sep(_e(t["seed"]), tag + _e(_clip(t["text"], 120)))
+        when = f'<span class="when">{_e(age(t["created_at"], g.loaded_at))}</span>'
+        items.append('<div class="item wrap">' + _line(
+            f'<span class="id">{_e(t["id"])}</span>', text, when, tip=t["text"]) + "</div>")
+    body = "".join(items) or '<div class="faint">没有</div>'
+    return _section("garden-todos", _head("等 Claude 的待办", len(items)), body)
+
+
+def garden_body(g: Garden) -> str:
+    return (f'<div class="arb-grid garden-grid"><div class="arb-col">{seeds_section(g)}</div>'
+            f'<div class="arb-col">{garden_todos(g)}</div></div>')
+
+
+def garden_page(g: Garden) -> str:
+    """The seed home as one standalone HTML fragment (same layout as the app)."""
+    return wrap(garden_header(g), garden_body(g))

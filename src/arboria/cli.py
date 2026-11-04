@@ -822,12 +822,26 @@ def export(
 def ui(
     idea: Annotated[Optional[str], typer.Option("--idea", help="Idea to select (default: the idea of the current worktree, else the most recently active open one).")] = None,
     port: Annotated[Optional[int], typer.Option("--port", help="Port (default: marimo picks a free one).")] = None,
+    home: Annotated[bool, typer.Option("--home", help="The seed home (种子园) instead; the default outside any repo.")] = False,
 ) -> None:
-    """Open the read-only dashboard (看板): what needs you, the idea tree, SU budget.
+    """Open the read-only dashboard (看板): what needs you, the idea tree, SU budget; or,
+    outside any repo (or with --home), the seed home (种子园).
 
     Runs `marimo run` on 127.0.0.1; it reads the ledger and never changes anything."""
     from .ui import launch
 
+    if not home:
+        try:
+            locate()
+        except NotARepoError:
+            home = True
+        else:
+            home = seeds_mod.home_of() is not None
+    if home:
+        if idea:
+            raise ArbError("--idea is for a project's dashboard, not the seed home")
+        h = seeds_mod.ensure_home(_info)
+        raise typer.Exit(launch.launch_home(h.root, port=port))
     ctx = locate().require_initialized()
     code = launch.launch(ctx.main, toplevel=ctx.toplevel, idea=idea, port=port)
     raise typer.Exit(code)

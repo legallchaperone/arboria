@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from arboria import db, report
-from arboria.ui import APP, data, launch, views
+from arboria.ui import APP, GARDEN, data, launch, views
 
 from . import uiutil
 
@@ -268,7 +268,7 @@ def test_ticks() -> None:
 # ---------------------------------------------------------------- read-only guarantees
 
 
-DASHBOARD_MODULES = ("data.py", "views.py", "dashboard.py", "__init__.py")
+DASHBOARD_MODULES = ("data.py", "views.py", "dashboard.py", "garden.py", "__init__.py")
 ALLOWED_ARBORIA = {"arboria.cards", "arboria.config", "arboria.errors", "arboria.paths",
                    "arboria.slurm", "arboria.ui", "arboria.ui.data", "arboria.ui.views"}
 
@@ -306,6 +306,8 @@ def test_dashboard_imports_no_write_path() -> None:
             assert bad not in text, (name, bad)
     app = (UI / "dashboard.py").read_text()
     assert set(re.findall(r"mo\.ui\.(\w+)", app)) == {"refresh", "dropdown", "switch"}
+    garden = (UI / "garden.py").read_text()
+    assert set(re.findall(r"mo\.ui\.(\w+)", garden)) == {"refresh"}
     # transitively, too: importing the dashboard pulls in no write module
     code = ("import sys; import arboria.ui.data, arboria.ui.views; "
             "print(sorted(m for m in sys.modules if m.startswith('arboria')))")
@@ -471,3 +473,138 @@ def test_dashboard_app_on_an_empty_project(initialized: Path, monkeypatch) -> No
     assert defs["picker"].value is None and defs["board"].ideas == []
     html = "".join(getattr(o, "text", "") for o in outputs if o is not None)
     assert "还没有 idea" in html and "未设项目预算" in html
+
+
+# ---------------------------------------------------------------- 种子园 (arb ui --home)
+
+
+@pytest.fixture
+def garden_home(arb, tmp_path: Path, isolated_home: Path, initialized: Path) -> Path:
+    arb(tmp_path, "seed", "new", "rank-schedule", "LoRA 的秩随层变化",
+        "--hypothesis", "浅层需要更高的秩", "--metric", "val/loss")
+    arb(tmp_path, "seed", "new", "xss", uiutil.XSS)
+    arb(tmp_path, "seed", "new", "muon-small", "Muon 在小模型上")
+    arb(tmp_path, "seed", "drop", "muon-small")
+    arb(initialized, "seed", "plant", "rank-schedule")
+    from arboria import lab
+
+    scope = {"__name__": "__marimo__", "__file__": str(isolated_home / "seeds" / "xss.py"),
+             "lab": lab}
+    exec('lab.todo("找三篇相关论文")', scope)
+    return isolated_home
+
+
+def test_garden_data_and_views(garden_home: Path) -> None:
+    g = data.load_home(garden_home)
+    assert {s["name"] for s in g.seeds} == {"xss", "rank-schedule", "muon-small"}
+    edited = [s["last_edited"] for s in g.seeds]
+    assert edited == sorted(edited, reverse=True)  # most recently edited first
+    assert (g.count("thinking"), g.count("planted"), g.count("dropped")) == (1, 1, 1)
+    rs = next(s for s in g.seeds if s["name"] == "rank-schedule")
+    assert [p["idea"] for p in rs["planted_to"]] == ["rank-schedule"]
+    assert [(t["id"], t["seed"]) for t in g.todos] == [("t001", "xss")]
+    head = views.garden_header(g)
+    for label, n in (("思考中", 1), ("已种下", 1), ("已放弃", 1)):
+        assert f'<div class="k">{label}</div><div class="v">{n}</div>' in head
+    body = views.garden_body(g)
+    nb = garden_home / "seeds" / "rank-schedule.py"
+    assert f'href="vscode://file{nb}"' in body and _has_cmd(body, views.edit_command(nb))
+    assert "浅层需要更高的秩" in body and "proj · rank-schedule" in body and "已种下" in body
+    assert "找三篇相关论文" in body and "等 Claude 的待办" in body
+    # dropped seeds are behind one disclosure; free text is escaped
+    assert '<details class="more"><summary>已放弃 1 个</summary>' in body
+    assert body.index("muon-small") > body.index("已放弃 1 个")
+    assert "<script>" not in body and "&lt;script&gt;alert(1)&lt;/script&gt;" in body
+    assert "<button" not in body and "<form" not in body and "<input" not in body
+    page = views.garden_page(g)
+    assert page.startswith("<style>") and "Arboria 种子园" in page
+
+
+def test_edit_command_quotes_odd_paths() -> None:
+    assert views.edit_command(Path.home() / "arboria" / "seeds" / "a-b.py") == \
+        "marimo edit ~/arboria/seeds/a-b.py"
+    assert views.edit_command(Path("/tmp/my seeds/a.py")) == "marimo edit '/tmp/my seeds/a.py'"
+
+
+def test_empty_garden(arb, tmp_path: Path, isolated_home: Path) -> None:
+    from arboria import seeds
+
+    seeds.ensure_home()
+    g = data.load_home(isolated_home)
+    assert g.seeds == [] and "还没有种子" in views.garden_body(g)
+
+
+def test_project_header_counts_thinking_seeds(board_project: Path, arb, tmp_path: Path) -> None:
+    assert data.load(board_project).home_thinking is None  # no home yet: no line
+    assert "种子园" not in views.header(data.load(board_project))
+    arb(tmp_path, "seed", "new", "aaa")
+    arb(tmp_path, "seed", "new", "bbb")
+    b = data.load(board_project)
+    assert b.home_thinking == 2
+    assert "种子园：2 个在思考中" in views.header(b) and "<code>arb ui --home</code>" in views.header(b)
+
+
+def test_garden_reads_only(garden_home: Path, monkeypatch) -> None:
+    """Spy: no write helper, process or socket while the garden loads and renders, and
+    while its marimo app runs in-process; the ledger bytes stay the same."""
+    pytest.importorskip("marimo")
+    import socket
+
+    from arboria import db, seeds, sessions, tasks
+
+    calls: list[str] = []
+
+    def spy(name):
+        def boom(*a, **k):
+            calls.append(name)
+            raise AssertionError(f"garden called {name}")
+        return boom
+
+    targets = [(db.Ledger, "write"), (db.Ledger, "__init__"), (db, "commit_backup"),
+               (db, "migrate"), (db, "connect"), (subprocess, "run"), (subprocess, "Popen"),
+               (socket.socket, "connect"), (sessions, "notify"), (sessions, "record"),
+               (seeds, "init_home"), (seeds, "new_seed"), (seeds, "set_fields"),
+               (seeds, "drop"), (seeds, "plant"), (tasks, "add")]
+    for obj, name in targets:
+        monkeypatch.setattr(obj, name, spy(f"{getattr(obj, '__name__', obj)}.{name}"))
+    ledger = garden_home / ".arboria" / "ledger.db"
+    before = ledger.read_bytes()
+    g = data.load_home(garden_home)
+    assert views.garden_header(g) and views.garden_body(g)
+    monkeypatch.setenv("ARBORIA_UI_HOME", str(garden_home))
+    from arboria.ui import garden
+
+    outputs, defs = garden.app.run()
+    assert defs["garden"].count("thinking") == 1
+    html = "".join(getattr(o, "text", "") for o in outputs if o is not None)
+    assert "Arboria 种子园" in html and "rank-schedule" in html
+    assert calls == [] and ledger.read_bytes() == before
+
+
+def test_garden_passes_marimo_check() -> None:
+    pytest.importorskip("marimo")
+    res = subprocess.run([sys.executable, "-m", "marimo", "check", "--strict",
+                          str(UI / "garden.py")], capture_output=True, text=True, timeout=120)
+    assert res.returncode == 0 and "warning" not in (res.stdout + res.stderr).lower(), \
+        res.stdout + res.stderr
+
+
+def test_arb_ui_home(arb, tmp_path: Path, isolated_home: Path, idea: Path, initialized: Path,
+                     monkeypatch) -> None:
+    seen: list[tuple[list[str], dict]] = []
+    monkeypatch.setattr(launch, "run_marimo", lambda cmd, env: seen.append((cmd, env)) or 0)
+    monkeypatch.setattr(launch, "marimo_available", lambda: True)
+    res = arb(tmp_path, "ui")  # outside any repo: the seed home, created on first use
+    assert "种子园建在" in res.stderr and (isolated_home / ".arboria" / "ledger.db").is_file()
+    cmd, env = seen[-1]
+    assert cmd[:5] == [sys.executable, "-m", "marimo", "run", str(GARDEN)]
+    assert cmd[cmd.index("--host") + 1] == "127.0.0.1" and "--token" in cmd
+    assert cmd[cmd.index("--") + 1:] == ["--home", str(isolated_home)]
+    assert env["ARBORIA_UI_HOME"] == str(isolated_home)
+    arb(isolated_home, "ui", "--port", "8800")  # inside the home
+    assert seen[-1][0][4] == str(GARDEN) and "8800" in seen[-1][0]
+    arb(idea, "ui", "--home")  # from a repo, explicitly
+    assert seen[-1][0][4] == str(GARDEN)
+    arb(idea, "ui")  # a repo without --home: still the project's dashboard
+    assert seen[-1][0][4] == str(APP)
+    assert "--idea is for a project" in arb(tmp_path, "ui", "--idea", "x", ok=False).stderr

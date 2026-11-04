@@ -340,3 +340,31 @@ body[data-theme] { --background: var(--arb-bg); }
   .arb .kpi .v { font-size: 24px; }
   .arb .runs .rd { padding-left: 8px; }
 }
+
+/* ------------------------------------------------------------ 种子园 (arb ui --home) */
+
+.arb .kpis.three { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 720px; }
+.arb .titlebar .meta .sep { color: var(--arb-faint); margin: 0 6px; }
+.arb .titlebar .meta code { font-size: 11.5px; color: var(--arb-muted); }
+@media (min-width: 1100px) {
+  .arb-grid.garden-grid { grid-template-columns: minmax(0, 72fr) minmax(0, 28fr); }
+}
+.arb .seeds { display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.arb .seed { border: 1px solid var(--arb-line-soft); border-radius: 8px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.arb .seed:hover { border-color: var(--arb-line); }
+.arb .seed-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.arb .seed-name { font-weight: 600; color: var(--arb-ink); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.arb .seed-top .when { margin-left: auto; font-size: 12px; color: var(--arb-faint);
+  white-space: nowrap; }
+.arb .seed .gist { color: var(--arb-ink-2); }
+.arb .seed-hyp, .arb .seed-planted { font-size: 13px; color: var(--arb-muted); }
+.arb .seed-foot { display: flex; align-items: center; gap: 10px; margin-top: auto;
+  padding-top: 4px; font-size: 13px; min-width: 0; }
+.arb .seed-foot code.cmd { flex: 0 1 auto; min-width: 0; font-size: 11.5px; }
+.arb .seed.s-planted .gist { color: var(--arb-muted); }
+.arb .seed-foot .vscode { margin-left: auto; font-size: 12px; white-space: nowrap; }
+.arb .item.wrap .line { align-items: baseline; flex-wrap: nowrap; }
+.arb .item.wrap .line .text { white-space: normal; }

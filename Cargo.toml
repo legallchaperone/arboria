@@ -1,0 +1,33 @@
+# Arboria Rust workspace (docs/adr/0001-app-and-rust-core.md, docs/adr/0002-rust-contract.md).
+# The Python package (src/arboria/, pyproject.toml) is unaffected and stays usable.
+[workspace]
+resolver = "2"
+members = ["crates/arboria-core"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.97"
+license = "MIT"
+repository = "https://github.com/legallchaperone/arboria"
+publish = false
+
+# Exact versions, each published at least two weeks before 2026-11-04 (checked on
+# crates.io). Transitive versions are fixed by the committed Cargo.lock and were held to
+# the same rule (`cargo update -p <crate> --precise <older>` for cc, smallvec,
+# toml_writer, js-sys / wasm-bindgen). Add a crate only when it is well established, and
+# pin it the same way.
+[workspace.dependencies]
+arboria-core = { path = "crates/arboria-core" }
+anyhow = "=1.0.104"
+clap = { version = "=4.6.7", features = ["derive"] }
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+# float_roundtrip: parse floats exactly like Python (test vectors carry e.g. 110.898)
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+thiserror = "=2.0.21"
+toml = "=1.1.8"
+tracing = "=0.1.44"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

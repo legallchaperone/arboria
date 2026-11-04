@@ -17,3 +17,6 @@ __marimo__/
 
 # OS / editor
 .DS_Store
+
+# Rust
+/target/

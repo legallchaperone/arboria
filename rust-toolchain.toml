@@ -1,0 +1,4 @@
+# The toolchain CI and local builds use (fmt / clippy output depends on it).
+[toolchain]
+channel = "1.97.0"
+components = ["rustfmt", "clippy"]

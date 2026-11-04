@@ -1,15 +1,18 @@
 ---
-// The landing page below the hero: four sections that show (screenshots of demo
-// data, one diagram), then the short “why”. Copy in Chinese and English.
+// The landing page below the hero: four screens (one heading, two lines, pictures of
+// real output from demo data), then a small footer. Copy in Chinese and English.
 import { Image } from 'astro:assets';
 import { LinkButton } from '@astrojs/starlight/components';
 import ApprovalFlow from './ApprovalFlow.astro';
-import seedGarden from '../assets/shots/seed-garden.webp';
-import seedNotebook from '../assets/shots/seed-notebook.webp';
-import nbPlot from '../assets/shots/nb-plot.webp';
+import plot from '../assets/shots/plot.webp';
+import cmdBuiltin from '../assets/shots/cmd-builtin.webp';
+import cmdMine from '../assets/shots/cmd-mine.webp';
+import nbSvd from '../assets/shots/nb-svd.webp';
 import nbCard from '../assets/shots/nb-card.webp';
 import dashLight from '../assets/shots/dashboard-light.webp';
 import dashDark from '../assets/shots/dashboard-dark.webp';
+// what a new agent session is handed: real `arb hook session-start` output of a demo project
+import sessionStart from '../assets/session-start.txt?raw';
 
 interface Props {
 	lang?: 'zh' | 'en';
@@ -18,207 +21,286 @@ const { lang = 'zh' } = Astro.props;
 const zh = lang === 'zh';
 const docs = (p: string) => `/${p}/`; // the docs themselves are Chinese only
 
+// an excerpt: the idea, its open todo and the runs (one line each); what follows fades out
+const allLines = sessionStart.trimEnd().split('\n');
+const runsAt = allLines.findIndex((line) => line.startsWith('Runs'));
+const lastRun = allLines.findIndex((line) => line.includes('[awaiting_approval]'));
+const hookLines = allLines.filter((line, i) => i <= lastRun && !(i > runsAt && /^\s/.test(line)));
+const fadeLines = allLines.slice(lastRun + 1).filter((line) => !/^\s/.test(line)).slice(0, 2);
+const lineClass = (line: string) =>
+	line.startsWith('[arboria]')
+		? 'h'
+		: /^(命令待办|待你批准)/.test(line)
+			? 'w'
+			: /^(Ledger rules|看板)/.test(line)
+				? 'd'
+				: /^\s{4}/.test(line)
+					? 'm'
+					: '';
+
 const c = zh
 	? {
-			s1: {
-				kicker: '种子',
-				title: '从种子到实验',
-				body: '还没有仓库的想法先记成种子，各有一个 marimo notebook，放在 ~/arboria。想清楚了，在仓库里 arb seed plant，它就成了一个有分支、worktree 和 notebook 的 idea，开头带着种子里的思路。',
-				a: '种子园（arb ui，仓库之外）：思考中、已种下、已放弃，和等 Claude 的待办。',
-				b: '种子 notebook：观察、猜想、一个玩具实验。只有你写，Claude 只读。',
-				link: ['种子园', 'guides/seeds'],
-			},
-			s2: {
-				kicker: 'notebook',
-				title: 'notebook 就是实验台',
-				body: '每个 idea 一个 notebook，只有你写。lab.run 生成审核单，结果和曲线回到同一页。分析命令由 Claude 写，存成函数，之后每次直接运行，不花 token。',
-				a: 'lab.plot_loss 是 Claude 写的项目命令，下面一行是它的出处和版本。',
-				b: 'lab.run 只生成审核单：快照、资源、估计、预算和哈希。批准要去你的终端。',
+			bench: {
+				kicker: '你的工作台',
+				title: '常用的分析，写一行就有',
+				body: '对比曲线、看两个 run 差在哪、查算力花在了哪，在 notebook 里都只要一行，结果就显示在它下面。',
+				plot: '一行画出几个 run 的同一条曲线。',
+				table: '内置的分析，lab.commands() 列出全部。',
 				link: ['notebook 与 lab', 'guides/notebook'],
 			},
-			s3: {
-				kicker: '看板',
-				title: '一眼看全局',
-				body: 'arb ui 打开只读看板：什么在等你、idea 怎么随时间分叉、算力花在了哪里。没有会动手的按钮，要做的事显示成可以复制的命令。',
-				a: '左边是待你处理的事，右边是 idea 树和选中 idea 的详情。',
-				link: ['看板', 'guides/dashboard'],
+			mine: {
+				kicker: '你的命令',
+				title: '缺一个分析？也写一行',
+				body: '还没有的命令会交给 agent 去写，写好后这个 cell 自动重跑，从此它就是你随时能调用的命令，不再花 token，也不用再解释一遍。',
+				diff: '别的 notebook AI 直接改你的 cell，这里的 agent 从不碰你的 notebook，交给你的是一个函数。',
+				first: '第一次：命令还不存在，交给 agent。',
+				after: '之后：agent 写好的命令带着版本，和内置的一样调用。',
+				link: ['自定义命令', 'guides/commands'],
 			},
-			s4: {
+			resume: {
+				kicker: '换会话',
+				title: '不用重讲一遍',
+				body: '换一个会话时，idea、run 和待办都还在，agent 一开始就知道进展到了哪里，等你处理的事也在一屏里看得完。',
+				term: '新会话开头，agent 自动收到这一屏',
+				termCap: '演示项目的真实输出（节选）。',
+				dash: 'arb ui：等你处理的事、idea 怎么分叉、算力花在哪。只读。',
+				link: ['新会话收到什么', 'guides/claude-code'],
+			},
+			approve: {
 				kicker: '批准',
-				title: '只有你能批准',
-				body: 'Claude 和 notebook 只能生成审核单。作业只在你自己的终端里、你输入 run id 确认之后才会交给 Slurm；审核单的任何一项变了，旧的批准就作废。',
+				title: '上集群，你说了算',
+				body: '一行发起的作业会先给你一张单子，你在自己的终端里签了字才会提交，之后的排队、计费、分段和出错时提前取消都不用你管。',
+				card: 'lab.run 只给你一张单子：代码、资源、估计花费、预算。',
 				link: ['提交与批准', 'guides/submit'],
 			},
-			why: {
-				title: '为什么',
-				items: [
-					['状态在对话之外', 'idea、run、笔记和决定记在本地 SQLite 账本里，只经 arb 写入。新会话由 hook 注入一屏摘要，会话随开随清。'],
-					['notebook 是你的', '每个 idea 有自己的分支、worktree 和 marimo notebook。Claude 能读，不能改；它的活来自你留下的待办。'],
-					['Claude 写代码和命令', '在 notebook 里写 lab.svd(r, "画前 20 个奇异值")。命令不存在时交给 Claude，写好后 cell 自动重跑。'],
-					['算力层被封装', '分段、计费（含 DeltaAI 的规则）、预算、Duo 登录、观察期内自动取消，都由 arb 处理。'],
-					['每个 run 都由你批准', '审核单绑定快照、命令、资源和环境的哈希。没有自动批准的代码路径。'],
-					['护栏，不是沙箱', '它防的是 Claude 顺手照做，不防同一台机器上以你的身份运行的蓄意对手。'],
-				],
-			},
-			end: {
-				title: '先在本地看看',
-				body: '装好 arb，在任意 git 仓库里建一个 idea 和它的 notebook。上集群之前需要一台机器配置。',
+			foot: {
+				seed: {
+					title: '还没有仓库？先记成种子',
+					body: '在仓库外运行 arb idea new，想法会连同一个 notebook 先放在 ~/arboria，等想清楚了再种进仓库。',
+					link: ['种子园', 'guides/seeds'],
+				},
+				not: {
+					title: '它不是什么',
+					items: [
+						['不是 wandb', '曲线照样在 wandb 里看，arb 给每个 run 一个固定的 wandb id，用它把两边连起来。'],
+						['不是 MLflow 一类的追踪器', '指标和模型还在原来的地方（wandb、checkpoint 目录），arb 记的是为什么跑、跑的哪版代码、谁批准的、花了多少。'],
+						['不是 Jupyter AI 一类', '那些工具让 AI 改你的 cell，这里的 agent 从不碰 notebook。'],
+					],
+				},
+				guard: {
+					title: '护栏，不是沙箱',
+					body: '它防的是 agent 顺手照做不该做的事，不防以你的身份在同一台机器上运行的蓄意对手。',
+					link: ['安全模型', 'reference/security'],
+				},
+				end: '装好 arb，在任意 git 仓库里建一个 idea 和它的 notebook。',
 				start: '快速开始',
 				concepts: '核心概念',
 			},
 		}
 	: {
-			s1: {
-				kicker: 'Seeds',
-				title: 'From a seed to an experiment',
-				body: 'An idea with no repo yet is a seed, with its own marimo notebook in ~/arboria. When it is ready, arb seed plant turns it into an idea in a repo — a branch, a worktree and a notebook that starts with the seed’s notes.',
-				a: 'The seed garden (arb ui outside a repo): thinking, planted, dropped, and todos for Claude.',
-				b: 'A seed notebook: observations, a guess, a toy experiment. You write it; Claude only reads.',
-				link: ['Seeds (Chinese)', 'guides/seeds'],
-			},
-			s2: {
-				kicker: 'Notebook',
-				title: 'The notebook is the bench',
-				body: 'Each idea has one notebook, and only you write it. lab.run creates a review card; results and curves come back to the same page. Analysis commands are written by Claude once, saved as functions, and then run without spending tokens.',
-				a: 'lab.plot_loss is a project command Claude wrote; the line below names it and its version.',
-				b: 'lab.run only creates a review card: snapshot, resources, estimate, budget, hash. Approval happens in your terminal.',
+			bench: {
+				kicker: 'Your bench',
+				title: 'Common analyses are one line',
+				body: 'Comparing curves, seeing how two runs differ or checking where the compute went each takes one line in the notebook, with the result right below it.',
+				plot: 'One line draws the same curve for several runs.',
+				table: 'Built-in analyses; lab.commands() lists them all.',
 				link: ['Notebook and lab (Chinese)', 'guides/notebook'],
 			},
-			s3: {
-				kicker: 'Dashboard',
-				title: 'Everything at a glance',
-				body: 'arb ui opens a read-only dashboard: what is waiting for you, how ideas branched over time, and where the compute went. No buttons that act; actions are shown as commands to copy.',
-				a: 'Left: what needs you. Right: the idea tree and the selected idea.',
-				link: ['Dashboard (Chinese)', 'guides/dashboard'],
+			mine: {
+				kicker: 'Your commands',
+				title: 'Missing an analysis? One line too',
+				body: 'A command that does not exist yet goes to the agent, and once it is written the cell re-runs and the command is yours to call any time, with no tokens spent and nothing to explain again.',
+				diff: 'Other notebook AIs edit your cells, while here the agent never touches your notebook and hands you a function instead.',
+				first: 'The first call: no such command yet, so it goes to the agent.',
+				after: 'Afterwards: the agent’s commands carry a version and are called like the built-in ones.',
+				link: ['Custom commands (Chinese)', 'guides/commands'],
 			},
-			s4: {
+			resume: {
+				kicker: 'New session',
+				title: 'No re-explaining',
+				body: 'When you switch sessions the ideas, runs and todos are still there, so the agent starts out knowing where things stand, and what waits for you fits on one screen.',
+				term: 'What a new agent session is handed',
+				termCap: 'Real output from a demo project (excerpt).',
+				dash: 'arb ui: what waits for you, how ideas branched, where the compute went. Read-only.',
+				link: ['What a new session gets (Chinese)', 'guides/claude-code'],
+			},
+			approve: {
 				kicker: 'Approval',
-				title: 'Only you approve',
-				body: 'Claude and the notebook can only create review cards. A job reaches Slurm only from your own terminal, after you type the run id; if anything on the card changes, the old approval no longer counts.',
+				title: 'On the cluster, you decide',
+				body: 'A job started with one line first gives you a slip, it is submitted only after you sign it in your own terminal, and queueing, billing, segments and cancelling on errors are handled from there.',
+				card: 'lab.run only gives you a slip: code, resources, estimated cost, budget.',
 				link: ['Submitting and approving (Chinese)', 'guides/submit'],
 			},
-			why: {
-				title: 'Why',
-				items: [
-					['State lives outside the chat', 'Ideas, runs, notes and decisions live in a local SQLite ledger that only arb writes. A new session gets a one-screen summary from a hook.'],
-					['The notebook is yours', 'Each idea has its own branch, worktree and marimo notebook. Claude can read it, not edit it; its work comes from the todos you leave.'],
-					['Claude writes code and commands', 'Write lab.svd(r, "plot the top 20 singular values") in the notebook. If the command does not exist, Claude writes it and the cell re-runs.'],
-					['The compute layer is wrapped', 'Segments, billing (with DeltaAI’s rules), budgets, Duo logins and early cancellation are handled by arb.'],
-					['You approve every run', 'The review card is bound to a hash of snapshot, command, resources and environment. No code path approves on its own.'],
-					['Guard rails, not a sandbox', 'They stop Claude from going along with a stray instruction, not a deliberate adversary running as you on the same machine.'],
-				],
-			},
-			end: {
-				title: 'Try it locally first',
-				body: 'Install arb and create an idea and its notebook in any git repository. Before running on a cluster you need a machine profile. The documentation is in Chinese.',
+			foot: {
+				seed: {
+					title: 'No repo yet? Keep it as a seed',
+					body: 'Run arb idea new outside a repo and the idea waits in ~/arboria with its own notebook until you plant it in a repo.',
+					link: ['Seeds (Chinese)', 'guides/seeds'],
+				},
+				not: {
+					title: 'What it is not',
+					items: [
+						['Not wandb', 'You still look at curves in wandb, and arb gives every run a fixed wandb id that ties the two together.'],
+						['Not an MLflow-style tracker', 'Metrics and models stay where they are (wandb, the checkpoint directory), while arb records why a run happened, which code it ran, who approved it and what it cost.'],
+						['Not Jupyter AI and the like', 'Those let the AI edit your cells, while here the agent never touches the notebook.'],
+					],
+				},
+				guard: {
+					title: 'Guard rails, not a sandbox',
+					body: 'They stop an agent from going along with a stray instruction, not a deliberate adversary running as you on the same machine.',
+					link: ['Security (Chinese)', 'reference/security'],
+				},
+				end: 'Install arb and create an idea and its notebook in any git repository. The documentation is in Chinese.',
 				start: 'Quick start (Chinese)',
 				concepts: 'Concepts (Chinese)',
 			},
 		};
 
-const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
+const col = '(min-width: 72rem) 40rem, (min-width: 60rem) 56vw, 94vw';
 ---
 
 <div class="landing not-content" lang={zh ? 'zh-CN' : 'en'}>
 	<section class="block">
 		<header>
-			<p class="kicker">{c.s1.kicker}</p>
-			<h2>{c.s1.title}</h2>
-			<p class="body">{c.s1.body}</p>
-			<a class="more" href={docs(c.s1.link[1])}>{c.s1.link[0]} →</a>
+			<p class="kicker">{c.bench.kicker}</p>
+			<h2>{c.bench.title}</h2>
+			<p class="body">{c.bench.body}</p>
+			<a class="more" href={docs(c.bench.link[1])}>{c.bench.link[0]} →</a>
 		</header>
-		<div class="pair">
+		<div class="figs">
 			<figure class="shot">
-				<Image src={seedGarden} widths={[640, 960, 1262]} sizes={sizes} alt={zh ? 'Arboria 种子园看板：四个种子的卡片，状态是思考中、已种下，右边一个等 Claude 的待办' : 'The Arboria seed garden: four seed cards (thinking, planted) and one todo waiting for Claude'} />
-				<figcaption>{c.s1.a}</figcaption>
+				<div class="cell">
+					<pre class="code"><span class="f">lab.plot</span>([<span class="s">"r001"</span>, <span class="s">"r002"</span>, <span class="s">"r004"</span>], <span class="s">"val/loss"</span>)</pre>
+					<Image src={plot} widths={[640, 960, 1300]} sizes={col} alt={zh ? 'lab.plot 的输出：r001、r002、r004 三个 run 的 val/loss 曲线画在一起' : 'Output of lab.plot: the val/loss curves of r001, r002 and r004 in one chart'} />
+				</div>
+				<figcaption>{c.bench.plot}</figcaption>
 			</figure>
 			<figure class="shot">
-				<Image src={seedNotebook} widths={[640, 960, 1180]} sizes={sizes} alt={zh ? '种子 loss-spikes 的 marimo notebook：一句话想法、假设、指标，下面是观察和猜想' : 'The marimo notebook of the seed loss-spikes: the idea, hypothesis and metric, then observations and a guess'} />
-				<figcaption>{c.s1.b}</figcaption>
-			</figure>
-		</div>
-	</section>
-
-	<section class="block">
-		<header>
-			<p class="kicker">{c.s2.kicker}</p>
-			<h2>{c.s2.title}</h2>
-			<p class="body">{c.s2.body}</p>
-			<a class="more" href={docs(c.s2.link[1])}>{c.s2.link[0]} →</a>
-		</header>
-		<div class="pair">
-			<figure class="shot">
-				<Image src={nbPlot} widths={[640, 960, 1180]} sizes={sizes} alt={zh ? 'idea notebook 里的 lab.plot_loss 对比两个 run 的 loss 曲线，baseline 前 2k 步有几次尖峰' : 'lab.plot_loss in an idea notebook comparing the loss curves of two runs; the baseline has spikes in the first 2k steps'} />
-				<figcaption>{c.s2.a}</figcaption>
-			</figure>
-			<figure class="shot">
-				<Image src={nbCard} widths={[640, 960, 1094]} sizes={sizes} alt={zh ? 'lab.run 的输出：r003 待批准，下面展开的审核单列出检查、资源、估计、预算和审核单哈希' : 'Output of lab.run: r003 awaiting approval, with the review card expanded: checks, resources, estimate, budget and card hash'} />
-				<figcaption>{c.s2.b}</figcaption>
+				<Image class="framed" src={cmdBuiltin} widths={[640, 960, 1304]} sizes={col} alt={zh ? '命令表里的内置分析：runs、compare、plot、diff、spend，各一句说明' : 'Built-in analyses in the command table: runs, compare, plot, diff, spend, each with a one-line description'} />
+				<figcaption>{c.bench.table}</figcaption>
 			</figure>
 		</div>
 	</section>
 
 	<section class="block">
 		<header>
-			<p class="kicker">{c.s3.kicker}</p>
-			<h2>{c.s3.title}</h2>
-			<p class="body">{c.s3.body}</p>
-			<a class="more" href={docs(c.s3.link[1])}>{c.s3.link[0]} →</a>
+			<p class="kicker">{c.mine.kicker}</p>
+			<h2>{c.mine.title}</h2>
+			<p class="body">{c.mine.body}</p>
+			<p class="body diff">{c.mine.diff}</p>
+			<a class="more" href={docs(c.mine.link[1])}>{c.mine.link[0]} →</a>
 		</header>
-		<figure class="shot wide">
-			<Image class="arb-light-only" src={dashLight} widths={[800, 1250]} sizes="(min-width: 72rem) 66rem, 94vw" alt={zh ? 'Arboria 看板：顶部是需要你处理的数量、进行中的 idea、活跃作业和已用 SU；左边是待你处理，右边是 idea 树和 idea 详情' : 'The Arboria dashboard: counts on top, what needs you on the left, the idea tree and idea details on the right'} />
-			<Image class="arb-dark-only" src={dashDark} widths={[800, 1250]} sizes="(min-width: 72rem) 66rem, 94vw" alt="" />
-			<figcaption>{c.s3.a}</figcaption>
-		</figure>
+		<div class="figs">
+			<figure class="shot">
+				<Image class="framed" src={nbSvd} widths={[819]} sizes={col} alt={zh ? 'notebook 里调用 lab.svd，命令还不存在，cell 显示已交给 Claude（t001），写好后会自动重跑' : 'Calling lab.svd in the notebook: the command does not exist yet, so the cell says it was handed over (t001) and will re-run'} />
+				<figcaption>{c.mine.first}</figcaption>
+			</figure>
+			<p class="then" aria-hidden="true">↓</p>
+			<figure class="shot">
+				<Image class="framed" src={cmdMine} widths={[640, 960, 1509]} sizes={col} alt={zh ? '命令表里的项目命令 attn_entropy、svd 和全局命令 loss_curve，各带版本号和说明' : 'Project commands attn_entropy and svd and the global command loss_curve in the command table, each with a version and a description'} />
+				<figcaption>{c.mine.after}</figcaption>
+			</figure>
+		</div>
 	</section>
 
 	<section class="block">
 		<header>
-			<p class="kicker">{c.s4.kicker}</p>
-			<h2>{c.s4.title}</h2>
-			<p class="body">{c.s4.body}</p>
-			<a class="more" href={docs(c.s4.link[1])}>{c.s4.link[0]} →</a>
+			<p class="kicker">{c.resume.kicker}</p>
+			<h2>{c.resume.title}</h2>
+			<p class="body">{c.resume.body}</p>
+			<a class="more" href={docs(c.resume.link[1])}>{c.resume.link[0]} →</a>
+			<figure class="shot dash">
+				<Image class="arb-light-only" src={dashLight} widths={[640, 960, 1250]} sizes="(min-width: 60rem) 26rem, 94vw" alt={zh ? 'Arboria 看板：顶部是需要你处理的数量、进行中的 idea、活跃作业和已用 SU；左边是待你处理，右边是 idea 树和 idea 详情' : 'The Arboria dashboard: counts on top, what needs you on the left, the idea tree and idea details on the right'} />
+				<Image class="arb-dark-only" src={dashDark} widths={[640, 960, 1250]} sizes="(min-width: 60rem) 26rem, 94vw" alt="" />
+				<figcaption>{c.resume.dash}</figcaption>
+			</figure>
 		</header>
-		<ApprovalFlow lang={lang} />
-	</section>
-
-	<section class="block why">
-		<h2>{c.why.title}</h2>
-		<ul>
-			{
-				c.why.items.map(([title, text]) => (
-					<li>
-						<h3>{title}</h3>
-						<p>{text}</p>
-					</li>
-				))
-			}
-		</ul>
-	</section>
-
-	<section class="end">
-		<h2>{c.end.title}</h2>
-		<p>{c.end.body}</p>
-		<div class="actions">
-			<LinkButton href={docs('start/quickstart')}>{c.end.start}</LinkButton>
-			<LinkButton href={docs('start/concepts')} variant="minimal">{c.end.concepts}</LinkButton>
+		<div class="figs">
+			<figure class="term">
+				<div class="term-bar"><span class="dots"><i></i><i></i><i></i></span><span>{c.resume.term}</span></div>
+				<div class="term-body">
+					<pre>{hookLines.map((line) => <span class={lineClass(line)}>{line + '\n'}</span>)}<span class="fade" aria-hidden="true">{fadeLines.join('\n')}</span></pre>
+					<p class="more-lines" aria-hidden="true">…</p>
+				</div>
+				<figcaption>{c.resume.termCap}</figcaption>
+			</figure>
 		</div>
 	</section>
+
+	<section class="block">
+		<header>
+			<p class="kicker">{c.approve.kicker}</p>
+			<h2>{c.approve.title}</h2>
+			<p class="body">{c.approve.body}</p>
+			<a class="more" href={docs(c.approve.link[1])}>{c.approve.link[0]} →</a>
+		</header>
+		<div class="figs">
+			<figure class="shot">
+				<Image class="framed" src={nbCard} widths={[640, 960, 1094]} sizes={col} alt={zh ? 'lab.run 的输出：r003 待批准，下面展开的单子列出检查、资源、估计、预算和哈希' : 'Output of lab.run: r003 awaiting approval, with the slip expanded: checks, resources, estimate, budget and hash'} />
+				<figcaption>{c.approve.card}</figcaption>
+			</figure>
+		</div>
+		<div class="wide">
+			<ApprovalFlow lang={lang} />
+		</div>
+	</section>
+
+	<footer class="foot">
+		<div class="tiles">
+			<div class="tile">
+				<h3>{c.foot.seed.title}</h3>
+				<p>{c.foot.seed.body}</p>
+				<a class="more" href={docs(c.foot.seed.link[1])}>{c.foot.seed.link[0]} →</a>
+			</div>
+			<div class="tile">
+				<h3>{c.foot.not.title}</h3>
+				<ul>
+					{
+						c.foot.not.items.map(([head, text]) => (
+							<li>
+								<b>{head}</b>{zh ? '：' : ': '}{text}
+							</li>
+						))
+					}
+				</ul>
+			</div>
+			<div class="tile">
+				<h3>{c.foot.guard.title}</h3>
+				<p>{c.foot.guard.body}</p>
+				<a class="more" href={docs(c.foot.guard.link[1])}>{c.foot.guard.link[0]} →</a>
+			</div>
+		</div>
+		<div class="end">
+			<p>{c.foot.end}</p>
+			<div class="actions">
+				<LinkButton href={docs('start/quickstart')} icon="right-arrow">{c.foot.start}</LinkButton>
+				<LinkButton href={docs('start/concepts')} variant="minimal">{c.foot.concepts}</LinkButton>
+			</div>
+		</div>
+	</footer>
 </div>
 
 <style>
 	.landing {
 		display: flex;
 		flex-direction: column;
-		gap: 0;
 	}
 	.block {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1.75rem;
 		padding-block: 3.5rem;
 		border-top: 1px solid var(--sl-color-hairline);
 	}
+	@media (min-width: 60rem) {
+		.block {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+			gap: 3rem;
+			padding-block: 4.5rem;
+		}
+	}
 	header {
-		max-width: 40rem;
-		margin-bottom: 2rem;
+		max-width: 36rem;
 	}
 	.kicker {
 		margin: 0 0 0.5rem;
@@ -232,7 +314,7 @@ const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
 		margin: 0 0 0.75rem;
 		font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
 		font-weight: 600;
-		line-height: 1.25;
+		line-height: 1.3;
 		color: var(--sl-color-white);
 	}
 	.body {
@@ -240,6 +322,13 @@ const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
 		font-size: var(--sl-text-base);
 		line-height: 1.8;
 		color: var(--sl-color-gray-2);
+	}
+	.body.diff {
+		margin-top: 0.75rem;
+		padding-left: 0.75rem;
+		border-left: 2px solid var(--arb-accent);
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-gray-3);
 	}
 	.more {
 		display: inline-block;
@@ -251,16 +340,11 @@ const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
 	.more:hover {
 		text-decoration: underline;
 	}
-	.pair {
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 1.75rem;
-	}
-	@media (min-width: 50rem) {
-		.pair {
-			grid-template-columns: 1fr 1fr;
-			gap: 1.5rem;
-		}
+	.figs {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+		min-width: 0;
 	}
 	.shot {
 		margin: 0;
@@ -269,56 +353,187 @@ const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
 		display: block;
 		width: 100%;
 		height: auto;
+	}
+	.shot :global(img.framed),
+	.shot :global(.arb-light-only),
+	.shot :global(.arb-dark-only),
+	.cell {
 		border: 1px solid var(--arb-line);
 		border-radius: 0.6rem;
 		box-shadow: var(--arb-shot-shadow);
 		background: #fff;
 	}
-	.shot figcaption {
-		margin-top: 0.75rem;
+	.cell {
+		overflow: hidden;
+	}
+	.cell :global(img) {
+		padding: 0.5rem 0.75rem 0.25rem;
+	}
+	.code {
+		margin: 0;
+		padding: 0.5rem 0.9rem;
+		border-bottom: 1px solid #e7ecea;
+		background: #f4f6f5;
+		font-family: var(--__sl-font-mono);
+		font-size: 0.8125rem;
+		line-height: 1.6;
+		color: #1d2523;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.code .f {
+		color: #4b4f8f;
+	}
+	.code .s {
+		color: #1f7a5c;
+	}
+	.shot figcaption,
+	.term figcaption {
+		margin-top: 0.6rem;
 		font-size: var(--sl-text-sm);
 		line-height: 1.6;
 		color: var(--sl-color-gray-3);
 	}
-	.why ul {
-		list-style: none;
-		margin: 1.5rem 0 0;
+	.then {
+		margin: -0.75rem 0;
+		text-align: center;
+		font-size: 1.25rem;
+		color: var(--arb-faint);
+	}
+	.dash {
+		margin-top: 2rem;
+	}
+	.wide {
+		grid-column: 1 / -1;
+		width: 100%;
+		max-width: 50rem;
+		min-width: 0;
+		margin-inline: auto;
+	}
+
+	/* the session-start terminal */
+	.term {
+		margin: 0;
+	}
+	.term-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.5rem 0.9rem;
+		border: 1px solid var(--arb-line);
+		border-bottom: 0;
+		border-radius: 0.6rem 0.6rem 0 0;
+		background: var(--arb-sunken);
+		font-size: var(--sl-text-xs);
+		color: var(--arb-muted);
+	}
+	.dots {
+		display: inline-flex;
+		gap: 0.3rem;
+	}
+	.dots i {
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 50%;
+		background: var(--arb-line);
+	}
+	.term-body {
+		padding: 1.1rem 1.25rem 0.6rem;
+		border: 1px solid var(--arb-line);
+		border-radius: 0 0 0.6rem 0.6rem;
+		background: var(--arb-surface);
+	}
+	.term pre {
+		margin: 0;
 		padding: 0;
-		display: grid;
-		grid-template-columns: 1fr;
-		gap: 0;
+		background: none;
+		font-family: var(--__sl-font-mono);
+		font-size: 0.875rem;
+		line-height: 1.85;
+		color: var(--arb-ink);
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
 	}
-	@media (min-width: 50rem) {
-		.why ul {
-			grid-template-columns: 1fr 1fr 1fr;
-			column-gap: 2rem;
-		}
+	.term pre .h {
+		font-weight: 600;
+		color: var(--arb-accent);
 	}
-	.why li {
-		padding-block: 1.25rem;
+	.term pre .w {
+		color: var(--arb-warn);
+	}
+	.term pre .m {
+		color: var(--arb-muted);
+	}
+	.term pre .d {
+		color: var(--arb-faint);
+	}
+	.term pre .fade {
+		display: block;
+		color: var(--arb-muted);
+		-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+		mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+	}
+	.more-lines {
+		margin: 0;
+		font-family: var(--__sl-font-mono);
+		color: var(--arb-faint);
+	}
+
+	/* footer */
+	.foot {
+		padding-block: 3.5rem 1rem;
 		border-top: 1px solid var(--sl-color-hairline);
 	}
-	.why h3 {
-		margin: 0 0 0.4rem;
+	.tiles {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 2rem;
+	}
+	@media (min-width: 50rem) {
+		.tiles {
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+			gap: 2.5rem;
+		}
+	}
+	.tile h3 {
+		margin: 0 0 0.5rem;
 		font-size: var(--sl-text-base);
 		font-weight: 600;
 		color: var(--sl-color-white);
 	}
-	.why p {
+	.tile p,
+	.tile li {
 		margin: 0;
 		font-size: var(--sl-text-sm);
 		line-height: 1.75;
 		color: var(--sl-color-gray-3);
 	}
+	.tile ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+	}
+	.tile li b {
+		font-weight: 600;
+		color: var(--sl-color-gray-2);
+	}
+	.tile .more {
+		margin-top: 0.5rem;
+	}
 	.end {
-		padding-block: 3rem 1rem;
+		margin-top: 3rem;
+		padding-top: 2rem;
 		border-top: 1px solid var(--sl-color-hairline);
-		max-width: 40rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem 2rem;
 	}
-	.end h2 {
-		font-size: var(--sl-text-xl);
-	}
-	.end > p {
+	.end p {
 		margin: 0;
 		color: var(--sl-color-gray-2);
 	}
@@ -326,6 +541,5 @@ const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.75rem 1rem;
-		margin-top: 1.25rem;
 	}
 </style>

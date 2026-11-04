@@ -1,6 +1,8 @@
 # Arboria
 
-**把算力层封装起来的 AI 原生 ML 研究工作流**
+**研究你来做，代码交给 agent。**
+
+Arboria（`arb`）让你和 agent 一起动手做 ML 研究：数据、曲线和决定在你手里，代码交给 agent。常用的分析在 notebook 里写一行就有；缺一个也只写一行，agent 写一次，之后它就是你的命令。上集群的每个作业，都要你在自己的终端里签字。既不是 agent 包办一切、你读报告点头，也不是全靠手的古法科研。
 
 **文档：[arboria.cwx.world](https://arboria.cwx.world)**
 
@@ -9,7 +11,7 @@
 ![status: personal research tool](https://img.shields.io/badge/status-personal%20research%20tool-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-007ec6)](LICENSE)
 
-> **In English.** Arboria (`arb`) keeps the state of ML research — ideas, runs, notes, decisions — in a local SQLite ledger outside the Claude Code chat, and gives every idea its own git worktree and [marimo](https://marimo.io) notebook. Claude writes the code and reusable analysis commands; you write the notebook, and every Slurm job (with NCSA DeltaAI billing built in) needs your approval, typed in your own terminal, of a hash-bound review card. A read-only dashboard shows what is waiting for you, how ideas branched, and where the compute went. The docs are in Chinese, with a short English overview at [arboria.cwx.world/en](https://arboria.cwx.world/en/).
+> **In English.** You do the research; the agent writes the code. Arboria (`arb`) keeps you hands-on in ML research with an agent: the data, curves and decisions stay with you in a [marimo](https://marimo.io) notebook per idea, and the agent writes the training code and your analysis commands. A common analysis is one line; a missing one is one line too: the agent writes it once and from then on it is your command. It never edits your notebook. Ideas, runs and todos live in a local ledger outside the chat, so a new session needs no re-explaining, and every Slurm job (with NCSA DeltaAI billing built in) waits for your approval, typed in your own terminal. The docs are in Chinese, with a short English overview at [arboria.cwx.world/en](https://arboria.cwx.world/en/).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/dashboard-dark.png">

@@ -12,7 +12,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Arboria',
-			description: '把算力层封装起来的 AI 原生 ML 研究工作流',
+			description: '研究你来做，代码交给 agent：和 agent 一起动手做 ML 研究',
 			logo: {
 				light: './src/assets/logo-light.svg',
 				dark: './src/assets/logo-dark.svg',

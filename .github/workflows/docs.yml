@@ -1,0 +1,61 @@
+name: docs
+
+# Builds the documentation site (docs/, Astro + Starlight) and checks that the CLI
+# reference page matches the real `arb` command line. Deployment is done by
+# Cloudflare Pages (see docs/DEPLOY.md); pages.yml is a disabled GitHub Pages option.
+
+on:
+  push:
+    paths:
+      - "docs/**"
+      - "src/arboria/**"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/arboria/**"
+      - ".github/workflows/docs.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: CLI reference is up to date
+        run: uv run --locked --no-dev python docs/scripts/gen_cli.py --check
+
+      - name: Install Node (version from docs/.nvmrc)
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: docs/.nvmrc
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Build the site
+        working-directory: docs
+        run: npm ci && npm run build
+
+      - name: The build has the pages and the search index
+        working-directory: docs
+        run: |
+          test -f dist/index.html
+          test -f dist/en/index.html
+          test -f dist/404.html
+          test -f dist/CNAME
+          test -f dist/pagefind/pagefind-entry.json
+          grep -q '"zh-cn"' dist/pagefind/pagefind-entry.json

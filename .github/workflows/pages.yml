@@ -1,0 +1,43 @@
+name: pages
+
+# Option B in docs/DEPLOY.md: deploy the docs site with GitHub Pages.
+# Disabled on purpose: GitHub Pages on a private repository needs a paid plan (or a
+# public repository), and the site is deployed by Cloudflare Pages (option A).
+# To use it: Settings → Pages → Source: GitHub Actions, then delete the `if: false`
+# line below. It also only runs when started by hand (Actions → pages → Run workflow).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: false
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: docs/.nvmrc
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+      - name: Build
+        working-directory: docs
+        run: npm ci && npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

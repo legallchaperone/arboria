@@ -96,6 +96,32 @@ fn write_pretty(out: &mut String, v: &Value, depth: usize) {
     }
 }
 
+/// Python's `repr()` of what `json.loads` makes of `v` (for messages: `got '10'`,
+/// `got True`, `got None`).
+pub fn python_repr(v: &Value) -> String {
+    match v {
+        Value::Null => "None".into(),
+        Value::Bool(b) => if *b { "True" } else { "False" }.into(),
+        Value::Number(n) => match (n.as_i64(), n.as_u64()) {
+            (Some(i), _) => i.to_string(),
+            (_, Some(u)) => u.to_string(),
+            _ => python_float_repr(n.as_f64().unwrap_or(0.0)),
+        },
+        Value::String(s) => crate::records::py_repr(s),
+        Value::Array(a) => format!(
+            "[{}]",
+            a.iter().map(python_repr).collect::<Vec<_>>().join(", ")
+        ),
+        Value::Object(m) => format!(
+            "{{{}}}",
+            m.iter()
+                .map(|(k, v)| format!("{}: {}", crate::records::py_repr(k), python_repr(v)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    }
+}
+
 /// Serialize with sorted keys and the given separators.
 pub fn dumps(v: &Value, sep: Separators) -> String {
     let mut out = String::new();

@@ -1147,10 +1147,104 @@ fn command_name() {
     });
 }
 
+#[test]
+fn check_mermaid() {
+    run("check_mermaid", |i| match s(i, "src") {
+        None => Got::Skip("non-string mermaid"),
+        Some(src) => got(arboria_core::inspection::check_mermaid(src)),
+    });
+}
+
+#[test]
+fn inspect_check_path() {
+    run("inspect_check_path", |i| {
+        got(arboria_core::inspection::check_path(&i["path"]))
+    });
+}
+
+#[test]
+fn validate_question() {
+    run("validate_question", |i| match s(i, "question") {
+        None => Got::Skip("non-string question"),
+        Some(q) => got(arboria_core::inspection::validate_question(q)),
+    });
+}
+
+/// A bare repo holding `files` as one tree (blobs, mode 100644); returns its dir and the
+/// tree id.
+fn tree_repo(files: &serde_json::Map<String, Value>) -> (common::TempDir, String) {
+    use std::io::Write as _;
+    use std::process::{Command, Stdio};
+    let dir = common::TempDir::new("vector-tree");
+    let git = |args: &[&str], input: Option<&[u8]>| -> String {
+        let mut child = Command::new("git")
+            .args(args)
+            .current_dir(dir.path())
+            .env("GIT_INDEX_FILE", dir.path().join("index"))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(input.unwrap_or_default())
+            .unwrap();
+        let out = child.wait_with_output().unwrap();
+        assert!(out.status.success(), "git {args:?}");
+        String::from_utf8(out.stdout).unwrap().trim().to_string()
+    };
+    git(&["init", "-q", "--bare"], None);
+    for (path, content) in files {
+        let sha = git(
+            &["hash-object", "-w", "--stdin"],
+            Some(content.as_str().unwrap().as_bytes()),
+        );
+        git(
+            &[
+                "update-index",
+                "--add",
+                "--cacheinfo",
+                &format!("100644,{sha},{path}"),
+            ],
+            None,
+        );
+    }
+    let tree = git(&["write-tree"], None);
+    (dir, tree)
+}
+
+#[test]
+fn inspect_validate_result() {
+    let repos: std::cell::RefCell<BTreeMap<String, common::TempDir>> = Default::default();
+    run("inspect_validate_result", |i| {
+        let code_ref = s(i, "code_ref").unwrap().to_string();
+        let mut repos = repos.borrow_mut();
+        if !repos.contains_key(&code_ref) {
+            let (dir, tree) = tree_repo(i["files"].as_object().unwrap());
+            assert_eq!(tree, code_ref, "the vector's tree id");
+            repos.insert(code_ref.clone(), dir);
+        }
+        let task = &i["task"];
+        got(arboria_core::inspection::validate_answer(
+            repos[&code_ref].path(),
+            task["id"].as_str().unwrap(),
+            task["kind"].as_str().unwrap(),
+            &task["payload"],
+            &i["answer"],
+        ))
+    });
+}
+
 // ---------------------------------------------------------------- not wired yet
 
 /// Wired above.
 const WIRED: &[&str] = &[
+    "check_mermaid",
+    "inspect_check_path",
+    "validate_question",
+    "inspect_validate_result",
     "command_name",
     "canonical_json",
     "validate_text",
@@ -1253,12 +1347,4 @@ macro_rules! pending {
     };
 }
 
-pending!(
-    check_mermaid,
-    inspect_check_path,
-    inspect_validate_result,
-    machine_propose,
-    parse_accounts,
-    parse_weights,
-    validate_question,
-);
+pending!(machine_propose, parse_accounts, parse_weights,);

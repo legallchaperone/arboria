@@ -766,6 +766,16 @@ fn confidence(s: Option<&str>) -> anyhow::Result<Option<Confidence>> {
     Ok(s.map(Confidence::from_str).transpose()?)
 }
 
+/// Python `cli._answer`: the `--file` text (`-` = stdin).
+fn read_answer(file: &str) -> anyhow::Result<String> {
+    if file == "-" {
+        let mut s = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut s)?;
+        return Ok(s);
+    }
+    std::fs::read_to_string(file).map_err(|e| anyhow::anyhow!("cannot read {file}: {e}"))
+}
+
 fn read_file_arg(file: &str) -> anyhow::Result<String> {
     if file == "-" {
         let mut s = String::new();
@@ -1280,37 +1290,46 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                 }
             }
         },
+        Cmd::Inspect(InspectCmd::Guide) => print!("{}", inspection::guide()),
         Cmd::Inspect(cmd) => {
             let (ctx, mut ledger) = open()?;
             match cmd {
-                InspectCmd::Guide => print!("{}", inspection::guide()),
-                InspectCmd::Source { task_id, path } => {
-                    print!(
-                        "{}",
-                        inspection::source_text(
-                            &ledger,
-                            &ctx.main,
-                            &TaskId::parse(&task_id)?,
-                            path.as_deref()
-                        )?
-                    )
-                }
+                InspectCmd::Guide => unreachable!("handled above"),
+                InspectCmd::Source { task_id, path } => print!(
+                    "{}",
+                    inspection::source_text(
+                        &ledger,
+                        &ctx.main,
+                        &TaskId::parse(&task_id)?,
+                        path.as_deref()
+                    )?
+                ),
                 InspectCmd::Check { task_id, file } => {
-                    let data = inspection::load_answer(&read_file_arg(&file)?)?;
+                    let data = inspection::load_answer(&read_answer(&file)?)?;
                     println!(
                         "{}",
                         inspection::check(&ledger, &ctx.main, &TaskId::parse(&task_id)?, &data)?
                     );
                 }
                 InspectCmd::Done { task_id, file } => {
-                    let data = inspection::load_answer(&read_file_arg(&file)?)?;
-                    let row = inspection::deliver(
+                    let data = inspection::load_answer(&read_answer(&file)?)?;
+                    let r = inspection::deliver(
                         &mut ledger,
                         &ctx.main,
                         &TaskId::parse(&task_id)?,
                         &data,
                     )?;
-                    emit(json, &row, |r| format!("{} delivered", r.task_id))?;
+                    let spans = r["spans"].as_array().cloned().unwrap_or_default();
+                    let lines: usize = spans
+                        .iter()
+                        .map(|s| s["lines"].as_array().map_or(0, Vec::len))
+                        .sum();
+                    println!(
+                        "done {task_id}: {} ({} spans, {lines} lines @ {}); the notebook cell re-runs by itself",
+                        r["title"].as_str().unwrap_or_default(),
+                        spans.len(),
+                        inspection::short(r["code_ref"].as_str().unwrap_or_default())
+                    );
                 }
             }
         }

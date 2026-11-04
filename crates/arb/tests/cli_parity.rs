@@ -214,6 +214,8 @@ fn same_output_as_python() {
         (Main, &["lesson", "list", "--all", "--json"], &[]),
         (Main, &["commands", "list"], &[]),
         (Main, &["commands", "guide"], &[]),
+        (Main, &["inspect", "guide"], &[]),
+        (Main, &["inspect", "source", "t001"], &[]),
         (Main, &["commands", "promote", "svd"], &[]),
         (Main, &["todo", "list", "--json"], &[]),
         // the seeds: outside any repo, then in the seed home

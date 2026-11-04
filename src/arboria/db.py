@@ -42,8 +42,13 @@ LESSON_STATUS = ("proposed", "accepted", "retired")
 LESSON_SOURCES = ("idea", "run", "none")
 TASK_STATUS = ("open", "done", "dropped")
 # plain: a free-text todo; command_new / command_revise: write or change a notebook command
-# (the details live in tasks.payload_json, see commands.py).
-TASK_KINDS = ("plain", "command_new", "command_revise")
+# (the details live in tasks.payload_json, see commands.py); inspect: explain code for the
+# human's notebook (`lab.inspect`, see inspection.py).
+TASK_KINDS_V5 = ("plain", "command_new", "command_revise")
+TASK_KINDS = (*TASK_KINDS_V5, "inspect")
+# What `lab.inspect` can ask for: annotated source excerpts, pseudocode, simplified code,
+# an architecture diagram (Mermaid).
+INSPECT_VIEWS = ("code", "pseudo", "simple", "map")
 SEED_STATUS = ("thinking", "planted", "dropped")
 # Runs that an identical re-submit returns instead of creating a new one.
 RUN_NOT_REUSABLE = ("rejected", "cancelled", "failed")
@@ -55,12 +60,15 @@ BACKUP_EVENTS = frozenset({
     "run_submit", "run_approve", "run_queued", "run_reject", "run_cancel", "run_final",
     "run_config", "todo_new", "todo_done", "todo_drop", "idea_confidence", "idea_metric",
     "notebook_new", "seed_new", "seed_set", "seed_drop", "seed_revive",
-    "seed_plant", "command_promote",
+    "seed_plant", "command_promote", "inspect_done",
 })
 
 # Limits for the free-text fields an LLM is allowed to write.
 LIMITS = {"hypothesis": 300, "metric": 200, "change_reason": 300, "note": 1000, "summary": 1500,
-          "lesson": 200, "result": 600, "todo": 1000, "gist": 300}
+          "lesson": 200, "result": 600, "todo": 1000, "gist": 300,
+          # `lab.inspect` (inspection.py): the human's question, and what the agent delivers
+          "question": 300, "inspect_title": 80, "inspect_summary": 600, "span_note": 600,
+          "line_note": 200, "inspect_text": 8000, "mermaid": 8000}
 SUMMARY_MAX_LINES = 10
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -244,7 +252,7 @@ CREATE INDEX tasks_idea ON tasks(idea_id, status);
 # v5: notebook commands. A todo may ask Claude to write or revise a command; what the
 # notebook call looked like (name, scope, args, description, idea) is in payload_json.
 MIGRATION_V5 = f"""
-ALTER TABLE tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {_in(TASK_KINDS)});
+ALTER TABLE tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {_in(TASK_KINDS_V5)});
 ALTER TABLE tasks ADD COLUMN payload_json TEXT;
 """
 
@@ -281,7 +289,7 @@ CREATE TABLE tasks_v6 (
     created_at   TEXT NOT NULL,
     done_at      TEXT,
     result       TEXT,
-    kind         TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {_in(TASK_KINDS)}),
+    kind         TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {_in(TASK_KINDS_V5)}),
     payload_json TEXT,
     CHECK ((status = 'open') = (done_at IS NULL)),
     CHECK ((idea_id IS NULL) != (seed_id IS NULL))
@@ -294,9 +302,51 @@ CREATE INDEX tasks_idea ON tasks(idea_id, status);
 CREATE INDEX tasks_seed ON tasks(seed_id, status);
 """
 
+# v7: `lab.inspect`. A todo may ask the agent to explain code (kind 'inspect'; `tasks` is
+# rebuilt for its CHECK). What the agent delivers lands in `inspections`, one row per done
+# todo, keyed for the notebook's cache by (idea, question, view, target) and bound to the
+# code it describes (`code_ref` commit, `tree`). The source lines shown are extracted by
+# arb from git at delivery time and kept in result_json.
+MIGRATION_V7 = f"""
+CREATE TABLE tasks_v7 (
+    id           TEXT PRIMARY KEY,
+    idea_id      INTEGER REFERENCES ideas(id),
+    seed_id      INTEGER REFERENCES seeds(id),
+    text         TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'open' CHECK (status IN {_in(TASK_STATUS)}),
+    created_at   TEXT NOT NULL,
+    done_at      TEXT,
+    result       TEXT,
+    kind         TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {_in(TASK_KINDS)}),
+    payload_json TEXT,
+    CHECK ((status = 'open') = (done_at IS NULL)),
+    CHECK ((idea_id IS NULL) != (seed_id IS NULL))
+);
+INSERT INTO tasks_v7 (id, idea_id, seed_id, text, status, created_at, done_at, result, kind,
+                      payload_json)
+    SELECT id, idea_id, seed_id, text, status, created_at, done_at, result, kind, payload_json
+    FROM tasks;
+DROP TABLE tasks;
+ALTER TABLE tasks_v7 RENAME TO tasks;
+CREATE INDEX tasks_idea ON tasks(idea_id, status);
+CREATE INDEX tasks_seed ON tasks(seed_id, status);
+CREATE TABLE inspections (
+    task_id     TEXT PRIMARY KEY REFERENCES tasks(id),
+    idea_id     INTEGER NOT NULL REFERENCES ideas(id),
+    question    TEXT NOT NULL,
+    view        TEXT NOT NULL CHECK (view IN {_in(INSPECT_VIEWS)}),
+    target      TEXT NOT NULL,
+    code_ref    TEXT NOT NULL,
+    tree        TEXT NOT NULL,
+    result_json TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX inspections_key ON inspections(idea_id, question, view, target);
+"""
+
 # MIGRATIONS[i] upgrades user_version i -> i+1. Never edit a released migration.
 MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5,
-                         MIGRATION_V6]
+                         MIGRATION_V6, MIGRATION_V7]
 SCHEMA_VERSION = len(MIGRATIONS)
 
 

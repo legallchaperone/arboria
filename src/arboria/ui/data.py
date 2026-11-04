@@ -23,7 +23,7 @@ from ..paths import CONFIG_NAME, DB_NAME, STATE_DIR_NAME, Home, RepoContext, hom
 
 # Copies of db constants (importing db would import the ledger's write path);
 # tests/test_ui.py checks they match.
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 RUN_FINAL = ("succeeded", "failed", "cancelled")
 RUN_ACTIVE = ("approved", "queued", "running")
 JOB_TERMINAL = ("completed", "failed", "cancelled", "timeout")

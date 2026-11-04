@@ -219,7 +219,7 @@ def test_migration_v5_to_v6_keeps_todos(tmp_path: Path) -> None:
                  " VALUES ('t002', 1, 'y', 'done', 't', 't2', 'ok')")
     conn.close()
     with Ledger(state) as ledger:
-        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 6
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 7
         rows = ledger.all("SELECT id, idea_id, seed_id, status, kind, payload_json, result"
                           " FROM tasks ORDER BY id")
         assert [tuple(r.values()) for r in rows] == [

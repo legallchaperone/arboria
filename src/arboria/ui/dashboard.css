@@ -1,5 +1,10 @@
 /* Arboria 看板: one stylesheet for the marimo app (App(css_file=...)) and for the
-   standalone HTML of views.wrap/views.page (embedded there). No web fonts: offline.
+   standalone HTML of views.wrap/views.page (embedded there). Offline: nothing is fetched.
+
+   Typeface: Maple Mono CN, the same as in the notebooks. `arb ui` runs the app next to a
+   copy of this file that starts with the font itself (data: URIs) and notebook.css
+   (arboria/style.py); this file loads nothing itself, so the standalone HTML and a
+   bare `marimo run dashboard.py` fall back to the system fonts of --arb-font.
 
    Theme: light tokens by default; dark tokens when marimo puts its theme on <body>
    (class "dark" / data-theme="dark"), or, with no explicit light theme, when the
@@ -7,6 +12,8 @@
    app background, which follows the same tokens. */
 
 body {
+  --arb-font: "Maple Mono CN", ui-monospace, "SF Mono", Menlo, Consolas,
+    "Noto Sans Mono CJK SC", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", monospace;
   --arb-bg: #f4f6f5;
   --arb-surface: #ffffff;
   --arb-sunken: #eef1f0;
@@ -103,8 +110,8 @@ body[data-theme] { --background: var(--arb-bg); }
   box-sizing: border-box;
 }
 .arb, .arb-page {
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC",
-    "Microsoft YaHei", system-ui, sans-serif;
+  font-family: var(--arb-font);
+  font-feature-settings: "calt" 1, "cv01" 1;
   font-size: 14px; line-height: 1.55; color: var(--arb-ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -133,9 +140,9 @@ body[data-theme] { --background: var(--arb-bg); }
 .arb a { color: var(--arb-accent); text-decoration: none; }
 .arb a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .arb code, .arb pre, .arb .mono {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px;
+  font-family: var(--arb-font); font-size: 12px;
 }
-.arb .id { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px;
+.arb .id { font-family: var(--arb-font); font-size: 13px;
   font-weight: 600; color: var(--arb-ink); }
 
 /* ------------------------------------------------------------ cards */
@@ -164,7 +171,7 @@ body[data-theme] { --background: var(--arb-bg); }
 .arb .titlebar { display: flex; justify-content: space-between; align-items: flex-start;
   gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .arb .titlebar .meta { font-size: 12px; color: var(--arb-muted); margin-top: 2px; }
-.arb .proj { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
+.arb .proj { font-family: var(--arb-font); font-size: 12px;
   font-weight: 500; color: var(--arb-muted); background: var(--arb-surface);
   border: 1px solid var(--arb-line); border-radius: 6px; padding: 1px 7px;
   vertical-align: 3px; margin-left: 6px; }

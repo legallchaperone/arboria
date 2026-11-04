@@ -4,6 +4,8 @@ The dashboard is bound to 127.0.0.1, gets the project root (and the idea to sele
 as CLI args after `--` and as environment variables, and uses marimo's session token.
 marimo must be importable from arb's own environment (the optional extra `ui`): the
 app imports arboria, so a separately installed marimo tool could not run it.
+marimo is pointed at a link to the packaged app in arb's cache, next to a stylesheet that
+carries the Arboria font (`style.dashboard_app`); no file server, no network.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .. import style
 from ..errors import ArbError
 from . import APP, GARDEN
 from .data import ReadOnlyLedger
@@ -45,8 +48,10 @@ def idea_of_worktree(state_dir: Path, toplevel: Path | None) -> str | None:
 
 
 def command(root: Path, idea: str | None = None, port: int | None = None, *,
-            garden: bool = False) -> list[str]:
-    cmd = [sys.executable, "-m", "marimo", "run", str(GARDEN if garden else APP),
+            garden: bool = False, app: Path | None = None) -> list[str]:
+    """`app`: the file marimo runs (default: the packaged app itself)."""
+    app = app or (GARDEN if garden else APP)
+    cmd = [sys.executable, "-m", "marimo", "run", str(app),
            "--host", HOST, "--token", "--no-sandbox"]
     if port is not None:
         cmd += ["--port", str(port)]
@@ -67,7 +72,8 @@ def launch_home(root: Path, *, port: int | None = None) -> int:
     """The seed home's dashboard (种子园)."""
     _check(port)
     env = dict(os.environ, ARBORIA_UI_HOME=str(root))
-    return run_marimo(command(root, port=port, garden=True), env)
+    return run_marimo(command(root, port=port, garden=True,
+                              app=style.dashboard_app(GARDEN)), env)
 
 
 def run_marimo(cmd: list[str], env: dict[str, str]) -> int:
@@ -90,4 +96,4 @@ def launch(root: Path, *, toplevel: Path | None = None, idea: str | None = None,
     env.pop("ARBORIA_UI_IDEA", None)
     if idea:
         env["ARBORIA_UI_IDEA"] = idea
-    return run_marimo(command(root, idea, port), env)
+    return run_marimo(command(root, idea, port, app=style.dashboard_app(APP)), env)

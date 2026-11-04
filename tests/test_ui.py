@@ -430,6 +430,15 @@ def test_marimo_export_renders_the_dashboard(board_project: Path, tmp_path: Path
 # ---------------------------------------------------------------- arb ui
 
 
+def _runs(cmd: list[str]) -> Path:
+    """The packaged app `marimo run` was given: a link to it in arb's cache, next to the
+    stylesheet with the font (tests/test_style.py checks that stylesheet)."""
+    app = Path(cmd[4])
+    assert app.is_symlink() and app.parent == Path(os.environ["ARBORIA_CACHE_DIR"]) / "ui"
+    assert (app.parent / "dashboard.css").is_file()
+    return app.resolve()
+
+
 def test_arb_ui_launches_marimo_on_localhost(idea: Path, initialized: Path, arb,
                                             monkeypatch) -> None:
     seen: list[tuple[list[str], dict]] = []
@@ -437,7 +446,7 @@ def test_arb_ui_launches_marimo_on_localhost(idea: Path, initialized: Path, arb,
     monkeypatch.setattr(launch, "marimo_available", lambda: True)
     arb(idea, "ui")  # from the idea worktree: that idea is selected
     cmd, env = seen[-1]
-    assert cmd[:5] == [sys.executable, "-m", "marimo", "run", str(APP)]
+    assert cmd[:4] == [sys.executable, "-m", "marimo", "run"] and _runs(cmd) == APP
     assert cmd[cmd.index("--host") + 1] == "127.0.0.1" and "--token" in cmd
     assert cmd[cmd.index("--") + 1:] == ["--root", str(initialized), "--idea", "exp1"]
     assert "--port" not in cmd
@@ -602,14 +611,14 @@ def test_arb_ui_home(arb, tmp_path: Path, isolated_home: Path, idea: Path, initi
     res = arb(tmp_path, "ui")  # outside any repo: the seed home, created on first use
     assert "种子园建在" in res.stderr and (isolated_home / ".arboria" / "ledger.db").is_file()
     cmd, env = seen[-1]
-    assert cmd[:5] == [sys.executable, "-m", "marimo", "run", str(GARDEN)]
+    assert cmd[:4] == [sys.executable, "-m", "marimo", "run"] and _runs(cmd) == GARDEN
     assert cmd[cmd.index("--host") + 1] == "127.0.0.1" and "--token" in cmd
     assert cmd[cmd.index("--") + 1:] == ["--home", str(isolated_home)]
     assert env["ARBORIA_UI_HOME"] == str(isolated_home)
     arb(isolated_home, "ui", "--port", "8800")  # inside the home
-    assert seen[-1][0][4] == str(GARDEN) and "8800" in seen[-1][0]
+    assert _runs(seen[-1][0]) == GARDEN and "8800" in seen[-1][0]
     arb(idea, "ui", "--home")  # from a repo, explicitly
-    assert seen[-1][0][4] == str(GARDEN)
+    assert _runs(seen[-1][0]) == GARDEN
     arb(idea, "ui")  # a repo without --home: still the project's dashboard
-    assert seen[-1][0][4] == str(APP)
+    assert _runs(seen[-1][0]) == APP
     assert "--idea is for a project" in arb(tmp_path, "ui", "--idea", "x", ok=False).stderr

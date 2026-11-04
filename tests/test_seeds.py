@@ -163,6 +163,20 @@ def test_list_show_set_drop(arb, tmp_path: Path, isolated_home: Path, monkeypatc
     assert "already dropped" in arb(tmp_path, "seed", "drop", "ccc", ok=False).stderr
     assert _subjects(h.state_dir)[0] == "arboria backup: seed_drop ccc"
 
+    # revive: human only too; only a dropped seed, back to thinking
+    monkeypatch.setenv("CLAUDECODE", "1")
+    assert "只由人" in arb(tmp_path, "seed", "revive", "ccc", ok=False).stderr
+    monkeypatch.delenv("CLAUDECODE")
+    res = arb(tmp_path, "seed", "revive", "aaa", ok=False)
+    assert "is not dropped (it is thinking · 思考中)" in res.stderr
+    assert "no seed named 'nope'" in arb(tmp_path, "seed", "revive", "nope", ok=False).stderr
+    assert "revived ccc" in arb(tmp_path, "seed", "revive", "ccc").stdout
+    assert json.loads(arb(tmp_path, "seed", "show", "ccc", "--json").stdout)["status"] == "thinking"
+    assert "ccc" in arb(tmp_path, "seed", "list").stdout
+    assert _subjects(h.state_dir)[0] == "arboria backup: seed_revive ccc"
+    assert [e["subject"] for e in _events(h.state_dir, "seed_revive")] == ["ccc"]
+    assert "is not dropped" in arb(tmp_path, "seed", "revive", "ccc", ok=False).stderr
+
 
 def test_seed_of_notebook(arb, tmp_path: Path, isolated_home: Path, initialized: Path) -> None:
     h = _home(isolated_home)

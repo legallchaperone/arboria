@@ -893,7 +893,8 @@ def seeds_section(g: Garden) -> str:
     if dropped:
         rows = "".join(f'<div class="item">' + _line(
             f'<span class="id">{_e(s["name"])}</span>', _e(s.get("gist") or ""),
-            f'<span class="when">{_e(age(s["last_edited"], g.loaded_at))}</span>') + "</div>"
+            f'<span class="when">{_e(age(s["last_edited"], g.loaded_at))}</span>'
+            + cmd(f"arb seed revive {s['name']}", alt=True)) + "</div>"
             for s in dropped)
         more = (f'<details class="more"><summary>已放弃 {len(dropped)} 个</summary>'
                 f"{rows}</details>")

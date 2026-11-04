@@ -28,7 +28,7 @@ DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES]
 # are the human's (its commands are the global ones, outside the home), and so are the
 # seed commands that write (they also refuse inside Claude Code).
 SEED_RULES = ["Bash(arb seed new:*)", "Bash(arb seed set:*)", "Bash(arb seed drop:*)",
-              "Bash(arb seed plant:*)"]
+              "Bash(arb seed revive:*)", "Bash(arb seed plant:*)"]
 HOME_PROTECTED_PATHS = ["**/seeds/**", "**/.arboria/**"]
 HOME_DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *SEED_RULES,
                    *(f"{tool}({path})" for path in HOME_PROTECTED_PATHS for tool in EDIT_TOOLS)]

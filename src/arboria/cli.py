@@ -316,6 +316,17 @@ def seed_drop(name: Annotated[str, typer.Argument(help="Seed name.")]) -> None:
     typer.echo(f"dropped {name} (notebook kept: {h.notebook(name)})")
 
 
+@seed_app.command("revive")
+@handle_errors
+def seed_revive(name: Annotated[str, typer.Argument(help="Seed name.")]) -> None:
+    """(Human only) bring a dropped seed back to thinking."""
+    seeds_mod.require_human(f"arb seed revive {name}", "恢复一个已放弃的种子")
+    h, ledger = seeds_mod.open_home(_info)
+    with ledger:
+        seeds_mod.revive(ledger, name)
+    typer.echo(f"revived {name}: thinking again ({h.notebook(name)})")
+
+
 @seed_app.command("plant")
 @handle_errors
 def seed_plant(

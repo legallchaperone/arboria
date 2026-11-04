@@ -514,6 +514,10 @@ def test_garden_data_and_views(garden_home: Path) -> None:
     # dropped seeds are behind one disclosure; free text is escaped
     assert '<details class="more"><summary>已放弃 1 个</summary>' in body
     assert body.index("muon-small") > body.index("已放弃 1 个")
+    # each dropped seed carries its revive command as text (no control)
+    assert _has_cmd(body, "arb seed revive muon-small")
+    assert body.index("arb seed revive muon-small") > body.index("已放弃 1 个")
+    assert body.count("arb seed revive") == 2  # title + text of the one chip
     assert "<script>" not in body and "&lt;script&gt;alert(1)&lt;/script&gt;" in body
     assert "<button" not in body and "<form" not in body and "<input" not in body
     page = views.garden_page(g)

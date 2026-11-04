@@ -110,6 +110,7 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 | `arb ui [--home]` | 打开只读看板（仓库外是种子园） |
 | `arb seed new NAME ["一句话想法"]` / `list` / `show NAME` | 种子：还没有仓库的想法，各有一个 notebook |
 | `arb seed plant NAME [--repo PATH]` | 把种子种进仓库，成为 idea（只由你） |
+| `arb seed drop NAME` / `revive NAME` | 放弃一个种子 / 让它回到思考中（只由你） |
 | `arb doctor [NAME]` | 只读检查机器配置、ssh 和集群 |
 
 每个命令和参数见 [docs/guide.md](docs/guide.md#命令参考)。

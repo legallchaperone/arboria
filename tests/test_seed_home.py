@@ -160,7 +160,7 @@ def test_seed_writes_refused_inside_claude_code(home: Home, arb, tmp_path: Path,
                                                 monkeypatch) -> None:
     monkeypatch.setenv("CLAUDECODE", "1")
     for args in (["new", "x"], ["set", "sparse-attn", "--gist", "y"],
-                 ["drop", "sparse-attn"], ["plant", "sparse-attn"]):
+                 ["drop", "sparse-attn"], ["revive", "sparse-attn"], ["plant", "sparse-attn"]):
         res = arb(home.root, "seed", *args, ok=False)
         assert res.exit_code == 1 and "只由人" in res.stderr, args
     # reading is fine
@@ -237,7 +237,7 @@ def test_install_claude_home(arb, tmp_path: Path, isolated_home: Path, repo: Pat
     for tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
         assert f"{tool}(**/seeds/**)" in deny and f"{tool}(**/.arboria/**)" in deny
     for rule in ("Bash(arb approve:*)", "Bash(sbatch:*)", "Bash(arb seed plant:*)",
-                 "Bash(arb seed new:*)", "Bash(arb seed drop:*)"):
+                 "Bash(arb seed new:*)", "Bash(arb seed drop:*)", "Bash(arb seed revive:*)"):
         assert rule in deny
     assert not any(r.startswith("Read(") for r in deny)  # reading seeds stays allowed
     gdir = Path(os.environ["ARBORIA_CONFIG_DIR"]) / "commands"

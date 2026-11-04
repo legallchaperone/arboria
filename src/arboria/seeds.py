@@ -189,6 +189,20 @@ def drop(ledger: Ledger, name: str) -> dict[str, Any]:
     return get_seed(ledger, name)
 
 
+def revive(ledger: Ledger, name: str) -> dict[str, Any]:
+    """Bring a dropped seed back to thinking (where it was planted stays recorded)."""
+    seed = get_seed(ledger, name)
+    if seed["status"] != "dropped":
+        label = STATUS_LABELS.get(seed["status"], seed["status"])
+        raise ArbError(f"seed {name!r} is not dropped (it is {seed['status']} · {label}); "
+                       "only a dropped seed can be revived")
+    with ledger.write() as conn:
+        conn.execute("UPDATE seeds SET status = 'thinking', updated_at = ? WHERE id = ?",
+                     (now(), seed["id"]))
+        ledger.event("seed_revive", name, {})
+    return get_seed(ledger, name)
+
+
 # ---------------------------------------------------------------- plant
 
 

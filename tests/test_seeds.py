@@ -255,8 +255,8 @@ def test_plant_creates_an_idea_from_the_seed(arb, thinking_seed: Home, initializ
         or "- **来自种子：** rank-schedule（`~/" in text
     strings = [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant)
                and isinstance(n.value, str)]
-    assert notebooks.SEED_THOUGHTS in strings
     thoughts = next(s for s in strings if "为什么会有用" in s)
+    assert thoughts.strip().startswith(f"/// details | {notebooks.SEED_THOUGHTS}")
     assert "低秩更新的**秩**也许应该随层变化。" in thoughts and "先在小模型上看奇异值谱" in thoughts
     assert "LoRA 的秩随层变化" not in thoughts  # the seed's own header is not copied
     assert "np.linspace" not in text and "动态的" not in text

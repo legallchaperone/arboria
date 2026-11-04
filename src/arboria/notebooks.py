@@ -93,15 +93,16 @@ SEED_THOUGHTS = "种子里的思路"
 
 
 def _thoughts_cell(markdown: list[str]) -> str:
-    """The seed's markdown cells, collapsed in one accordion ('' when there are none)."""
+    """The seed's markdown cells in one markdown cell, collapsed (marimo's `/// details`
+    block); '' when there are none."""
     if not markdown:
         return ""
-    md = _md_call("\n\n".join(markdown))
+    md = _md_call(f"/// details | {SEED_THOUGHTS}\n\n" + "\n\n".join(markdown) + "\n\n///")
     return f'''
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.accordion({{"{SEED_THOUGHTS}": {md}}})
+    {md}
     return
 '''
 
@@ -191,7 +192,7 @@ def seed_header_markdown(seed: dict[str, Any]) -> str:
         facts.append(f"- **假设：** {seed['hypothesis']}")
     if seed.get("metric"):
         facts.append(f"- **指标：** {seed['metric']}")
-    facts.append(f"- **种子**，创建于 {seed['created_at'][:10]}")
+    facts.append(f"- **创建：** {seed['created_at'][:10]} · 种子")
     return "\n".join(lines + [""] + facts)
 
 

@@ -184,7 +184,10 @@ fn only_the_human_check_confirms() {
         }
         let tests_at = text.find("#[cfg(test)]\nmod tests").unwrap_or(text.len());
         for (i, _) in text.match_indices("Confirmed::for_tests") {
-            assert!(i > tests_at, "{file} uses Confirmed::for_tests outside its test module");
+            assert!(
+                i > tests_at,
+                "{file} uses Confirmed::for_tests outside its test module"
+            );
         }
     }
 }

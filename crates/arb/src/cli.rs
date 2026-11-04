@@ -724,6 +724,14 @@ fn emit<T: Serialize>(
     Ok(())
 }
 
+fn lesson_out(r: &arboria_core::lessons::LessonResult, verb: &str) {
+    let (out, warning) = lines::lesson_result(r, verb);
+    println!("{out}");
+    if let Some(w) = warning {
+        warn(&w);
+    }
+}
+
 fn open() -> anyhow::Result<(RepoContext, db::Ledger)> {
     let ctx = paths::locate(None)?.require_initialized()?;
     let ledger = db::Ledger::open(&ctx.state_dir())?;
@@ -770,13 +778,32 @@ mod lines {
         let _ = t;
         todo!("port of arboria.cli._todo_line")
     }
+    /// `_lesson_line`.
     pub fn lesson(l: &arboria_core::model::Lesson) -> String {
-        let _ = l;
-        todo!("port of arboria.cli._lesson_line")
+        let source = l
+            .source_id
+            .as_deref()
+            .filter(|s| !s.is_empty())
+            .unwrap_or("-");
+        let date: String = l.created_at.chars().take(10).collect();
+        format!(
+            "{:<5} {:<9} {date}  {source:<16} {}",
+            l.id.as_str(),
+            l.status.as_str(),
+            l.text
+        )
     }
-    pub fn lesson_result(r: &lessons::LessonResult, verb: &str) -> String {
-        let _ = (r, verb);
-        todo!("port of arboria.cli._echo_lesson_result")
+    /// `_echo_lesson_result`: stdout lines, then the warning for stderr.
+    pub fn lesson_result(r: &lessons::LessonResult, verb: &str) -> (String, Option<String>) {
+        let mut out = vec![format!("{verb} {}", r.lesson.id)];
+        if let Some(sync) = &r.sync {
+            out.extend(sync.messages());
+        }
+        let warning = r
+            .warning
+            .as_ref()
+            .map(|w| format!("{w}; then run `arb claudemd sync`"));
+        (out.join("\n"), warning)
     }
     pub fn idea(i: &ideas::IdeaSummary) -> String {
         let _ = i;
@@ -1079,13 +1106,20 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
             match cmd {
                 LessonCmd::Propose { text, idea, run } => {
                     let run = run.as_deref().map(RunId::parse).transpose()?;
-                    let r =
+                    let (lesson, dec) =
                         lessons::propose(&ctx, &mut ledger, &text, idea.as_deref(), run.as_ref())?;
-                    println!("{}", lines::lesson_result(&r, "proposed"));
+                    println!(
+                        "proposed {id} (decision {dec}); the human accepts it with \
+                         `arb lesson accept {id}`",
+                        id = lesson.id
+                    );
                 }
                 LessonCmd::List { show_all } => {
                     let ls = lessons::list_lessons(&ledger, show_all)?;
                     emit(json, &ls, |ls| {
+                        if ls.is_empty() {
+                            return "no lessons yet".into();
+                        }
                         ls.iter().map(lines::lesson).collect::<Vec<_>>().join("\n")
                     })?;
                 }
@@ -1094,17 +1128,17 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                         &ctx,
                         &mut ledger,
                         &LessonId::parse(&lesson_id)?,
-                        &mut |t| eprintln!("{t}"),
+                        &mut |t| println!("{t}"),
                     )?;
-                    println!("{}", lines::lesson_result(&r, "accepted"));
+                    lesson_out(&r, "accepted");
                 }
                 LessonCmd::Reject { lesson_id } => {
                     let r = lessons::reject(&ctx, &mut ledger, &LessonId::parse(&lesson_id)?)?;
-                    println!("{}", lines::lesson_result(&r, "rejected"));
+                    lesson_out(&r, "rejected");
                 }
                 LessonCmd::Retire { lesson_id } => {
                     let r = lessons::retire(&ctx, &mut ledger, &LessonId::parse(&lesson_id)?)?;
-                    println!("{}", lines::lesson_result(&r, "retired"));
+                    lesson_out(&r, "retired");
                 }
             }
         }

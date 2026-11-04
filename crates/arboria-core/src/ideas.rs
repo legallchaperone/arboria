@@ -203,7 +203,7 @@ pub struct Closed {
     pub close: CloseInfo,
 }
 
-fn idea_by_name(conn: &rusqlite::Connection, name: &str) -> Result<Option<Idea>> {
+pub(crate) fn idea_by_name(conn: &rusqlite::Connection, name: &str) -> Result<Option<Idea>> {
     db::one(conn, "SELECT * FROM ideas WHERE name = ?1", [name])
 }
 

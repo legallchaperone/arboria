@@ -64,6 +64,12 @@ impl Error {
         Error::Arb(msg.into())
     }
 
+    /// True for what Python raises as an `ArbError` subclass (a refusal or a failed
+    /// command), false for sqlite / OS / JSON errors, which Python does not catch.
+    pub fn is_arb(&self) -> bool {
+        !matches!(self, Error::Sqlite(_) | Error::Io(_) | Error::Json(_))
+    }
+
     /// The Python exception class this corresponds to (test vectors write errors as
     /// `<class>: <message>`).
     pub fn python_class(&self) -> &'static str {

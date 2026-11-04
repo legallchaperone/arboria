@@ -16,6 +16,7 @@
 - [机器配置](#机器配置)
 - [DeltaAI 说明](#deltaai-说明)
 - [看板：`arb ui`](#看板arb-ui)
+- [种子：还没有仓库的想法](#种子还没有仓库的想法)
 - [Claude Code 设置](#claude-code-设置)
 - [CLAUDE.md 与经验](#claudemd-与经验)
 - [安全模型](#安全模型)
@@ -40,7 +41,7 @@ Arboria 是一个本地命令行工具，用来记录 ML 研究中的 **想法�
 
 置信度取值：`guess`、`prelim`、`confirmed`、`rejected`。
 
-文本长度限制：hypothesis ≤300、metric ≤200、change reason ≤300、note ≤1000、summary ≤10 行且 ≤1500 字符、lesson ≤200、待办 ≤1000、待办结果 ≤600。
+文本长度限制：hypothesis ≤300、metric ≤200、种子的一句话想法 ≤300、change reason ≤300、note ≤1000、summary ≤10 行且 ≤1500 字符、lesson ≤200、待办 ≤1000、待办结果 ≤600。
 
 快照前会检查未跟踪文件：单个文件 >50 MB 或合计 >200 MB 时报警并拒绝，除非加 `--allow-large`（建议把数据/检查点加入 `.gitignore`）。
 
@@ -266,6 +267,49 @@ arb ui --port 2718
   3. **idea 详情**（右上角下拉框选 idea）：假设、指标、置信度、notebook（`vscode://` 链接和 `marimo edit` 命令）；父 idea、分支、worktree、创建时间在“更多”里。runs 表每行是 run、状态、相对父 run 的改动（`k: 旧 → 新`，没有参数改动时显示原因）、GPU × 时长、SU、wandb，点开一行看原因、父 run、分区、估计/实际 SU、创建时间和拉回的输出文件。笔记和 run 总结显示最新 3 条，其余折叠；还有未完成的待办。
   4. **算力与预算**：已用 / 总预算（`arboria.toml [budget] total_su`）和剩余、各 idea 已用 SU、累计花费曲线、活跃作业（有的时候才显示），已结束 run 的估计 vs 实际（折叠）。
 - 有东西在等你（待批准的 run、待确认的经验、你还没看过的已结束 run）时，`arb status` 和 SessionStart hook 会多一行“看板：arb ui”。
+- 种子园里有在思考中的种子时，标题下多一行灰字“种子园：N 个在思考中 · arb ui --home”。
+
+## 种子：还没有仓库的想法
+
+想法常常还在酝酿：不属于任何仓库，也许永远不需要代码。**种子**就是这样的想法，放在一个全局的种子园里，有自己的 marimo notebook；等想清楚了，再**种进**某个仓库，变成一个普通的 idea。
+
+```bash
+arb seed new rank-schedule "LoRA 的秩随层深度变化" --metric "同参数量下的 GLUE 平均分"
+marimo edit ~/arboria/seeds/rank-schedule.py      # 或在 VS Code 里用 marimo 扩展打开
+arb seed list                                      # 最近编辑的在前；--all 含已放弃的
+arb seed set rank-schedule --hypothesis "浅层需要更高的秩"
+cd ~/code/lm && arb seed plant rank-schedule       # 在这个仓库里建 idea（分支、worktree、notebook）
+```
+
+- **种子园**：`~/arboria/`（环境变量 `ARBORIA_HOME` 可改）。任何目录下的第一个 `arb seed …`（以及仓库外的 `arb ui`、`arb install-claude --home`）都会自动建好它，并打印一行说明位置。里面是 `seeds/<名字>.py`（种子 notebook，普通文件，好找好打开）和 `.arboria/`（和项目一样的账本和备份仓库）。种子园本身不是 git 仓库。
+- **字段**：名字（规则和 idea 一样）、一句话想法（≤300，可空）、可选的假设（≤300）和指标（≤200）、状态（思考中 / 已种下 / 已放弃）、种在哪里（仓库、项目 id、idea 名，可以有多处）、创建和最近编辑时间（notebook 文件改过也算）。
+- **种子只由你写**：`arb seed new` / `set` / `drop` / `plant` 在 Claude Code 里会被拒绝（和 `arb note` 一样），`arb install-claude --home` 也把它们设为 deny。Claude 可以读：`arb seed list`、`arb seed show`、种子 notebook。
+- **种下**（`arb seed plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--again]`）：目标仓库默认是当前目录所在的仓库，必须已经 `arb init`。需要假设和指标：种子里没有就用 `--hypothesis` / `--metric` 给出。它走和 `arb idea new` 完全一样的路径（从主 worktree 的 HEAD 建分支、worktree、notebook）；新 idea 的 notebook 开头写着“来自种子 NAME”和种子 notebook 的路径，下面一个折叠的“种子里的思路”里是种子 notebook 的**全部 markdown cell**（代码 cell 不复制：它们可能假设了别的环境）。种子变成“已种下”，两个账本里各记一条事件（项目的 `idea_new` 带上 `seed`，种子园的 `seed_plant`）。一个种子默认只种一次；`--again` 可以再种进别的仓库（或换个名字），每处都记下。
+- **放弃**：`arb seed drop NAME`，notebook 留着。
+
+### 种子 notebook 里的 `lab`
+
+`from arboria import lab` 在种子 notebook 里认得出这是种子（文件在 `<种子园>/seeds/` 下）：
+
+- `lab.todo("…")` / `lab.todos()`：待办记在种子园的账本里，给在 `~/arboria` 里打开的 Claude Code 会话（`arb todo list` / `arb todo done` 在种子园里就是这些待办）。
+- `lab.metric("…")` 改种子的指标；`lab.conf` 拒绝（种子没有置信度）。
+- `lab.run`、`lab.get`、`lab.runs`、`lab.compare`、`lab.fork`、`lab.prune` 报错：“这是一个种子（NAME），还没种进仓库：先运行 arb seed plant NAME --repo …”（已经种下的，会说种在了哪里）。
+- 自定义命令：只能用**全局**命令（`~/.config/arboria/commands/`）。命令里 `ctx.idea` 是 None，`ctx.seed` 有 name、gist、hypothesis、metric、notebook；`ctx.run` / `ctx.runs` 报同样的错。缺的命令会变成全局命令待办，并尽力推给种子园里的 Claude Code 会话。
+
+### 在种子园里用 Claude Code
+
+```bash
+arb install-claude --home     # ~/arboria/.claude/settings.json 和 ~/arboria/CLAUDE.md
+cd ~/arboria && claude
+```
+
+- settings.json：同样的 hook；deny 集群命令、`arb approve`、`arb lesson accept`、会写种子的 `arb seed new/set/drop/plant`，以及对 `**/seeds/**` 和 `**/.arboria/**` 的编辑（读不受限）。全局命令目录直接写进这个 settings.json（种子园不是仓库，没有要提交的文件）。
+- CLAUDE.md：只有一个 arboria 区块，写着种子园的规则（读种子、不改；待办怎么做；种下由人做）；区块外是你的。
+- SessionStart hook 在种子园里（或它的子目录里）注入：思考中 / 已种下 / 已放弃的个数，最近编辑的 5 个种子和它们的一句话想法，未完成的待办。`arb status` 在种子园里显示同样的内容（不截断）。
+
+### 种子园看板
+
+`arb ui` 在任何仓库之外运行（或 `arb ui --home`）打开**种子园**：顶部是思考中 / 已种下 / 已放弃的个数，下面是种子卡片（按最近编辑排序：名字、状态、一句话想法、假设、种在哪里、`marimo edit` 命令和 VS Code 链接），已放弃的折叠在最后，右边是等 Claude 的待办。和项目看板一样只读。在仓库里，`arb ui` 仍然是项目看板，标题下多一行灰字“种子园：N 个在思考中 · arb ui --home”。
 
 ## Claude Code 设置
 
@@ -273,6 +317,7 @@ arb ui --port 2718
 arb install-claude          # 写入当前 worktree 的 .claude/settings.json
 arb install-claude --main   # 写入主 worktree
 arb install-claude --user   # 写入 ~/.claude/settings.json（对所有项目生效）
+arb install-claude --home   # 种子园：~/arboria/.claude/settings.json 和 ~/arboria/CLAUDE.md（见“种子”）
 ```
 
 会合并以下内容（保留已有配置，不会重复添加）：
@@ -328,6 +373,7 @@ Arboria 防的是“Claude 顺手照做”：会话里一句话、一段日志�
 | 看板 | 只读：账本以 `mode=ro` 打开，不起进程、不联网、没有会动手的控件；文字 HTML 转义。 |
 | notebook 命令 | Claude 写、在你的 kernel 里以你的权限运行；`arb` 自己从不执行命令代码（`arb commands list` 只用 `ast` 读）。用之前看 diff。 |
 | 会话推送 | 只发给 hook 记下的本机会话 socket；不存不发 messaging token；消息只由校验过的字段拼成；失败静默跳过。 |
+| 种子 | 只由你写：`arb seed new/set/drop/plant` 在 Claude Code 里拒绝；`install-claude --home` 禁止 Claude 编辑种子 notebook 和种子园的 `.arboria/`。种下（建分支和 worktree）只在你的终端里做。 |
 
 ## 命令参考
 
@@ -352,11 +398,16 @@ Arboria 防的是“Claude 顺手照做”：会话里一句话、一段日志�
 | `arb machine init NAME [--host H] [--account A] [--write [--replace]]` | 在登录节点上只读地测量机器并打印 profile；`--write` 写进 `clusters.toml` |
 | `arb doctor [NAME]` | 只读检查机器 profile、ssh 和集群一侧 |
 | `arb note TEXT [--run ID] [--confidence X]` | **只由你来写**：给当前 idea 写笔记；`--confidence` 同时更新 idea 的置信度（在 Claude Code 里被拒绝） |
-| `arb todo list [--all] [--json]` / `done ID --result T` / `drop ID [--reason T]` | notebook 里留下的待办：列出 / 完成（结果 ≤600 字符）/ 放弃。命令待办标着 `[command_new]` / `[command_revise]`，`--json` 里的 `payload_json` 有调用细节 |
+| `arb todo list [--all] [--json]` / `done ID --result T` / `drop ID [--reason T]` | notebook 里留下的待办：列出 / 完成（结果 ≤600 字符）/ 放弃（在种子园里是种子的待办）。命令待办标着 `[command_new]` / `[command_revise]`，`--json` 里的 `payload_json` 有调用细节 |
 | `arb commands list [--json]` | 列出项目和全局的 notebook 命令（版本、描述、被项目同名命令覆盖的、有问题的）；不执行命令代码 |
 | `arb commands guide` | 打印写 notebook 命令的约定（给 Claude 看） |
-| `arb status [--json] [--brief]` | 在 idea worktree 中：该 idea 的假设、指标、置信度、runs、最近 5 条笔记、待决事项；在主 worktree 中：所有 open idea 概览 |
-| `arb ui [--idea NAME] [--port N]` | 打开只读看板（marimo，127.0.0.1）：待你处理的事、idea 树、idea 详情、算力与预算；需要可选依赖 `ui` |
+| `arb status [--json] [--brief]` | 在 idea worktree 中：该 idea 的假设、指标、置信度、runs、最近 5 条笔记、待决事项；在主 worktree 中：所有 open idea 概览；在种子园里：种子和待办 |
+| `arb ui [--idea NAME] [--port N] [--home]` | 打开只读看板（marimo，127.0.0.1）：待你处理的事、idea 树、idea 详情、算力与预算；在仓库外或 `--home` 时是种子园；需要可选依赖 `ui` |
+| `arb seed new NAME ["一句话想法"] [--hypothesis T] [--metric T]` | **只由你**：新种子和它的 notebook（`<种子园>/seeds/NAME.py`），输出 notebook 路径；任何目录下都能用，第一次用时建好种子园 |
+| `arb seed list [--all] [--json]` / `show NAME [--json]` | 种子（最近编辑的在前；`--all` 含已放弃的）/ 一个种子的全部字段和种在哪里 |
+| `arb seed set NAME [--gist T] [--hypothesis T] [--metric T]` | **只由你**：改种子的字段（`""` 清空） |
+| `arb seed drop NAME` | **只由你**：放弃一个种子，notebook 留着 |
+| `arb seed plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--again]` | **只由你**：把种子种进一个已 `arb init` 的仓库，成为普通 idea（分支、worktree、notebook，开头链接回种子并带上种子的 markdown）；输出 worktree 路径 |
 | `arb export [--out FILE]` | 导出所有 idea 的 Markdown（新的在前），可直接粘贴到 Claude Desktop |
 | `arb lesson propose TEXT [--idea NAME \| --run ID]` | 提出一条经验（单行、≤200 字符），同时生成一个待人确认的 Decision；来源默认取当前目录所属的 idea |
 | `arb lesson list [--all] [--json]` | 列出经验（默认只列待确认和已确认的，`--all` 含已退役/已拒绝的） |
@@ -364,7 +415,7 @@ Arboria 防的是“Claude 顺手照做”：会话里一句话、一段日志�
 | `arb lesson retire ID` | 退役一条已确认的经验，并从 CLAUDE.md 中移除 |
 | `arb claudemd sync [--no-commit]` | 重写主 worktree 中 CLAUDE.md 的 arboria 区块 |
 | `arb hook session-start` | Claude Code SessionStart hook（从 stdin 读取 hook JSON） |
-| `arb install-claude [--main \| --user]` | 把 hook 和权限规则合并进 `.claude/settings.json`（全局命令目录写进不提交的 `.claude/settings.local.json`），并同步 CLAUDE.md 区块 |
+| `arb install-claude [--main \| --user \| --home]` | 把 hook 和权限规则合并进 `.claude/settings.json`（全局命令目录写进不提交的 `.claude/settings.local.json`），并同步 CLAUDE.md 区块；`--home`：种子园的 settings.json 和 CLAUDE.md |
 
 ## `arboria.toml` 配置
 
@@ -399,7 +450,7 @@ fail_patterns = ['(?i)\bloss\b[^\n]{0,40}\bnan\b', '(?i)\bnan\b[^\n]{0,40}\bloss
 - 旧文件没有 `[wandb]` / `[run]` 也能用：只有真正需要时（例如没给 `-- CMD` 又没有 `[run] command`）才报错。
 - 没有 `[watch]` 表时就用上面的默认值；写了 `fail_patterns` 就完全替换默认列表。正则按 Python `re` 语法逐行匹配日志末尾 50 行，加载时就检查，写错了会直接报出是第几条。默认只认 loss 为 NaN 和 CUDA OOM，像 `0 NaN batches skipped` 这样的行不会触发。
 
-环境变量：`ARBORIA_CONFIG_DIR` 改变 `clusters.toml` 和全局命令库的位置（默认 `~/.config/arboria`）。
+环境变量：`ARBORIA_CONFIG_DIR` 改变 `clusters.toml` 和全局命令库的位置（默认 `~/.config/arboria`）；`ARBORIA_HOME` 改变种子园的位置（默认 `~/arboria`）。
 
 ## 状态存放位置
 
@@ -411,10 +462,11 @@ fail_patterns = ['(?i)\bloss\b[^\n]{0,40}\bnan\b', '(?i)\bnan\b[^\n]{0,40}\bloss
 - `.arboria/runs/<run>/out/`：拉回来的 `ARBORIA_OUT`；其中有 `config.yaml` 时，它的内容会存进 `runs.config_json`（装了 PyYAML 就解析成 JSON，否则原文存在 `_raw_yaml` 下，最多 200 KB）。
 - `.arboria/notifications.log`：watch/poll 的通知；`.arboria/hook.log`：hook 的错误。
 - `~/.config/arboria/clusters.toml`：机器配置；`~/.config/arboria/commands/`：全局 notebook 命令。
+- `~/arboria/`（`ARBORIA_HOME`）：种子园。`seeds/<名字>.py` 是种子 notebook；`.arboria/` 和项目的一样（账本、备份仓库、`sessions/`、`cache/`），另有 `.arboria/seeds/`：每次备份提交前把 `seeds/*.py` 复制进来，备份仓库就版本化了种子 notebook。账本 schema 和项目的相同（v6 加了 `seeds`、`plantings`，待办属于一个 idea 或一个种子）。
 
 ## 当前状态与已知限制
 
-- **已完成并有测试**：本地账本、idea 生命周期、快照、笔记、status/export、SessionStart hook、install-claude、托管的 CLAUDE.md 区块与经验；提交 / 审核单 / 批准 / 拒绝、分段、计费、Slurm 作业记录、poll / watch / cancel / logs / remote ls（用 `FakeSlurm` 和 mock 的 subprocess 测试）；`arb machine init` / `arb doctor`（用真实的 DeltaAI 探测输出测试，并已对 DeltaAI 跑通）；每个 idea 的 notebook、`lab` API、待办、notebook 命令和自动重跑（用真的 marimo 测试）；只读看板。
+- **已完成并有测试**：本地账本、idea 生命周期、快照、笔记、status/export、SessionStart hook、install-claude、托管的 CLAUDE.md 区块与经验；提交 / 审核单 / 批准 / 拒绝、分段、计费、Slurm 作业记录、poll / watch / cancel / logs / remote ls（用 `FakeSlurm` 和 mock 的 subprocess 测试）；`arb machine init` / `arb doctor`（用真实的 DeltaAI 探测输出测试，并已对 DeltaAI 跑通）；每个 idea 的 notebook、`lab` API、待办、notebook 命令和自动重跑（用真的 marimo 测试）；只读看板；种子、种下、种子园看板和种子园里的 Claude Code 设置。
 - **还没在真集群上跑通**：通过 `SshSlurm` 的第一个真实 run（submit → approve → watch → 拉回 `ARBORIA_OUT`，核对命令行、日志路径、`sacct` 状态和花费），以及计算节点上的环境（`prelude` / `env_activate`）。
 - `find_job` 用 `sacct --starttime=now-30days` 查找已有作业。
 - 加入项目 id 之前提交的 run 不能再 approve，要重新 submit。

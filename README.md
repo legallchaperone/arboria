@@ -85,12 +85,16 @@ arb approve r001    # 输入 r001 确认后提交
 arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 ```
 
+## 种子：还没有仓库的想法
+
+还在酝酿、不属于任何仓库的想法记成**种子**：在任何目录下 `arb seed new NAME "一句话想法"`，它在 `~/arboria/seeds/NAME.py` 有自己的 marimo notebook。想清楚了，在目标仓库里 `arb seed plant NAME`：它变成一个普通 idea，notebook 开头链接回种子，并带上种子里的 markdown 思路。种子只由你写，Claude 只读；`arb ui` 在仓库外打开种子园，`arb install-claude --home` 让 Claude Code 在 `~/arboria` 里也有 hook 和规则。见 [docs/guide.md · 种子](docs/guide.md#种子还没有仓库的想法)。
+
 ## 常用命令
 
 | 命令 | 作用 |
 | --- | --- |
 | `arb init` | 初始化当前仓库（幂等） |
-| `arb install-claude [--main \| --user]` | 写入 hook 和权限规则，同步 CLAUDE.md 区块 |
+| `arb install-claude [--main \| --user \| --home]` | 写入 hook 和权限规则，同步 CLAUDE.md 区块（`--home`：种子园） |
 | `arb idea new NAME --hypothesis T --metric T` | 新 idea：分支、worktree、notebook |
 | `arb idea close [NAME] (--merge \| --drop)` | 合并或存档后放弃一个 idea |
 | `arb submit --reason T [--from RUN] [--set K=V] [--gpus N] [--time DUR]` | 只在本地生成快照和审核单（`lab.run` 的命令行版） |
@@ -103,7 +107,9 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 | `arb status` | 当前 idea（或所有 open idea）的概览 |
 | `arb note TEXT [--run ID] [--confidence X]` | 你的笔记（Claude 不能写） |
 | `arb todo list` / `arb todo done ID --result T` | notebook 留下的待办 |
-| `arb ui` | 打开只读看板 |
+| `arb ui [--home]` | 打开只读看板（仓库外是种子园） |
+| `arb seed new NAME ["一句话想法"]` / `list` / `show NAME` | 种子：还没有仓库的想法，各有一个 notebook |
+| `arb seed plant NAME [--repo PATH]` | 把种子种进仓库，成为 idea（只由你） |
 | `arb doctor [NAME]` | 只读检查机器配置、ssh 和集群 |
 
 每个命令和参数见 [docs/guide.md](docs/guide.md#命令参考)。

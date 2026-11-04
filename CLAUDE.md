@@ -3,18 +3,19 @@
 Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：idea、run、note、decision 都存在 SQLite 账本里，只有 `arb` 能写。设计说明（中文网页）：https://claude.ai/artifact/NCqpKzbhDfAXSURgGTc1zn
 
 ## 不能破坏的约束
-- LLM 能写的字段只有：hypothesis、metric、change_reason、note、run summary、lesson、todo result（≤600），以及以后的 review。（note 在 Claude Code 里默认拒绝，只由人写。）其余字段全部由代码写入并校验。长度校验不能删。
+- LLM 能写的字段只有：hypothesis、metric、change_reason、note、run summary、lesson、todo result（≤600），以及以后的 review。（note 在 Claude Code 里默认拒绝，只由人写。）其余字段全部由代码写入并校验。长度校验不能删。种子（gist ≤300、hypothesis、metric）只由人写：所有改种子的 `arb seed` 命令和 `lab.metric`/`lab.todo` 在 Claude Code 里拒绝。
 - 账本写入一律走 `db` 里的加锁写入（fcntl + `BEGIN IMMEDIATE`）。备份 commit 只在指定的事件类型后触发，心跳类更新不触发。
 - 快照绝不能动用户的分支、index 和工作区。`tests/test_snapshot.py` 就是这条约束的契约。
 - `arb hook session-start` 绝不能失败，也不能输出多余内容：出任何错都 exit 0、不输出。
 - 任何东西提交到 Slurm 之前，都必须有人类批准过的 Decision。不要写任何自动批准的代码路径。`arb approve` 和 `arb lesson accept` 只能在人自己的终端里做（`human.require_terminal`：有 `CLAUDECODE`/`CLAUDE_CODE_ENTRYPOINT` 或 stdin 不是 TTY 就拒绝，然后要人输入 id），install-claude 把它们设为 deny。`lab` 里没有任何批准函数。
 - 1a 的代码路径里不发网络请求。远端操作放在后端接口后面。
-- 看板（`arb ui`）只读：账本用 `file:…?mode=ro` 打开；`ui/data.py`、`views.py`、`dashboard.py` 只能 import cards/config/errors/paths/slurm，不起进程、不联网；不加会动手的控件（批准、接受经验、取消只显示成命令文本）。`tests/test_ui.py` 用源码扫描和 spy（写入函数、后端、subprocess、socket）守住。ledger 里的文字一律 HTML 转义。
+- 看板（`arb ui`）只读：账本用 `file:…?mode=ro` 打开；`ui/data.py`、`views.py`、`dashboard.py`、`garden.py` 只能 import cards/config/errors/paths/slurm，不起进程、不联网；不加会动手的控件（批准、接受经验、取消只显示成命令文本）。`tests/test_ui.py` 用源码扫描和 spy（写入函数、后端、subprocess、socket）守住。ledger 里的文字一律 HTML 转义。
 - notebook 命令（`commands`）：arb 的命令行绝不执行命令代码（`arb commands list` 只用 `ast` 读）；只有人的 kernel 里 `lab.<名字>(...)` 才 import 并运行它。命令运行期间 `human.require_terminal` 拒绝（批准不能从 Claude 写的代码里发起）。命令待办的 kind/payload 由代码写，文字长度照常校验。
+- 种子园（`seeds`、`paths.Home`，默认 `~/arboria`，`ARBORIA_HOME`）：不是 git 仓库，`.arboria/` 复用项目的 Ledger 和备份仓库（同一个 schema）。种子 notebook 是 `seeds/<名字>.py` 普通文件，备份提交前复制进 `.arboria/seeds/`（`db.mirror_seeds`；这个目录也是种子园的标记）。种下只在人的终端里（会建分支和 worktree），走 `ideas.new_idea`，只复制种子 notebook 的 markdown cell（用 `ast` 读，不执行）。`arb install-claude --home` 禁止 Claude 编辑 `seeds/**` 和 `.arboria/**`。测试绝不碰真的 `~/arboria`：`tests/conftest.py` 把 `ARBORIA_HOME` 指到临时目录。
 - 推送到 Claude 会话（`sessions`）：只发给 SessionStart hook 记下的会话（`.arboria/sessions/*.json`，0600），绝不读进程环境里的 socket；不存不发 `CLAUDE_CODE_MESSAGING_TOKEN`（notebook 不是那个会话的子进程）；消息只由校验过的字段拼成；任何失败静默跳过。测试绝不能碰真会话：`tests/conftest.py` 清掉 `CLAUDE_CODE_MESSAGING_*` 并把 `ARBORIA_CONFIG_DIR` 指到临时目录，消息测试只用假 Unix socket。
 
 ## 代码结构
-`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）、human（只在人的终端里批准）、notebooks、tasks（待办）、lab（notebook API）、commands（notebook 命令库、命令待办、给 Claude 的 guide）、sessions（会话 socket 的记录与推送）、cards（审核单，纯读；submission 再导出）、`ui/`（看板：data 只读加载账本、views 出 HTML/内联 SVG、dashboard.py 是包里自带的 marimo app、launch 起 `marimo run`）。`tests/` 使用临时 git 仓库；`tests/test_marimo.py` 用真的 marimo（dev 依赖）跑 `marimo check --strict`、`marimo export html` 和真 kernel 里的自动重跑（`tests/marimo_session.py`，用了 marimo 私有接口，接口变了就 skip）。
+`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）、human（只在人的终端里批准）、notebooks、tasks（待办）、lab（notebook API）、commands（notebook 命令库、命令待办、给 Claude 的 guide）、seeds（种子园：种子的增改、种下）、sessions（会话 socket 的记录与推送）、cards（审核单，纯读；submission 再导出）、`ui/`（看板：data 只读加载账本、views 出 HTML/内联 SVG、dashboard.py 是包里自带的 marimo app、garden.py 是种子园的 marimo app，launch 起 `marimo run`）。`tests/` 使用临时 git 仓库；`tests/test_marimo.py` 用真的 marimo（dev 依赖）跑 `marimo check --strict`、`marimo export html` 和真 kernel 里的自动重跑（`tests/marimo_session.py`，用了 marimo 私有接口，接口变了就 skip）。
 
 ## 开发
 - `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
@@ -45,6 +46,8 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 之后：第 2 步做提交前检查、审核包和独立 AI 审稿人、基于历史的估计（以及提交前的排队估计）；第 3 步在看板上继续做（例如 wandb 曲线的离线缓存，看板本身不联网）。
 
 - 已完成 notebook 命令：schema v5（`tasks.kind` ∈ plain/command_new/command_revise，`tasks.payload_json`）；`lab.<名字>(...)`（模块级 `__getattr__`）、`.revise`/`.source`/`.info`、`lab.commands()`、`arb commands list|guide`；缺命令时写待办（同名复用）并尽力推给会话（`[claude] push`）；项目命令随备份提交版本化。自动重跑：marimo 公开的响应式（`mo.state`、`mo.watch.file`、`mo.ui.refresh`）只重跑**引用了绑定到该对象的全局变量**的 cell，`lab.svd(r)` 这种 cell 碰不到，所以 `lab._cell_rerunner` 用私有接口（`ctx._kernel.graph.set_stale` + `_execute_stale_cells_callback`，对着 0.25.2 核对过，`test_marimo_private_api_still_there` 守着），拿不到就退回“重新运行这个 cell”的提示。另有 `lab.run(repeat=True)` / `arb submit --repeat`（nonce 进审核单哈希）和 `arb idea notebook`。
+
+- 已完成种子（分支 `seeds`）：schema v6（`seeds`、`plantings`；`tasks` 重建为 idea_id 或 seed_id 二选一）；`arb seed new/list/show/set/drop/plant`，任何目录可用、第一次用时建好种子园；种下的 idea notebook 开头“来自种子”并带折叠的“种子里的思路”（marimo `/// details`）；`lab` 认得种子 notebook（`SeedTarget`：run/fork/prune 报错指向 `arb seed plant`，todo/todos/metric 可用，只能用全局命令，`ctx.seed`）；种子园里的 hook / `arb status` / `arb todo`；`arb install-claude --home`；种子园看板 `arb ui --home`（仓库外默认），项目看板标题下有思考中的种子数。
 
 ## 使用 arboria 的训练代码要遵守的约定
 1. 启动时把完整的解析后配置导出为 `$ARBORIA_OUT/config.yaml`（`poll` 拉回后存进 `runs.config_json`）。

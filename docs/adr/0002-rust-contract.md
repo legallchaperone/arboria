@@ -23,10 +23,10 @@
 | `records` | `records` + `db.validate_text/validate_name/validate_choice` | **已实现**；另有 `get_run_in`、`get_decision_in`、`AUTHOR_HUMAN` |
 | `gitutil` / `snapshot` | 同名 | **已实现**：系统 `git`；快照绝不碰用户的分支、index、工作区（`tests/records.rs` 照 `test_snapshot.py`） |
 | `ideas` | `ideas` + `seeds` + `cli._idea_route` | **已实现** git 和账本一侧：种子是没有 branch 的 ideas 行，种下与否看 `plantings`；notebook 不写（见下） |
-| `submission` | `submission` | `SubmitPermit` 只有本模块能造，`Backend::submit` 要它 |
-| `human` | `human` | **已实现**：终端检查；输入确认、进程链未实现 |
-| `backend` | `backends/`（base、fake、ssh） | `Backend` trait；SshSlurm、本机、ssh 工作站、RunPod、Modal、FakeSlurm 都是桩；`check_job_ids` 已实现 |
-| `monitor` | `monitor` | |
+| `submission` | `submission` | **已实现**：`SubmitPermit` 只有本模块能造（`guarded_permit` 每段提交前重读账本），`Backend::submit` 要它；`approve` 要 `human::Confirmed` |
+| `human` | `human` | **已实现**：终端检查、输入确认、进程链；`Confirmed` 只有 `human::confirm` 能造（另有只在本 crate 单元测试里存在的 `for_tests`，`guards.rs` 守着） |
+| `backend` | `backends/`（base、fake、ssh） | **已实现** FakeSlurm、SshSlurm（进程只经 `Runner` trait 起，测试可替换）；本机、ssh 工作站、RunPod、Modal 和 `prepare_env` 返回错误 |
+| `monitor` | `monitor` | **已实现**；`watch_with` / `cancel_with` 可传后端（测试） |
 | `tasks` | `tasks` + v8 agent 队列 | **已实现**；队列最多 `MAX_ATTEMPTS` = 3 次（首次、`--resume` 一次、换大模型一次），之后 needs_human |
 | `commands` | `commands`（文件一侧） | 命令只在人的 kernel 里运行 |
 | `inspection` | `inspection`（账本、git、校验一侧） | 渲染归 app |
@@ -52,6 +52,7 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 - `crates/arboria-core/tests/schema.rs`：v1–v7 与 `tests/fixtures/migrations_v1_v7.sql`（由 `gen_fixtures.py` 从 Python 生成）逐字节一致；v7 的 `sqlite_master` 与 Python 账本一致；Python 生成的 v7 账本迁移到 v8 不丢行；v8 的 CHECK；锁、回滚、`BEGIN IMMEDIATE`、`data_version`；probe 的写入和启用哈希。
 - `tests/vectors.rs`：读 `tests/vectors/<name>.json`。已接上 canonical_json、validate_text、validate_name、check_project、wandb_id、next_id、check_job_ids、constants，以及 slurm / cards / config / clusters 的 33 个文件；其余每个文件一个 `#[ignore]` 测试，`every_vector_file_is_known` 保证新文件不会被漏掉。`quirk-*` 用例照做。
 - `tests/records.rs`（快照契约、runs / notes / decisions、备份：只在备份事件后提交，`ledger.sql` 和 CPython 3.13 的 `iterdump` 逐字节比）、`tests/tasks.rs`（待办和队列）、`tests/ideas.rs`（new / close merge·drop / fork、路由、种子和种下，用真 git 仓库）、`tests/repo_config.rs`、`tests/cards.rs`。
+- `submission.rs` 的单元测试：FakeSlurm 上的 submit → approve → poll → watch → cancel → reject 全流程（照 `test_submit.py`），在 crate 内部用测试专用的 `Confirmed`。
 - `tests/guards.rs`：源码扫描（只有 submission 调 `.submit(`、`probe_results` 只有一个写入点、probe 碰不到 decisions / submit、核心不联网不异步）。
 - `crates/arb/tests/cli_tree.rs`：clap 树与 `python_commands.txt`（`gen_python_commands.py` 从 Python CLI 生成）逐行一致，帮助分组同 `cli.HELP_PANELS`；`arb probe` 是 Rust 独有的，比较时排除。CI 的 `python-snapshots` 任务重新生成这两类快照，过期就失败。
 
@@ -78,3 +79,8 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 - 签名改动（2026-11-04）：`ideas::NewIdea.seed` 是 `SeedOrigin { seed, home }`（`idea_new` 事件要种子园路径）；`CloseInfo` 加 `name`、`mode`、`merge_commit`、`final_ref`，和 Python 的 `close` 一样；`SeedView` 加 `seed_status`（v8 由 stage 和 `plantings` 推出 thinking / planted / dropped）；`db::LedgerRow` 不要求 serde（`TaskView` 自己读行）。
 - v8 的种子：放弃过又恢复的已种下种子仍是 planted（Python 恢复成 thinking；v8 里种下与否只看 `plantings`）。待办的 done / drop 在任何非终态都可以（后台尝试中的 agent 要能交付）。
 - 名字 / 项目 id / 作业 id / host / 分区 / 覆盖参数的 key 都是整串匹配，结尾换行一律拒绝（Python `fullmatch`）。
+- 签名改动（2026-11-04，backend）：`SshSession` 带 `runner: Arc<dyn Runner>`（不再 `PartialEq`），`SshSlurm::new(profile, project, runner)`；`FakeSlurm::script(job_name, Scenario)`（Python 的全部选项：run_s、queue_s、out_files、lose_reply、submit_error…），另有 `set_need_login`、`calls`、`jobs`；新增 `su_from_billing`、`parse_sacct`、`sacct_command`、`is_terminal`、`fake_local_path`。`RemoteOutput` 是 `Runner` 的返回值。
+- 签名改动（submission / monitor）：`approve` 内部走 `approve_confirmed(…, confirm, backend)`（私有）；`guarded_permit` 多一个作业名参数（报错要用）；`CommandSpec::request_extra`；`monitor::billed_su`、`log_job`、`remote_dir`（不起后端的那一半）、`watch_with`、`cancel_with`、`BackendFactory`；`slurm::py_round`。
+- `config.yaml` 存成 `{"_raw_yaml": 原文}`（超过 200 KiB 加 `_truncated`、`_bytes`），就是 Python 没装 PyYAML 时的行为（PyYAML 不是依赖）。要解析得加 YAML crate。
+- `submit` 先快照再进事务（Python 在锁里快照）；`--repeat` 的随机数读 `/dev/urandom` 4 字节。
+- `watch` 里 sqlite / 文件 / JSON 错误直接返回，其余错误照 Python 打成 `warning: …` 继续；NeedLogin 暂停那台机器。

@@ -170,9 +170,64 @@ pub fn python_float_repr(f: f64) -> String {
     }
 }
 
+/// Python's `format(f, "g")` (`f"{x:g}"`): 6 significant digits, trailing zeros
+/// dropped, fixed notation when the exponent is in -4..6 (`1`, `1.5`, `0.0001`,
+/// `1e-05`, `1e+06`).
+pub fn python_format_g(f: f64) -> String {
+    if f.is_nan() {
+        return "nan".into();
+    }
+    if f.is_infinite() {
+        return if f > 0.0 { "inf" } else { "-inf" }.into();
+    }
+    // the exponent after rounding to 6 significant digits decides the notation
+    let sci = format!("{f:.5e}");
+    let (mantissa, exp) = sci.split_once('e').expect("{:e} has an exponent");
+    let exp: i32 = exp.parse().expect("{:e} exponent is an integer");
+    let trim = |s: &str| -> String {
+        if s.contains('.') {
+            s.trim_end_matches('0').trim_end_matches('.').to_string()
+        } else {
+            s.to_string()
+        }
+    };
+    if (-4..6).contains(&exp) {
+        trim(&format!("{f:.*}", (5 - exp) as usize))
+    } else {
+        let esign = if exp < 0 { '-' } else { '+' };
+        format!("{}e{esign}{:02}", trim(mantissa), exp.abs())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn format_g_is_pythons() {
+        // f"{x:g}" in CPython 3.13
+        for (x, want) in [
+            (1.0, "1"),
+            (2.0, "2"),
+            (1.5, "1.5"),
+            (0.0, "0"),
+            (-0.0, "-0"),
+            (1000.0, "1000"),
+            (123456.0, "123456"),
+            (1234567.0, "1.23457e+06"),
+            (1e6, "1e+06"),
+            (0.0001, "0.0001"),
+            (0.00001, "1e-05"),
+            (0.30000000000000004, "0.3"),
+            (999999.5, "1e+06"),
+            (2.5e-5, "2.5e-05"),
+            (12.345678, "12.3457"),
+            (-3.25, "-3.25"),
+            (1e100, "1e+100"),
+        ] {
+            assert_eq!(python_format_g(x), want, "{x}");
+        }
+    }
     use serde_json::json;
 
     #[test]

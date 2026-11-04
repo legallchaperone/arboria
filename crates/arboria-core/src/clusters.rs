@@ -21,7 +21,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
+use crate::records::py_repr;
+use crate::{Error, Result};
 
 /// The profiles file name.
 pub const FILENAME: &str = "clusters.toml";
@@ -87,9 +88,20 @@ pub struct Profile {
 }
 
 impl Profile {
-    /// The named partition, or the default one.
+    /// The named partition, or the default one (None or empty: Python's `name or default`).
     pub fn partition(&self, name: Option<&str>) -> Result<&Partition> {
-        todo!("port of arboria.clusters.Profile.partition")
+        let name = name
+            .filter(|n| !n.is_empty())
+            .unwrap_or(&self.default_partition);
+        self.partitions.get(name).ok_or_else(|| {
+            let known: Vec<&str> = self.partitions.keys().map(String::as_str).collect();
+            Error::Arb(format!(
+                "machine {} has no partition {}; known: {}",
+                py_repr(&self.name),
+                py_repr(name),
+                known.join(", ")
+            ))
+        })
     }
 
     /// An account is set (not empty, not a `<placeholder>`).

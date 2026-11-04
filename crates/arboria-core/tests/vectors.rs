@@ -14,8 +14,12 @@ mod common;
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
-use arboria_core::model::{ProjectId, RunId};
-use arboria_core::{canonical, db, model, records, Error};
+use std::collections::BTreeMap;
+
+use arboria_core::clusters::Profile;
+use arboria_core::model::{IdeaName, ProjectId, RunId};
+use arboria_core::slurm::{self, Ask, OverrideValue};
+use arboria_core::{canonical, cards, db, model, records, Error};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -262,6 +266,337 @@ fn check_job_ids() {
     });
 }
 
+// ---------------------------------------------------------------- slurm
+
+fn u64_of(i: &Value, key: &str) -> u64 {
+    i[key]
+        .as_u64()
+        .unwrap_or_else(|| panic!("{key}: not a u64 in {i}"))
+}
+
+fn u32_of(i: &Value, key: &str) -> u32 {
+    u32::try_from(u64_of(i, key)).unwrap()
+}
+
+/// `[[k, v], …]` pairs.
+fn pairs(v: &Value) -> Vec<(String, String)> {
+    v.as_array()
+        .unwrap()
+        .iter()
+        .map(|kv| {
+            (
+                kv[0].as_str().unwrap().to_string(),
+                kv[1].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+fn pairs_json(v: Vec<(String, String)>) -> Value {
+    json!(v
+        .into_iter()
+        .map(|(k, v)| json!([k, v]))
+        .collect::<Vec<_>>())
+}
+
+/// The project id (Python's check_project error when invalid), or a skip for non-strings.
+fn project_of(i: &Value) -> Result<Result<ProjectId, Error>, Got> {
+    match s(i, "project") {
+        Some(p) => Ok(ProjectId::parse(p)),
+        None => Err(Got::Skip("non-string project")),
+    }
+}
+
+/// The typed run id, or a skip: the Rust API takes a validated `RunId` where Python
+/// took any string.
+fn run_id_of(i: &Value) -> Result<RunId, Got> {
+    s(i, "run_id")
+        .and_then(|r| RunId::parse(r).ok())
+        .ok_or(Got::Skip("run id is not a RunId"))
+}
+
+/// The normalized profile of a vector (its `source` is not deserialized).
+fn profile_of(i: &Value) -> Profile {
+    let raw = &i["profile"];
+    let mut p: Profile = serde_json::from_value(raw.clone()).expect("profile");
+    p.source = raw["source"].as_str().unwrap_or_default().to_string();
+    assert_eq!(p.account_set(), raw["account_set"].as_bool().unwrap());
+    p
+}
+
+/// `build_plan(profile, ask, project)` of a vector input.
+fn plan_of(i: &Value) -> Result<Result<slurm::Plan, Error>, Got> {
+    let ask: Ask =
+        serde_json::from_value(i["ask"].clone()).map_err(|_| Got::Skip("ask not representable"))?;
+    Ok(project_of(i)?.and_then(|p| slurm::build_plan(&profile_of(i), &ask, &p)))
+}
+
+macro_rules! try_got {
+    ($e:expr) => {
+        match $e {
+            Ok(v) => v,
+            Err(skip) => return skip,
+        }
+    };
+}
+
+#[test]
+fn parse_walltime() {
+    run("parse_walltime", |i| match s(i, "text") {
+        None => Got::Skip("non-string walltime"),
+        Some(t) => got(slurm::parse_walltime(t)),
+    });
+}
+
+#[test]
+fn slurm_time() {
+    run("slurm_time", |i| {
+        Got::Out(json!(slurm::slurm_time(u64_of(i, "seconds"))))
+    });
+}
+
+#[test]
+fn human_duration() {
+    run("human_duration", |i| {
+        Got::Out(json!(slurm::human_duration(u64_of(i, "seconds"))))
+    });
+}
+
+#[test]
+fn segment_plan() {
+    run("segment_plan", |i| {
+        got(slurm::segment_plan(
+            u64_of(i, "total_s"),
+            u64_of(i, "max_s"),
+            u32_of(i, "max_segments"),
+        )
+        .map(|v| json!(v)))
+    });
+}
+
+#[test]
+fn billed_gpus() {
+    run("billed_gpus", |i| {
+        Got::Out(json!(slurm::billed_gpus(
+            u32_of(i, "gpus"),
+            i["mem_gb"].as_f64().unwrap(),
+            u32_of(i, "cpus"),
+            i["mem_per_gpu_gb"].as_f64().unwrap(),
+            u32_of(i, "cpus_per_gpu"),
+        )))
+    });
+}
+
+#[test]
+fn check_override() {
+    run("check_override", |i| {
+        let Some(key) = s(i, "key") else {
+            return Got::Skip("non-string key");
+        };
+        let value = match &i["value"] {
+            Value::String(v) => OverrideValue::Str(v.clone()),
+            Value::Bool(b) => OverrideValue::Bool(*b),
+            Value::Null => OverrideValue::Null,
+            Value::Number(n) if n.is_f64() => OverrideValue::Float(n.as_f64().unwrap()),
+            Value::Number(n) => OverrideValue::Int(n.as_i64().unwrap()),
+            _ => return Got::Skip("list / dict value"),
+        };
+        got(slurm::check_override(key, &value).map(|(k, v)| json!([k, v])))
+    });
+}
+
+#[test]
+fn parse_override() {
+    run("parse_override", |i| {
+        got(slurm::parse_override(s(i, "text").unwrap()).map(|(k, v)| json!([k, v])))
+    });
+}
+
+#[test]
+fn merge_overrides() {
+    run("merge_overrides", |i| {
+        Got::Out(pairs_json(slurm::merge_overrides(
+            &pairs(&i["base"]),
+            &pairs(&i["new"]),
+        )))
+    });
+}
+
+#[test]
+fn render_overrides() {
+    run("render_overrides", |i| {
+        got(
+            slurm::render_overrides(s(i, "style").unwrap(), &pairs(&i["overrides"]))
+                .map(|v| json!(v)),
+        )
+    });
+}
+
+#[test]
+fn job_name() {
+    run("job_name", |i| {
+        let project = try_got!(project_of(i));
+        let run_id = match project {
+            Err(e) => return Got::Err(e),
+            Ok(_) => try_got!(run_id_of(i)),
+        };
+        got(slurm::job_name(
+            &project.unwrap(),
+            &run_id,
+            u32_of(i, "segment"),
+        ))
+    });
+}
+
+#[test]
+fn parse_job_name() {
+    run("parse_job_name", |i| match s(i, "name") {
+        None => Got::Skip("non-string name"),
+        Some(n) => got(slurm::parse_job_name(n).map(|(p, r, k)| json!([p, r, k]))),
+    });
+}
+
+#[test]
+fn job_project() {
+    run("job_project", |i| match s(i, "name") {
+        None => Got::Skip("non-string name"),
+        Some(n) => Got::Out(json!(slurm::job_project(n))),
+    });
+}
+
+/// The `<role>/<project>/<run>…` path functions share one input shape.
+fn path_vector(
+    name: &str,
+    f: impl Fn(&BTreeMap<String, String>, &ProjectId, &RunId, &Value) -> String,
+) {
+    run(name, |i| {
+        let paths: BTreeMap<String, String> = serde_json::from_value(i["paths"].clone()).unwrap();
+        let project = match try_got!(project_of(i)) {
+            Ok(p) => p,
+            Err(e) => return Got::Err(e),
+        };
+        let run_id = try_got!(run_id_of(i));
+        Got::Out(json!(f(&paths, &project, &run_id, i)))
+    });
+}
+
+#[test]
+fn run_dir() {
+    path_vector("run_dir", |p, pr, r, _| slurm::run_dir(p, pr, r));
+}
+
+#[test]
+fn code_dir() {
+    path_vector("code_dir", |p, pr, r, _| slurm::code_dir(p, pr, r));
+}
+
+#[test]
+fn out_dir() {
+    path_vector("out_dir", |p, pr, r, _| slurm::out_dir(p, pr, r));
+}
+
+#[test]
+fn ckpt_dir() {
+    path_vector("ckpt_dir", |p, pr, r, _| slurm::ckpt_dir(p, pr, r));
+}
+
+#[test]
+fn script_path() {
+    path_vector("script_path", |p, pr, r, i| {
+        slurm::script_path(p, pr, r, u32_of(i, "segment"))
+    });
+}
+
+#[test]
+fn log_pattern() {
+    path_vector("log_pattern", |p, pr, r, i| {
+        slurm::log_pattern(p, pr, r, u32_of(i, "segment"))
+    });
+}
+
+#[test]
+fn log_path() {
+    path_vector("log_path", |p, pr, r, i| {
+        slurm::log_path(p, pr, r, u32_of(i, "segment"), s(i, "job_id").unwrap())
+    });
+}
+
+#[test]
+fn sbatch_value() {
+    run("sbatch_value", |i| {
+        Got::Out(json!(slurm::sbatch_value(s(i, "path").unwrap())))
+    });
+}
+
+#[test]
+fn dq() {
+    run("dq", |i| got(slurm::dq(s(i, "path").unwrap())));
+}
+
+#[test]
+fn shell_quote() {
+    run("shell_quote", |i| {
+        let argv: Vec<String> = serde_json::from_value(i["argv"].clone()).unwrap();
+        let quoted: Vec<String> = argv.iter().map(|a| slurm::shlex_quote(a)).collect();
+        Got::Out(json!({"join": slurm::shlex_join(&argv), "quoted": quoted}))
+    });
+}
+
+#[test]
+fn build_plan() {
+    let n = run("build_plan", |i| {
+        got(try_got!(plan_of(i)).map(|plan| {
+            let mut out = plan.request();
+            out["billed_per_node"] = json!(plan.billed_per_node);
+            out["max_walltime_s"] = json!(plan.max_walltime_s);
+            out["over_billed"] = json!(plan.over_billed());
+            // `Plan.request()` is also written with ledger_json: the floats must stay floats
+            assert!(canonical::ledger_json(&out).contains("\"charge\": "));
+            out
+        }))
+    });
+    if n > 0 {
+        assert!(n >= 40, "build_plan has too few cases: {n}");
+    }
+}
+
+#[test]
+fn card_payload() {
+    run("card_payload", |i| {
+        got(try_got!(plan_of(i))
+            .map(|plan| cards::card_payload(s(i, "snapshot_commit").unwrap(), &plan)))
+    });
+}
+
+#[test]
+fn card_hash() {
+    let n = run("card_hash", |i| {
+        got(try_got!(plan_of(i))
+            .map(|plan| cards::card_hash(s(i, "snapshot_commit").unwrap(), &plan)))
+    });
+    if n > 0 {
+        assert!(n >= 20, "card_hash has too few cases: {n}");
+    }
+}
+
+#[test]
+fn render_sbatch() {
+    run("render_sbatch", |i| {
+        let plan = match try_got!(plan_of(i)) {
+            Ok(p) => p,
+            Err(e) => return Got::Err(e),
+        };
+        let run_id = try_got!(run_id_of(i));
+        let idea = IdeaName::parse(s(i, "idea").unwrap()).unwrap();
+        got(slurm::render_sbatch(
+            &plan,
+            &run_id,
+            &idea,
+            u32_of(i, "segment"),
+        ))
+    });
+}
+
 /// The Python constants the Rust core already defines. Python-only ones (and those of
 /// modules not ported yet) are listed in `UNCHECKED` so a new constant gets noticed.
 #[test]
@@ -394,6 +729,32 @@ const WIRED: &[&str] = &[
     "next_id",
     "check_job_ids",
     "constants",
+    "billed_gpus",
+    "build_plan",
+    "card_hash",
+    "card_payload",
+    "check_override",
+    "ckpt_dir",
+    "code_dir",
+    "dq",
+    "human_duration",
+    "job_name",
+    "job_project",
+    "log_path",
+    "log_pattern",
+    "merge_overrides",
+    "out_dir",
+    "parse_job_name",
+    "parse_override",
+    "parse_walltime",
+    "render_overrides",
+    "render_sbatch",
+    "run_dir",
+    "sbatch_value",
+    "script_path",
+    "segment_plan",
+    "shell_quote",
+    "slurm_time",
 ];
 
 #[test]
@@ -447,52 +808,26 @@ macro_rules! pending {
 pending!(
     add_project_id,
     arboria_toml,
-    billed_gpus,
     billed_su,
     build_command,
-    build_plan,
-    card_hash,
-    card_payload,
     check_mermaid,
-    check_override,
     check_remote_path,
-    ckpt_dir,
     clusters_parse_profile,
-    code_dir,
     command_name,
     derive_project_id,
     derive_status,
-    dq,
     find_job,
     first_hit,
     git_refs,
-    human_duration,
     inspect_check_path,
     inspect_validate_result,
-    job_name,
-    job_project,
-    log_path,
-    log_pattern,
     machine_propose,
     map_slurm_state,
-    merge_overrides,
-    out_dir,
     parse_accounts,
-    parse_job_name,
-    parse_override,
-    parse_walltime,
     parse_weights,
-    render_overrides,
-    render_sbatch,
     restrict_path,
-    run_dir,
     sacct_poll,
-    sbatch_value,
-    script_path,
-    segment_plan,
-    shell_quote,
     shell_split,
-    slurm_time,
     su_from_billing,
     validate_project_id,
     validate_question,

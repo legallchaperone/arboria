@@ -135,6 +135,28 @@ pub fn py_strip(s: &str) -> &str {
     s.trim_matches(py_isspace)
 }
 
+/// The first code point of each run of ten Unicode decimal digits (category Nd, value 0
+/// at the start), Unicode 15.1 as in Python 3.13. Every Nd character is in one of these
+/// runs, in value order.
+const ND_ZEROS: [u32; 68] = [
+    0x30, 0x660, 0x6F0, 0x7C0, 0x966, 0x9E6, 0xA66, 0xAE6, 0xB66, 0xBE6, 0xC66, 0xCE6, 0xD66,
+    0xDE6, 0xE50, 0xED0, 0xF20, 0x1040, 0x1090, 0x17E0, 0x1810, 0x1946, 0x19D0, 0x1A80, 0x1A90,
+    0x1B50, 0x1BB0, 0x1C40, 0x1C50, 0xA620, 0xA8D0, 0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0, 0xFF10,
+    0x104A0, 0x10D30, 0x11066, 0x110F0, 0x11136, 0x111D0, 0x112F0, 0x11450, 0x114D0, 0x11650,
+    0x116C0, 0x11730, 0x118E0, 0x11950, 0x11C50, 0x11D50, 0x11DA0, 0x11F50, 0x16A60, 0x16AC0,
+    0x16B50, 0x1D7CE, 0x1D7D8, 0x1D7E2, 0x1D7EC, 0x1D7F6, 0x1E140, 0x1E2F0, 0x1E4F0, 0x1E950,
+    0x1FBF0,
+];
+
+/// The value of a Unicode decimal digit: what Python's regex `\d` matches and `int()`
+/// accepts (`'١'` → 1, `'１'` → 1). None for anything else.
+pub fn py_decimal(c: char) -> Option<u32> {
+    let c = c as u32;
+    let i = ND_ZEROS.partition_point(|&z| z <= c);
+    let zero = *ND_ZEROS.get(i.checked_sub(1)?)?;
+    (c - zero < 10).then_some(c - zero)
+}
+
 /// Python's `repr(str)` for messages: single quotes unless the text has `'` and no `"`;
 /// `\\`, the quote, `\n` `\r` `\t` and other control characters escaped (`\xhh`).
 pub fn py_repr(s: &str) -> String {
@@ -413,6 +435,28 @@ pub fn worktree_of(idea: &Idea) -> Result<&Path> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn py_decimal_digits() {
+        assert_eq!(py_decimal('0'), Some(0));
+        assert_eq!(py_decimal('9'), Some(9));
+        assert_eq!(py_decimal('\u{661}'), Some(1));
+        assert_eq!(py_decimal('\u{ff12}'), Some(2));
+        assert_eq!(py_decimal('\u{1fbf9}'), Some(9));
+        for c in [
+            '/',
+            ':',
+            'a',
+            '\u{65f}',
+            '\u{66a}',
+            '\u{b2}',
+            '\u{2460}',
+            '\u{4e00}',
+            '\u{1fbfa}',
+        ] {
+            assert_eq!(py_decimal(c), None, "{c:?}");
+        }
+    }
 
     #[test]
     fn limits_are_pythons() {

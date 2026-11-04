@@ -51,7 +51,7 @@ idea_app = typer.Typer(help="Research ideas: in a repo, a branch + worktree each
 run_app = typer.Typer(help="Runs: the result summary of a finished run.", no_args_is_help=True)
 hook_app = typer.Typer(help="Claude Code hooks.", no_args_is_help=True)
 claudemd_app = typer.Typer(help="The arb-managed block in the main CLAUDE.md.", no_args_is_help=True)
-lesson_app = typer.Typer(help="Reusable project lessons (proposed by Claude, accepted by you).",
+lesson_app = typer.Typer(help="Reusable project lessons (proposed by the agent, accepted by you).",
                          no_args_is_help=True)
 app.add_typer(idea_app, name="idea")
 app.add_typer(run_app, name="run")
@@ -64,10 +64,10 @@ app.add_typer(remote_app, name="remote")
 machine_app = typer.Typer(help="Cluster machine profiles (~/.config/arboria/clusters.toml).",
                           no_args_is_help=True)
 app.add_typer(machine_app, name="machine")
-todo_app = typer.Typer(help="Todos from the idea notebooks (written by the human, done by Claude).",
+todo_app = typer.Typer(help="Todos from the idea notebooks (written by you, done by the agent).",
                        no_args_is_help=True)
 app.add_typer(todo_app, name="todo")
-commands_app = typer.Typer(help="Notebook commands (written by Claude, called as lab.<name>(...)).",
+commands_app = typer.Typer(help="Notebook commands (written by the agent, called as lab.<name>(...)).",
                            no_args_is_help=True)
 app.add_typer(commands_app, name="commands")
 seed_app = typer.Typer(help="Alias of the seed side of `arb idea` (works from any directory): "
@@ -943,7 +943,7 @@ def todo_drop(
 
 @commands_app.command("guide")
 def commands_guide() -> None:
-    """The conventions for writing a notebook command (for Claude)."""
+    """The conventions for writing a notebook command (for the agent)."""
     typer.echo(commands_mod.guide(), nl=False)
 
 

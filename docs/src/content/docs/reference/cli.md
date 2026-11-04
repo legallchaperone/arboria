@@ -19,38 +19,36 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 
 | 命令 | 作用 |
 | --- | --- |
-| [`arb init`](#arb-init) | Set up arboria for this repository (idempotent). |
-| [`arb idea new`](#arb-idea-new) | Create branch idea/NAME and its worktree folder; prints the worktree path. |
-| [`arb idea list`](#arb-idea-list) | List all ideas. |
+| [`arb idea new`](#arb-idea-new) | New idea: in a repo, branch idea/NAME and its worktree folder (prints its path). |
+| [`arb idea list`](#arb-idea-list) | List all ideas; outside any repo, the seeds (most recently edited first). |
+| [`arb idea show`](#arb-idea-show) | One idea, or (outside any repo) one seed. |
+| [`arb idea set`](#arb-idea-set) | (Human only) change a seed's gist, hypothesis or metric (outside any repo). |
+| [`arb idea drop`](#arb-idea-drop) | Drop an idea (= `close --drop`), or (outside any repo) a seed. |
+| [`arb idea revive`](#arb-idea-revive) | (Human only) bring a dropped seed back to thinking (outside any repo). |
+| [`arb idea plant`](#arb-idea-plant) | (Human only) plant a seed into this repo as a new idea, whose notebook links back. |
 | [`arb idea notebook`](#arb-idea-notebook) | Create the notebook (and notebook.py link) of an idea that has none. |
 | [`arb idea close`](#arb-idea-close) | Close an idea with --merge or --drop; removes its worktree and branch. |
-| [`arb run new`](#arb-run-new) | Snapshot the current idea worktree as a draft run; prints the run id. |
+| [`arb init`](#arb-init) | Set up arboria for this repository (idempotent). |
 | [`arb run summary`](#arb-run-summary) | Set a run's result summary (run must belong to the current idea). |
 | [`arb note`](#arb-note) | (Human only) add a note to the current idea (--confidence also updates the idea). |
-| [`arb status`](#arb-status) | Current idea (inside an idea worktree), an overview of open ideas, or (in the seed home) the seeds. |
+| [`arb status`](#arb-status) | Where things stand: the current idea, the open ideas, or the seeds. |
 | [`arb export`](#arb-export) | Markdown of all ideas, notes and runs (newest first). |
-| [`arb seed new`](#arb-seed-new) | (Human only) new seed and its notebook &lt;home&gt;/seeds/NAME.py (prints its path). |
-| [`arb seed list`](#arb-seed-list) | Seeds, most recently edited first (dropped ones only with --all). |
-| [`arb seed show`](#arb-seed-show) | One seed: gist, hypothesis, metric, status, notebook, where it was planted. |
-| [`arb seed set`](#arb-seed-set) | (Human only) change a seed's gist, hypothesis or metric. |
-| [`arb seed drop`](#arb-seed-drop) | (Human only) give up on a seed; its notebook is kept. |
-| [`arb seed revive`](#arb-seed-revive) | (Human only) bring a dropped seed back to thinking. |
-| [`arb seed plant`](#arb-seed-plant) | (Human only) plant a seed into a repo as a new idea, whose notebook links back. |
-| [`arb submit`](#arb-submit) | Snapshot the idea worktree (or reuse --from's) and ask the human to approve a cluster run (local only). An identical earlier run is returned instead of a new one, unless --repeat. |
+| [`arb submit`](#arb-submit) | Ask the human to approve a cluster run (local only: snapshot + approval card). |
 | [`arb card`](#arb-card) | Show a submitted run's approval card, recomputed now (local only). |
 | [`arb approve`](#arb-approve) | (Human only, in your own terminal) approve a run's card and submit it to the cluster; you type the run id to confirm. Re-run to resume. |
 | [`arb reject`](#arb-reject) | Reject a run awaiting approval (nothing is sent to the cluster). |
 | [`arb cancel`](#arb-cancel) | Cancel a submitted run's jobs on the cluster. |
 | [`arb poll`](#arb-poll) | One pass: update job states, run status and cost; fetch ARBORIA\_OUT when done. |
-| [`arb watch`](#arb-watch) | Keep polling active runs; in the observation window cancel on crash or a log line matching arboria.toml [watch] fail\_patterns (default: loss NaN, CUDA OOM). |
+| [`arb watch`](#arb-watch) | Keep polling active runs; cancel a run that crashes or logs a failure early on. |
 | [`arb logs`](#arb-logs) | Tail a run's Slurm log on the cluster (use this instead of ssh). |
 | [`arb remote ls`](#arb-remote-ls) | List a run's directory (or its ARBORIA\_OUT) on the cluster. |
 | [`arb todo list`](#arb-todo-list) | Todos of the current idea (in an idea worktree), of every open idea, or (in the seed home) of the seeds. |
 | [`arb todo done`](#arb-todo-done) | Mark a todo done with a short result for the human. |
 | [`arb todo drop`](#arb-todo-drop) | Drop a todo that will not be done. |
 | [`arb commands list`](#arb-commands-list) | Commands of this project and the global library (project wins on a clash). |
-| [`arb commands guide`](#arb-commands-guide) | The conventions for writing a notebook command (for Claude). |
-| [`arb ui`](#arb-ui) | Open the read-only dashboard (看板): what needs you, the idea tree, SU budget; or, outside any repo (or with --home), the seed home (种子园). |
+| [`arb commands guide`](#arb-commands-guide) | The conventions for writing a notebook command (for the agent). |
+| [`arb commands promote`](#arb-commands-promote) | Copy a project command into the global library (~/.config/arboria/commands). |
+| [`arb ui`](#arb-ui) | Open the read-only dashboard (看板). |
 | [`arb machine init`](#arb-machine-init) | Measure a Slurm machine over your ssh master (read-only) and print its profile. |
 | [`arb doctor`](#arb-doctor) | Read-only checks of a machine profile, the ssh setup and the cluster side. |
 | [`arb install-claude`](#arb-install-claude) | Add the SessionStart hook and permission rules to .claude/settings.json (the machine-specific global commands dir goes into .claude/settings.local.json). |
@@ -62,36 +60,31 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb lesson reject`](#arb-lesson-reject) | Reject a proposed lesson. |
 | [`arb lesson retire`](#arb-lesson-retire) | Retire an accepted lesson and remove it from CLAUDE.md. |
 
-## 项目与 idea
+## idea 与种子
 
-在实验代码仓库里：初始化、idea 的生命周期、本地 run、笔记和概览。
-
-### arb init
-
-Set up arboria for this repository (idempotent).
-
-```text
-arb init [OPTIONS]
-```
+`arb idea` 管一个 idea 的两个阶段：在初始化过的仓库里是 idea（分支 + worktree）；在仓库外（或种子园 `~/arboria` 里）是种子，也就是还没有仓库的 idea。在没有 `arb init` 的仓库里会报错，不会悄悄记成种子。`arb idea plant` 在目标仓库里运行，把种子种成 idea。旧写法 `arb seed …` 仍然可用，是同一组种子命令的别名。
 
 ### arb idea new
 
-Create branch idea/NAME and its worktree folder; prints the worktree path.
+New idea: in a repo, branch idea/NAME and its worktree folder (prints its path).
+
+Outside any repo: (human only) a seed in ~/arboria and its notebook seeds/NAME.py, to plant into a repo later with `arb idea plant NAME`.
 
 ```text
-arb idea new [OPTIONS] {name}
+arb idea new [OPTIONS] {name} [gist]
 ```
 
 | 参数 | 说明 | 默认 |
 | --- | --- | --- |
 | `name` | Slug: lowercase letters, digits, '-'. | 必填 |
-| `--hypothesis <str>` | What you expect and why (≤300 chars). | 必填 |
-| `--metric <str>` | How success is measured (≤200 chars). | 必填 |
-| `--parent <str>` | Branch off this open idea. |  |
+| `gist` | Seeds only: the idea in one line (≤300 chars). |  |
+| `--hypothesis <str>` | What you expect and why (≤300 chars); required in a repo. |  |
+| `--metric <str>` | How success is measured (≤200 chars); required in a repo. |  |
+| `--parent <str>` | Branch off this open idea (in a repo). |  |
 
 ### arb idea list
 
-List all ideas.
+List all ideas; outside any repo, the seeds (most recently edited first).
 
 ```text
 arb idea list [OPTIONS]
@@ -99,7 +92,92 @@ arb idea list [OPTIONS]
 
 | 参数 | 说明 | 默认 |
 | --- | --- | --- |
+| `--all` | Seeds: include dropped ones. |  |
 | `--json` | Print machine-readable JSON. |  |
+
+### arb idea show
+
+One idea, or (outside any repo) one seed.
+
+An idea: hypothesis, metric, status, branch, notebook and runs. A seed: gist, hypothesis, metric, status, notebook, where it was planted.
+
+```text
+arb idea show [OPTIONS] [name]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` | Default (in a repo): the idea of the current directory. |  |
+| `--json` | Print machine-readable JSON. |  |
+
+### arb idea set
+
+<span class="arb-tag">只由你</span>
+
+(Human only) change a seed's gist, hypothesis or metric (outside any repo).
+
+```text
+arb idea set [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` | Seed name. | 必填 |
+| `--gist <str>` | One line (≤300 chars); "" clears it. |  |
+| `--hypothesis <str>` | ≤300 chars; "" clears it. |  |
+| `--metric <str>` | ≤200 chars; "" clears it. |  |
+
+### arb idea drop
+
+Drop an idea (= `close --drop`), or (outside any repo) a seed.
+
+An idea: archive a final snapshot, remove its worktree and branch. A seed (human only): give up on it; its notebook is kept.
+
+```text
+arb idea drop [OPTIONS] [name]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` | Default (in a repo): the idea of the current directory. |  |
+| `--confidence <str>` | guess \| prelim \| confirmed \| rejected |  |
+| `--allow-large` | Snapshot large untracked files anyway. |  |
+| `--json` | Print machine-readable JSON. |  |
+
+### arb idea revive
+
+<span class="arb-tag">只由你</span>
+
+(Human only) bring a dropped seed back to thinking (outside any repo).
+
+```text
+arb idea revive [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` | Seed name. | 必填 |
+
+### arb idea plant
+
+<span class="arb-tag">只由你</span>
+
+(Human only) plant a seed into this repo as a new idea, whose notebook links back.
+
+Run it inside the target repo (or pass --repo).
+
+```text
+arb idea plant [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` | Seed name. | 必填 |
+| `--repo <path>` | Target repo (default: the repo of the current directory); must be arb-initialized. |  |
+| `--as <str>` | Idea name (default: the seed's name). |  |
+| `--hypothesis <str>` | Default: the seed's. |  |
+| `--metric <str>` | Default: the seed's. |  |
+| `--again` | Plant a seed that is already planted (into another repo, or under another name). |  |
 
 ### arb idea notebook
 
@@ -130,19 +208,17 @@ arb idea close [OPTIONS] [name]
 | `--allow-large` | Snapshot large untracked files anyway. |  |
 | `--json` | Print machine-readable JSON. |  |
 
-### arb run new
+## 项目、run 与笔记
 
-Snapshot the current idea worktree as a draft run; prints the run id.
+在实验代码仓库里：初始化、run 的结果、笔记和概览。
+
+### arb init
+
+Set up arboria for this repository (idempotent).
 
 ```text
-arb run new [OPTIONS]
+arb init [OPTIONS]
 ```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `--reason <str>` | What changed vs. the previous run and why (≤300 chars). | 必填 |
-| `--allow-large` | Snapshot large untracked files anyway. |  |
-| `--json` | Print machine-readable JSON. |  |
 
 ### arb run summary
 
@@ -175,7 +251,9 @@ arb note [OPTIONS] {text}
 
 ### arb status
 
-Current idea (inside an idea worktree), an overview of open ideas, or (in the seed home) the seeds.
+Where things stand: the current idea, the open ideas, or the seeds.
+
+Inside an idea worktree, that idea; elsewhere in a repo, an overview of its open ideas; in the seed home, the seeds.
 
 ```text
 arb status [OPTIONS]
@@ -198,124 +276,15 @@ arb export [OPTIONS]
 | --- | --- | --- |
 | `--out <path>` | Write to FILE instead of stdout. |  |
 
-## 种子
-
-还没有仓库的想法，放在种子园（默认 `~/arboria`）。任何目录下都能用。
-
-### arb seed new
-
-<span class="arb-tag">只由你</span>
-
-(Human only) new seed and its notebook &lt;home&gt;/seeds/NAME.py (prints its path).
-
-```text
-arb seed new [OPTIONS] {name} [gist]
-```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `name` | Slug: lowercase letters, digits, '-'. | 必填 |
-| `gist` | The idea in one line (≤300 chars). |  |
-| `--hypothesis <str>` | What you expect and why (≤300 chars). |  |
-| `--metric <str>` | How success would be measured (≤200 chars). |  |
-
-### arb seed list
-
-Seeds, most recently edited first (dropped ones only with --all).
-
-```text
-arb seed list [OPTIONS]
-```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `--all` | Include dropped seeds. |  |
-| `--json` | Print machine-readable JSON. |  |
-
-### arb seed show
-
-One seed: gist, hypothesis, metric, status, notebook, where it was planted.
-
-```text
-arb seed show [OPTIONS] {name}
-```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `name` | Seed name. | 必填 |
-| `--json` | Print machine-readable JSON. |  |
-
-### arb seed set
-
-<span class="arb-tag">只由你</span>
-
-(Human only) change a seed's gist, hypothesis or metric.
-
-```text
-arb seed set [OPTIONS] {name}
-```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `name` | Seed name. | 必填 |
-| `--gist <str>` | One line (≤300 chars); "" clears it. |  |
-| `--hypothesis <str>` | ≤300 chars; "" clears it. |  |
-| `--metric <str>` | ≤200 chars; "" clears it. |  |
-
-### arb seed drop
-
-<span class="arb-tag">只由你</span>
-
-(Human only) give up on a seed; its notebook is kept.
-
-```text
-arb seed drop [OPTIONS] {name}
-```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `name` | Seed name. | 必填 |
-
-### arb seed revive
-
-<span class="arb-tag">只由你</span>
-
-(Human only) bring a dropped seed back to thinking.
-
-```text
-arb seed revive [OPTIONS] {name}
-```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `name` | Seed name. | 必填 |
-
-### arb seed plant
-
-<span class="arb-tag">只由你</span>
-
-(Human only) plant a seed into a repo as a new idea, whose notebook links back.
-
-```text
-arb seed plant [OPTIONS] {name}
-```
-
-| 参数 | 说明 | 默认 |
-| --- | --- | --- |
-| `name` | Seed name. | 必填 |
-| `--repo <path>` | Target repo (default: the repo of the current directory); must be arb-initialized. |  |
-| `--as <str>` | Idea name (default: the seed's name). |  |
-| `--hypothesis <str>` | Default: the seed's. |  |
-| `--metric <str>` | Default: the seed's. |  |
-| `--again` | Plant a seed that is already planted (into another repo, or under another name). |  |
-
 ## 提交、批准与集群
 
 `submit` 只在本地生成审核单；只有 `approve` 会把作业交给 Slurm。
 
 ### arb submit
 
-Snapshot the idea worktree (or reuse --from's) and ask the human to approve a cluster run (local only). An identical earlier run is returned instead of a new one, unless --repeat.
+Ask the human to approve a cluster run (local only: snapshot + approval card).
+
+Snapshots the idea worktree (or reuses --from's). An identical earlier run is returned instead of a new one, unless --repeat.
 
 ```text
 arb submit [OPTIONS] [command]...
@@ -405,7 +374,9 @@ arb poll [OPTIONS] [run_id]
 
 ### arb watch
 
-Keep polling active runs; in the observation window cancel on crash or a log line matching arboria.toml [watch] fail\_patterns (default: loss NaN, CUDA OOM).
+Keep polling active runs; cancel a run that crashes or logs a failure early on.
+
+In the observation window a run is cancelled on a crash or a log line matching watch.fail\_patterns in arboria.toml (default: loss NaN, CUDA OOM).
 
 ```text
 arb watch [OPTIONS]
@@ -415,7 +386,7 @@ arb watch [OPTIONS]
 | --- | --- | --- |
 | `--once` | One pass, then exit. |  |
 | `--interval <int>` | Seconds between passes. | `60` |
-| `--window <int>` | Observation window after a job starts, in minutes (default: arboria.toml [watch] observation\_minutes). |  |
+| `--window <int>` | Observation window after a job starts, in minutes (default: watch.observation\_minutes in arboria.toml). |  |
 
 ### arb logs
 
@@ -502,19 +473,32 @@ arb commands list [OPTIONS]
 
 ### arb commands guide
 
-The conventions for writing a notebook command (for Claude).
+The conventions for writing a notebook command (for the agent).
 
 ```text
 arb commands guide [OPTIONS]
 ```
 
+### arb commands promote
+
+Copy a project command into the global library (~/.config/arboria/commands).
+
+```text
+arb commands promote [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` | The project command to copy. | 必填 |
+| `--force` | Replace a different global one. |  |
+
 ## 看板
 
 ### arb ui
 
-Open the read-only dashboard (看板): what needs you, the idea tree, SU budget; or, outside any repo (or with --home), the seed home (种子园).
+Open the read-only dashboard (看板).
 
-Runs `marimo run` on 127.0.0.1; it reads the ledger and never changes anything.
+In a repo: what needs you, the idea tree, SU budget; outside any repo (or with --home), the seed home (种子园). Runs `marimo run` on 127.0.0.1; it reads the ledger and never changes anything.
 
 ```text
 arb ui [OPTIONS]

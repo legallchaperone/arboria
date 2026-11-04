@@ -20,7 +20,7 @@ use std::path::Path;
 use arboria_core::clusters::Profile;
 use arboria_core::model::{IdeaName, ProjectId, RunId};
 use arboria_core::slurm::{self, Ask, OverrideValue};
-use arboria_core::{canonical, cards, clusters, config, db, model, records, Error};
+use arboria_core::{backend, canonical, cards, clusters, config, db, model, records, Error};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -238,6 +238,159 @@ fn git_refs() {
             other => panic!("unknown kind {other}"),
         };
         Got::Out(serde_json::Value::String(out))
+    });
+}
+
+/// A runner that answers `ssh -O check` with success and every remote command with the
+/// stdout given for its first word; it records the remote commands.
+#[derive(Debug, Default)]
+struct ScriptedRunner {
+    replies: std::collections::BTreeMap<String, String>,
+    commands: std::sync::Mutex<Vec<String>>,
+}
+
+impl arboria_core::backend::Runner for ScriptedRunner {
+    fn run(
+        &self,
+        argv: &[String],
+        _input: Option<&str>,
+        _timeout: std::time::Duration,
+    ) -> Result<arboria_core::backend::RemoteOutput, Error> {
+        let ok = |stdout: &str| arboria_core::backend::RemoteOutput {
+            code: 0,
+            stdout: stdout.to_string(),
+            stderr: String::new(),
+        };
+        if argv[1] == "-O" {
+            return Ok(ok(""));
+        }
+        let cmd = argv.last().unwrap().clone();
+        let word = cmd.split(' ').next().unwrap().to_string();
+        self.commands.lock().unwrap().push(cmd);
+        Ok(ok(self.replies.get(&word).map_or("", String::as_str)))
+    }
+    fn pipe(
+        &self,
+        _: &[String],
+        _: &std::path::Path,
+        _: &[String],
+        _: std::time::Duration,
+    ) -> Result<(i32, i32, String), Error> {
+        unreachable!()
+    }
+    fn has(&self, _: &str) -> bool {
+        false
+    }
+}
+
+/// The real DeltaAI profile of the restrict_path vectors.
+fn deltaai() -> Profile {
+    let file = load("restrict_path").expect("restrict_path vectors");
+    profile_of(&file.cases[0].input)
+}
+
+fn scripted(replies: &[(&str, &str)]) -> (std::sync::Arc<ScriptedRunner>, backend::SshSlurm) {
+    let runner = std::sync::Arc::new(ScriptedRunner {
+        replies: replies
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
+        ..Default::default()
+    });
+    let slurm = backend::SshSlurm::new(
+        deltaai(),
+        ProjectId::parse("wavefront-3f2a").unwrap(),
+        runner.clone(),
+    );
+    (runner, slurm)
+}
+
+#[test]
+fn find_job() {
+    use arboria_core::backend::Backend;
+    run("find_job", |i| {
+        let (runner, slurm) = scripted(&[
+            ("squeue", s(i, "squeue").unwrap()),
+            ("sacct", s(i, "sacct").unwrap()),
+        ]);
+        match slurm.find_job(s(i, "name").unwrap()) {
+            Ok(id) => Got::Out(serde_json::json!({
+                "job_id": id,
+                "commands": *runner.commands.lock().unwrap(),
+            })),
+            Err(e) => Got::Err(e),
+        }
+    });
+}
+
+#[test]
+fn sacct_poll() {
+    use arboria_core::backend::Backend;
+    run("sacct_poll", |i| {
+        let mut profile = deltaai();
+        profile.billing_per_su = i["billing_per_su"].as_f64().unwrap();
+        let runner = std::sync::Arc::new(ScriptedRunner {
+            replies: [("sacct".to_string(), s(i, "stdout").unwrap().to_string())].into(),
+            ..Default::default()
+        });
+        let slurm = backend::SshSlurm::new(
+            profile,
+            ProjectId::parse("wavefront-3f2a").unwrap(),
+            runner.clone(),
+        );
+        let ids: Vec<String> = serde_json::from_value(i["job_ids"].clone()).unwrap();
+        match slurm.poll(&ids) {
+            Ok(res) => {
+                let result: serde_json::Map<String, Value> = res
+                    .into_iter()
+                    .map(|(k, v)| {
+                        (
+                            k,
+                            serde_json::json!([v.state.as_str(), v.elapsed_s, v.billed_su]),
+                        )
+                    })
+                    .collect();
+                let cmds = runner.commands.lock().unwrap();
+                Got::Out(serde_json::json!({"command": cmds.first(), "result": result}))
+            }
+            Err(e) => Got::Err(e),
+        }
+    });
+}
+
+#[test]
+fn restrict_path() {
+    run("restrict_path", |i| {
+        match ProjectId::parse(s(i, "project").unwrap()) {
+            Err(e) => Got::Err(e),
+            Ok(p) => got(backend::restrict_path(
+                &profile_of(i),
+                &p,
+                s(i, "path").unwrap(),
+            )),
+        }
+    });
+}
+
+#[test]
+fn su_from_billing() {
+    run("su_from_billing", |i| {
+        Got::Out(serde_json::json!(backend::su_from_billing(
+            s(i, "alloc_tres").unwrap(),
+            i["elapsed_s"].as_u64().unwrap(),
+            i["billing_per_su"].as_f64().unwrap()
+        )))
+    });
+}
+
+#[test]
+fn map_slurm_state() {
+    run("map_slurm_state", |i| {
+        Got::Out(
+            backend::map_slurm_state(s(i, "raw").unwrap())
+                .as_str()
+                .into(),
+        )
     });
 }
 
@@ -897,6 +1050,11 @@ const WIRED: &[&str] = &[
     "wandb_id",
     "next_id",
     "git_refs",
+    "find_job",
+    "map_slurm_state",
+    "restrict_path",
+    "sacct_poll",
+    "su_from_billing",
     "check_job_ids",
     "constants",
     "billed_gpus",
@@ -988,16 +1146,11 @@ pending!(
     check_mermaid,
     command_name,
     derive_status,
-    find_job,
     first_hit,
     inspect_check_path,
     inspect_validate_result,
     machine_propose,
-    map_slurm_state,
     parse_accounts,
     parse_weights,
-    restrict_path,
-    sacct_poll,
-    su_from_billing,
     validate_question,
 );

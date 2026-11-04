@@ -135,6 +135,44 @@ pub fn py_isspace(c: char) -> bool {
 }
 
 /// Python's `str.strip()`.
+/// Python `str.splitlines()`: splits on `\n`, `\r`, `\r\n`, `\v`, `\f`, `\x1c`-`\x1e`,
+/// `\x85`, U+2028, U+2029; no trailing empty piece.
+pub fn py_splitlines(s: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut start = 0;
+    let mut chars = s.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        let is_break = matches!(
+            c,
+            '\n' | '\r'
+                | '\x0b'
+                | '\x0c'
+                | '\x1c'
+                | '\x1d'
+                | '\x1e'
+                | '\u{85}'
+                | '\u{2028}'
+                | '\u{2029}'
+        );
+        if !is_break {
+            continue;
+        }
+        out.push(&s[start..i]);
+        let mut end = i + c.len_utf8();
+        if c == '\r' {
+            if let Some(&(j, '\n')) = chars.peek() {
+                chars.next();
+                end = j + 1;
+            }
+        }
+        start = end;
+    }
+    if start < s.len() {
+        out.push(&s[start..]);
+    }
+    out
+}
+
 pub fn py_strip(s: &str) -> &str {
     s.trim_matches(py_isspace)
 }

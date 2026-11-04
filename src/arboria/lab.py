@@ -8,6 +8,11 @@ Which idea a call is about is resolved explicitly, in this order (`resolve()`):
 3. the running marimo app's file, when marimo exposes it;
 4. the current directory: an idea worktree (or a folder whose `notebook.py` links to one).
 
+A seed's notebook (`<home>/seeds/<name>.py`, see seeds.py) resolves to a `SeedTarget`:
+a seed has no repo, so everything about runs and ideas (`run`, `fork`, `prune`, …)
+refuses with a pointer to `arb seed plant`; `todo` / `todos` work on the home's ledger,
+`metric` sets the seed's metric, and global notebook commands can be called.
+
 Nothing here approves anything: `run()` only creates the card, like `arb submit`.
 Records written from here (todos, notes, confidence, metric) are the human's.
 
@@ -28,13 +33,20 @@ from typing import Any, Callable, Iterable, Mapping
 
 from . import commands as _commands
 from . import ideas, notebooks, records, sessions, slurm, submission, tasks
+from . import seeds as _seeds
 from .config import project_config
 from .db import Ledger
 from .errors import ArbError
-from .paths import RepoContext, locate
+from .paths import Home, RepoContext, locate, seed_of_notebook
 
 HUMAN_ONLY = ("{what} 只由人在 notebook 里做；Claude 请用 `arb todo done tNNN --result \"...\"` "
               "或 `arb run summary RUN \"...\"`")
+
+SEED_NOT_PLANTED = "这是一个种子（{name}），还没种进仓库：先运行 arb seed plant {name} --repo …"
+SEED_PLANTED = ("这是种子 {name} 的 notebook，它已种进 {where}：run、fork 这些在那个 idea 的 "
+                "notebook 里做")
+SEED_NO_CONF = "种子没有置信度：种下（arb seed plant）之后在 idea 的 notebook 里用 lab.conf"
+SEED_GLOBAL_ONLY = "种子没有仓库，只能用全局命令：去掉 scope=，或者写 scope=\"global\""
 
 _use: tuple[str, Path | None] | None = None
 
@@ -44,6 +56,23 @@ class Target:
     ctx: RepoContext
     idea: str
     source: str  # use | file | marimo | cwd
+
+    @property
+    def state_dir(self) -> Path:
+        return self.ctx.state_dir
+
+
+@dataclass(frozen=True)
+class SeedTarget:
+    """A seed's notebook in the home: no repo, no runs."""
+
+    home: Home
+    seed: str
+    source: str  # file | marimo
+
+    @property
+    def state_dir(self) -> Path:
+        return self.home.state_dir
 
 
 def use(idea: str | None, repo: str | Path | None = None) -> None:
@@ -89,9 +118,12 @@ def _marimo_file() -> str | None:
         return None
 
 
-def _from_notebook(path: str | Path | None, source: str) -> Target | None:
+def _from_notebook(path: str | Path | None, source: str) -> Target | SeedTarget | None:
     if not path:
         return None
+    seed = seed_of_notebook(path)
+    if seed is not None:
+        return SeedTarget(seed[0], seed[1], source)
     found = notebooks.idea_of_notebook(path)
     if found is None:
         return None
@@ -99,8 +131,9 @@ def _from_notebook(path: str | Path | None, source: str) -> Target | None:
     return Target(locate(state_dir.parent), name, source)
 
 
-def resolve(file: str | Path | None = None, cwd: str | Path | None = None) -> Target:
-    """Which repo and idea a lab call is about (see the module docstring)."""
+def resolve(file: str | Path | None = None,
+            cwd: str | Path | None = None) -> Target | SeedTarget:
+    """Which repo and idea (or which seed) a lab call is about (see the module docstring)."""
     if _use is not None:
         name, repo = _use
         return Target(locate(repo if repo is not None else cwd), name, "use")
@@ -123,8 +156,33 @@ def resolve(file: str | Path | None = None, cwd: str | Path | None = None) -> Ta
     return Target(ctx, idea["name"], "cwd")
 
 
-def _open(target: Target | None = None) -> tuple[Target, Ledger, dict[str, Any]]:
+def _seed_error(t: SeedTarget) -> ArbError:
+    try:
+        with Ledger(t.state_dir) as ledger:
+            seed = _seeds.get_seed(ledger, t.seed)
+            done = _seeds.plantings(ledger, seed["id"])
+    except Exception:
+        done = []
+    if done:
+        where = "、".join(f"{Path(p['repo']).name} · {p['idea']}" for p in done)
+        return ArbError(SEED_PLANTED.format(name=t.seed, where=where))
+    return ArbError(SEED_NOT_PLANTED.format(name=t.seed))
+
+
+def _open_seed(t: SeedTarget) -> tuple[Ledger, dict[str, Any]]:
+    ledger = Ledger(t.state_dir)
+    try:
+        seed = _seeds.get_seed(ledger, t.seed)
+    except BaseException:
+        ledger.close()
+        raise
+    return ledger, seed
+
+
+def _open(target: Target | SeedTarget | None = None) -> tuple[Target, Ledger, dict[str, Any]]:
     t = target or resolve()
+    if isinstance(t, SeedTarget):
+        raise _seed_error(t)
     t.ctx.require_initialized()
     ledger = Ledger(t.ctx.state_dir)
     try:
@@ -544,16 +602,29 @@ def todo(text: str) -> dict[str, Any]:
     An open todo with the same text is returned instead of a duplicate: the cell
     re-runs every time the notebook opens."""
     _human_only("写待办")
-    t, ledger, idea = _open()
-    with ledger:
-        from .db import validate_text
+    from .db import validate_text
 
-        existing = tasks.open_plain_task(ledger, idea["id"], validate_text("todo", text))
+    text = validate_text("todo", text)
+    t = resolve()
+    if isinstance(t, SeedTarget):  # a todo for a Claude Code session opened in the home
+        ledger, seed = _open_seed(t)
+        with ledger:
+            existing = tasks.open_plain_task(ledger, seed["id"], text, seed=True)
+            return existing if existing is not None else tasks.add(ledger, seed, text)
+    t, ledger, idea = _open(t)
+    with ledger:
+        existing = tasks.open_plain_task(ledger, idea["id"], text)
         return existing if existing is not None else tasks.add(ledger, idea, text)
 
 
 def todos(include_closed: bool = False) -> Any:
-    t, ledger, idea = _open()
+    t = resolve()
+    if isinstance(t, SeedTarget):
+        ledger, seed = _open_seed(t)
+        with ledger:
+            return _table(tasks.list_tasks(ledger, seed_id=seed["id"],
+                                           include_closed=include_closed))
+    t, ledger, idea = _open(t)
     with ledger:
         return _table(tasks.list_tasks(ledger, idea["id"], include_closed=include_closed))
 
@@ -561,15 +632,23 @@ def todos(include_closed: bool = False) -> Any:
 def conf(level: str) -> dict[str, Any]:
     """Set the idea's confidence: guess | prelim | confirmed | rejected (no-op if unchanged)."""
     _human_only("改置信度")
-    t, ledger, idea = _open()
+    t = resolve()
+    if isinstance(t, SeedTarget):
+        raise ArbError(SEED_NO_CONF)
+    t, ledger, idea = _open(t)
     with ledger:
         return records.set_confidence(ledger, idea, level)
 
 
 def metric(text: str) -> dict[str, Any]:
-    """Replace the idea's success metric (≤200 chars; no-op if unchanged)."""
+    """Replace the idea's (or the seed's) success metric (≤200 chars; no-op if unchanged)."""
     _human_only("改指标")
-    t, ledger, idea = _open()
+    t = resolve()
+    if isinstance(t, SeedTarget):
+        ledger, _seed = _open_seed(t)
+        with ledger:
+            return _seeds.set_fields(ledger, t.seed, metric=text)
+    t, ledger, idea = _open(t)
     with ledger:
         return records.set_metric(ledger, idea, text)
 
@@ -613,24 +692,35 @@ POLL_S = 1.0  # how often a cell's watcher looks at its command file
 
 
 class Ctx:
-    """What a command function gets as its first argument (see `arb commands guide`)."""
+    """What a command function gets as its first argument (see `arb commands guide`).
+    In a seed's notebook `idea` is None and `seed` is set (no runs there)."""
 
-    def __init__(self, target: Target, idea: dict[str, Any], found: _commands.CommandFile):
+    def __init__(self, target: Target | SeedTarget, owner: dict[str, Any],
+                 found: _commands.CommandFile):
         self._target = target
         self.name = found.name
         self.scope = found.scope
         self.version = found.version
-        self.idea = SimpleNamespace(name=idea["name"], hypothesis=idea["hypothesis"],
-                                    metric=idea["metric"])
+        self.idea = self.seed = None
+        info = SimpleNamespace(name=owner["name"], hypothesis=owner["hypothesis"],
+                               metric=owner["metric"])
+        if isinstance(target, SeedTarget):
+            info.gist = owner["gist"]
+            info.notebook = target.home.notebook(owner["name"])
+            self.seed = info
+        else:
+            self.idea = info
         self.mo = _marimo_module()
 
     @property
     def cache_dir(self) -> Path:
-        path = _commands.cache_dir(self._target.ctx.state_dir, self.name)
+        path = _commands.cache_dir(self._target.state_dir, self.name)
         path.mkdir(parents=True, exist_ok=True)
         return path
 
     def run(self, run: str | Run) -> Run:
+        if isinstance(self._target, SeedTarget):
+            raise _seed_error(self._target)
         run_id = run.id if isinstance(run, Run) else str(run)
         with Ledger(self._target.ctx.state_dir) as ledger:
             records.get_run(ledger, run_id)
@@ -638,6 +728,8 @@ class Ctx:
 
     def runs(self) -> list[Run]:
         """This idea's runs, oldest first."""
+        if isinstance(self._target, SeedTarget):
+            raise _seed_error(self._target)
         with Ledger(self._target.ctx.state_dir) as ledger:
             idea = ideas.get_idea(ledger, self._target.idea)
             rows = ledger.all("SELECT id FROM runs WHERE idea_id = ? ORDER BY id", (idea["id"],))
@@ -651,6 +743,8 @@ class Ctx:
         return x
 
     def __repr__(self) -> str:
+        if self.seed is not None:
+            return f"Ctx({self.name!r}, seed={self.seed.name!r})"
         return f"Ctx({self.name!r}, idea={self.idea.name!r})"
 
 
@@ -779,7 +873,7 @@ def _cell_rerunner() -> Callable[[], None] | None:
     return rerun
 
 
-def _watch_loop(name: str, state_dir: Path, seen: tuple[str, str] | None,
+def _watch_loop(name: str, state_dir: Path | None, seen: tuple[str, str] | None,
                 rerun: Callable[[], None], should_exit: Callable[[], bool],
                 interval: float = POLL_S) -> bool:
     """Poll until what `lab.<name>` resolves to differs from `seen` and has stayed the same
@@ -808,7 +902,7 @@ def _watch_loop(name: str, state_dir: Path, seen: tuple[str, str] | None,
     return False
 
 
-def _watch(name: str, state_dir: Path, seen: tuple[str, str] | None) -> bool:
+def _watch(name: str, state_dir: Path | None, seen: tuple[str, str] | None) -> bool:
     """Re-run the calling cell when the command file is created or changed (marimo only).
     The watcher is a `mo.Thread`, so marimo stops it when the cell re-runs or is deleted."""
     rerun = _cell_rerunner()
@@ -831,43 +925,62 @@ def _arg_repr(value: Any) -> str | None:
     return f"Run({value.id!r})" if isinstance(value, Run) else None
 
 
-def _push(t: Target, idea: dict[str, Any], task: dict[str, Any]) -> bool:
+def _push(t: Target | SeedTarget, owner: dict[str, Any], task: dict[str, Any]) -> bool:
+    """To the Claude Code session of the idea's worktree, or of the home for a seed."""
     try:
+        if isinstance(t, SeedTarget):
+            return sessions.notify(t.state_dir, t.home.root, _commands.push_text(task))
         if not project_config(t.ctx).claude.push:
             return False
-        return sessions.notify(t.ctx.state_dir, idea["worktree_path"],
+        return sessions.notify(t.ctx.state_dir, owner["worktree_path"],
                                _commands.push_text(task))
     except Exception:
         return False
 
 
-def _request(t: Target, kind: str, name: str, scope: str, description: str | None,
-             args: tuple = (), kwargs: Mapping[str, Any] | None = None, *,
+def _owner(t: Target | SeedTarget, ledger: Ledger) -> dict[str, Any]:
+    if isinstance(t, SeedTarget):
+        return _seeds.get_seed(ledger, t.seed)
+    return ideas.get_idea(ledger, t.idea)
+
+
+def _request(t: Target | SeedTarget, kind: str, name: str, scope: str,
+             description: str | None, args: tuple = (),
+             kwargs: Mapping[str, Any] | None = None, *,
              watching: bool = False, path: str | None = None) -> Pending:
     try:
         _human_only("写命令待办")
         a = [_commands.safe_repr(x, _arg_repr) for x in args]
         kw = {k: _commands.safe_repr(v, _arg_repr) for k, v in (kwargs or {}).items()}
-        with Ledger(t.ctx.state_dir) as ledger:
-            idea = ideas.get_idea(ledger, t.idea)
-            task, created = _commands.request(ledger, idea, kind, name, scope, description,
+        with Ledger(t.state_dir) as ledger:
+            owner = _owner(t, ledger)
+            task, created = _commands.request(ledger, owner, kind, name, scope, description,
                                               a, kw, path)
-        pushed = _push(t, idea, task) if created else False
+        pushed = _push(t, owner, task) if created else False
         return Pending(name, kind, task["id"], created=created, pushed=pushed,
                        watching=watching)
     except Exception as exc:  # a placeholder never raises
         return Pending(name, kind, None, watching=watching, error=str(exc))
 
 
-def _log_call(t: Target, found: _commands.CommandFile, ok: bool, seconds: float) -> None:
+def _log_call(t: Target | SeedTarget, found: _commands.CommandFile, ok: bool,
+              seconds: float) -> None:
     """A lightweight event (no backup commit)."""
+    owner = {"seed": t.seed} if isinstance(t, SeedTarget) else {"idea": t.idea}
     try:
-        with Ledger(t.ctx.state_dir) as ledger, ledger.write():
-            ledger.event("command_call", found.name, {
-                "idea": t.idea, "scope": found.scope, "version": found.version, "ok": ok,
+        with Ledger(t.state_dir) as ledger, ledger.write():
+            ledger.event("command_call", found.name, owner | {
+                "scope": found.scope, "version": found.version, "ok": ok,
                 "seconds": round(seconds, 3)})
     except Exception:
         pass
+
+
+def _project_dir(t: Target | SeedTarget) -> Path | None:
+    """The state dir whose project commands apply: None for a seed (global only)."""
+    if isinstance(t, SeedTarget):
+        return None
+    return t.ctx.require_initialized().state_dir
 
 
 def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
@@ -875,17 +988,20 @@ def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
     if scope is not None:
         _commands.validate_scope(scope)
     t = resolve()
-    state_dir = t.ctx.require_initialized().state_dir
+    seed = isinstance(t, SeedTarget)
+    if seed and scope == "project":
+        raise ArbError(SEED_GLOBAL_ONLY)
+    state_dir = _project_dir(t)
     found = _commands.find(name, state_dir)
     seen = None if found is None else (str(found.path), found.sha256)
     watching = _watch(name, state_dir, seen)  # armed first: a broken file is fixed later
     if found is None:
-        return _request(t, "command_new", name, scope or "project",
+        return _request(t, "command_new", name, scope or ("global" if seed else "project"),
                         _commands.description_of(args, kwargs), args, kwargs,
                         watching=watching)
     func = _commands.load(found)
-    with Ledger(state_dir) as ledger:
-        idea = ideas.get_idea(ledger, t.idea)
+    with Ledger(t.state_dir) as ledger:
+        idea = _owner(t, ledger)
     from .human import running_command
 
     started, ok = _time.monotonic(), False
@@ -907,9 +1023,9 @@ class Command:
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return _invoke(self.name, args, kwargs)
 
-    def _found(self) -> tuple[Target, _commands.CommandFile | None]:
+    def _found(self) -> tuple[Target | SeedTarget, _commands.CommandFile | None]:
         t = resolve()
-        return t, _commands.find(self.name, t.ctx.require_initialized().state_dir)
+        return t, _commands.find(self.name, _project_dir(t))
 
     def revise(self, text: str) -> Pending:
         """Ask Claude to change this command (a command_revise todo)."""
@@ -918,7 +1034,8 @@ class Command:
         except Exception as exc:
             return Pending(self.name, "command_revise", None, error=str(exc))
         if found is None:
-            return _request(t, "command_new", self.name, "project", text)
+            scope = "global" if isinstance(t, SeedTarget) else "project"
+            return _request(t, "command_new", self.name, scope, text)
         return _request(t, "command_revise", self.name, found.scope, text, path=str(found.path))
 
     def source(self) -> Source | str:
@@ -960,7 +1077,7 @@ def commands() -> Any:
     """The command library: name, scope, version, description. In marimo a table, else
     a list of dicts that prints one command per line."""
     try:
-        state_dir: Path | None = resolve().ctx.require_initialized().state_dir
+        state_dir: Path | None = _project_dir(resolve())
     except ArbError:
         state_dir = None
     rows = [{k: r[k] for k in ("name", "scope", "version", "description", "problem")}

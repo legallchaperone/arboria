@@ -274,11 +274,15 @@ def request(ledger: Ledger, idea: dict[str, Any], kind: str, name: str, scope: s
             description: str | None, args: list[str] | None = None,
             kwargs: dict[str, str] | None = None,
             path: str | None = None) -> tuple[dict[str, Any], bool]:
-    """A command todo for Claude; (task, created). An open command_new todo for the same
+    """A command todo for Claude; (task, created). `idea` is the idea's row, or a seed's
+    (seeds have no repo: global commands only). An open command_new todo for the same
     name is reused (re-running the cell must not pile up todos); a revise todo is reused
     only for the same instruction."""
     validate_name(name)
     validate_scope(scope)
+    seed = tasks.is_seed(idea)
+    if seed and scope != "global":
+        raise ArbError("a seed has no repo: only global commands (scope=\"global\")")
     if kind not in ("command_new", "command_revise"):
         raise ArbError(f"not a command todo kind: {kind!r}")
     description = description.strip() if isinstance(description, str) else None
@@ -292,7 +296,8 @@ def request(ledger: Ledger, idea: dict[str, Any], kind: str, name: str, scope: s
     args, kwargs = list(args or []), dict(kwargs or {})
     call = call_text(name, args, kwargs)
     payload = {"name": name, "scope": scope, "args": args, "kwargs": kwargs,
-               "description": description, "idea": idea["name"], "call": call,
+               "description": description, "seed" if seed else "idea": idea["name"],
+               "call": call,
                "path": path or str(scope_dir(scope, ledger.state_dir) / f"{name}.py")}
     text = todo_text(kind, name, scope, description, call)
     return tasks.add(ledger, idea, text, kind, payload), True
@@ -304,7 +309,8 @@ def push_text(task: dict[str, Any]) -> str:
     data = tasks.payload(task)
     verb = "写" if task["kind"] == "command_new" else "修改"
     return (f"[arboria] notebook 里有新的命令待办 {task['id']}：{verb}命令 {data['name']}"
-            f"（idea {task['idea']}）。运行 arb commands guide 查看约定，"
+            f"（{'种子 ' + task['seed'] if task.get('seed') else 'idea ' + task['idea']}）。"
+            "运行 arb commands guide 查看约定，"
             f"arb todo list --json 看调用和说明；做完 arb todo done {task['id']} --result \"...\"。")
 
 
@@ -339,7 +345,9 @@ def svd(ctx, run, note=None, *, k=20, log=False):
 - `ctx.run(run_or_id)`：run 句柄（`lab.Run`）。`.id`、`.status()`、`.row()`、
   `.local_out`（拉回来的 ARBORIA_OUT：.arboria/runs/<run>/out/，可能还不存在）、
   `.config`（解析后的 config，dict 或 None）、`.metrics(keys)`（wandb 曲线，需要 wandb）。
-- `ctx.idea`：name、hypothesis、metric。
+- `ctx.idea`：name、hypothesis、metric。在种子的 notebook 里（`~/arboria/seeds/`）
+  `ctx.idea` 是 None，`ctx.seed` 有 name、gist、hypothesis、metric、notebook；种子没有
+  run，`ctx.run` / `ctx.runs` 会报错，所以给种子用的命令只能是全局命令、不碰 run。
 - `ctx.mo`：marimo 模块（不在 marimo 里时是 None）。
 - `ctx.cache_dir`：这个命令自己的缓存目录（.arboria/cache/commands/<名字>/）。
 - `ctx.value(x)`：x 是 marimo 控件时取 `.value`，否则原样返回。

@@ -132,6 +132,44 @@ def test_cell_reruns_when_claude_writes_the_command(idea: Path, initialized: Pat
     assert "RERUN-OK SVD-V1 r001" in res.stdout and "RERUN-OK SVD-V2 r001" in res.stdout
 
 
+INSPECT_CELLS = '''
+
+@app.cell
+def _(lab):
+    lab.inspect("训练循环")
+    return
+
+
+if __name__ == "__main__":'''
+
+
+def test_cell_reruns_when_the_agent_delivers_an_inspection(idea: Path, initialized: Path,
+                                                            arb) -> None:
+    """A real edit-mode kernel: `lab.inspect` leaves a todo; `arb inspect done` from a
+    terminal makes the cell re-run and show the answer, code extracted by arb."""
+    import json
+
+    nb = idea / "notebook.py"
+    nb.write_text(nb.read_text().replace('\n\nif __name__ == "__main__":', INSPECT_CELLS))
+    answer = idea.parent / "answer.json"
+    answer.write_text(json.dumps({"title": "ANSWER-TITLE", "spans": [
+        {"path": "train.py", "start": 1, "end": 1, "line_notes": {"1": "NOTE-1"}}]}))
+    deliver = json.dumps([sys.executable, "-c", "from arboria.cli import app; app()",
+                          "inspect", "done", "t001", "--file", str(answer)])
+    try:
+        res = subprocess.run([sys.executable, str(HELPER), str(nb), "--exec",
+                              deliver, "NOTE-1"],
+                             cwd=idea, env=_env(), capture_output=True, text=True, timeout=180)
+    except subprocess.TimeoutExpired as exc:
+        pytest.fail(f"marimo session did not finish: {exc}")
+    if res.returncode == 77:
+        pytest.skip(res.stdout.strip())
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "RERUN-OK NOTE-1" in res.stdout
+    todos = arb(idea, "todo", "list", "--all").stdout
+    assert "t001" in todos and "ANSWER-TITLE" in todos
+
+
 # ---------------------------------------------------------------- seeds
 
 SEED_CELLS = '''

@@ -100,7 +100,7 @@ def test_headless_run_resolves_idea_and_renders(idea: Path, initialized: Path, a
     # lab.resolve() found the idea from the notebook; the Run handle rendered
     assert "<strong>r001</strong> · 草稿 · baseline" in html
     # the missing command became a todo and a placeholder (no exception)
-    assert "命令 svd 还不存在，已交给 Claude（t001）。" in html
+    assert "命令 svd 还不存在，已交给 agent（t001）。" in html
     # the existing command ran, with its provenance underneath
     assert "hello <strong>r001</strong> of exp1 (say hi)" in html
     assert re.search(r"命令 hello · v[0-9a-f]{8} · 项目", html)
@@ -201,8 +201,8 @@ def test_seed_notebook_runs_headless(arb, tmp_path: Path, isolated_home: Path) -
     assert "LoRA 的秩随层变化" in html and "更高的秩" in html
     assert "SEED=rank-schedule · 这是一个种子（rank-schedule），还没种进仓库" in html
     # lab.todo / lab.todos(): calm lines, escaped, no JSON tree
-    assert "已交给 Claude（t001）：</span>" in html and "找三篇 &lt;相关&gt; 论文" in html
-    assert "<code" in html and "等 Claude" in html and "payload_json" not in html
+    assert "已交给 agent（t001）：</span>" in html and "找三篇 &lt;相关&gt; 论文" in html
+    assert "<code" in html and "等 agent" in html and "payload_json" not in html
 
 
 def test_planted_notebook_passes_marimo_check(arb, tmp_path: Path, isolated_home: Path,

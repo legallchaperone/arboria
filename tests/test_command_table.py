@@ -179,7 +179,7 @@ def test_typing_a_command_shows_its_help(idea: Path, initialized: Path, config_d
                                          tmp_path: Path, monkeypatch) -> None:
     lab.use("exp1", repo=initialized)
     assert str(lab.svd) == ('lab.svd 还不存在：调用 lab.svd(..., ask="想要什么")，'
-                            "就会交给 Claude 写进命令库")
+                            "就会交给 agent 写进命令库")
     assert "还不存在" in lab.svd._repr_html_()
     path = _write(_project(initialized), "svd", SVD.replace("SVD", "<b>SVD</b>"))
     version = commands._sha(path)[:8]

@@ -152,7 +152,7 @@ def test_long_lists_show_the_newest_few(board_project: Path) -> None:
 def test_empty_groups_collapse(initialized: Path) -> None:
     b = data.load(initialized)
     html = views.inbox(b)
-    for title in ("待批准的 run", "待确认的经验", "等 Claude 的待办", "最近通知"):
+    for title in ("待批准的 run", "待确认的经验", "等 agent 的待办", "最近通知"):
         assert f'<div class="group empty">{title} · 无</div>' in html
     assert "还没有 idea" in views.tree(b)
     assert "没有选中的 idea" in views.idea_detail(b, views.default_idea(b))
@@ -520,7 +520,7 @@ def test_garden_data_and_views(garden_home: Path) -> None:
     nb = garden_home / "seeds" / "rank-schedule.py"
     assert f'href="vscode://file{nb}"' in body and _has_cmd(body, views.edit_command(nb))
     assert "浅层需要更高的秩" in body and "proj · rank-schedule" in body and "已种下" in body
-    assert "找三篇相关论文" in body and "等 Claude 的待办" in body
+    assert "找三篇相关论文" in body and "等 agent 的待办" in body
     # dropped seeds are behind one disclosure; free text is escaped
     assert '<details class="more"><summary>已放弃 1 个</summary>' in body
     assert body.index("muon-small") > body.index("已放弃 1 个")

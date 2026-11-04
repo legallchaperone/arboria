@@ -185,8 +185,8 @@ def test_missing_command_becomes_a_todo(idea: Path, initialized: Path, arb, monk
     p = lab.svd(r, "对 attention 权重做 SVD，画前 20 个奇异值", k=20)
     assert isinstance(p, lab.Pending) and not p
     assert p._repr_markdown_() == (
-        "命令 svd 还不存在，已交给 Claude（t001）。写好后重新运行这个 cell。"
-        "在 Claude 面板里说'处理待办'即可。")
+        "命令 svd 还不存在，已交给 agent（t001）。写好后重新运行这个 cell。"
+        "在 agent 会话里说'处理待办'即可。")
     assert repr(p) == p.text()
     (task,) = _tasks(initialized)
     assert (task["kind"], task["status"]) == ("command_new", "open")
@@ -242,7 +242,7 @@ def test_placeholder_never_raises(idea: Path, initialized: Path, monkeypatch) ->
     lab.use("exp1", repo=initialized)
     monkeypatch.setenv("CLAUDECODE", "1")  # todos are the human's
     p = lab.svd("x")
-    assert p.task_id is None and "没能交给 Claude" in p.text() and "只由人在 notebook 里做" in p.text()
+    assert p.task_id is None and "没能交给 agent" in p.text() and "只由人在 notebook 里做" in p.text()
     assert _tasks(initialized) == []
     monkeypatch.delenv("CLAUDECODE")
     lab.use("nope", repo=initialized)
@@ -323,7 +323,7 @@ def test_revise_creates_command_revise_todo(idea: Path, initialized: Path, confi
     g = _write(config_dir / "commands", "svd", 'def svd(ctx):\n    """g"""\n')
     p = lab.svd.revise("改成 log 坐标")
     assert p.kind == "command_revise" and p.task_id == "t001"
-    assert p.text().startswith("已请 Claude 修改命令 svd（t001）。改好后用到它的 cell 会自动重跑。")
+    assert p.text().startswith("已请 agent 修改命令 svd（t001）。改好后用到它的 cell 会自动重跑。")
     (task,) = _tasks(initialized)
     data = json.loads(task["payload_json"])
     assert (task["kind"], data["scope"], data["path"], data["description"]) == \

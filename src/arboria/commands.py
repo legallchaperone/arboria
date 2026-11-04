@@ -282,7 +282,7 @@ BUILTINS: dict[str, str] = {
     "spend": "各 idea 用了多少 SU 和 GPU 时；给 idea 就逐个 run",
     "run": "生成快照和审核单（不批准）",
     "fork": "从这个 idea 分出新 idea",
-    "todo": "给 Claude 留一条待办",
+    "todo": "给 agent 留一条待办",
     "todos": "待办列表",
     "conf": "改置信度",
     "metric": "改指标",

@@ -329,7 +329,7 @@ def inbox(board: Board) -> str:
         _group("新结束的 run", [_finished_item(board, r) for r in finished],
                tip="你上次给这个 idea 写笔记之后结束；写一条笔记后不再列出"),
         _group("待确认的经验", [_lesson_item(l) for l in board.lessons]),
-        _group("等 Claude 的待办", [_todo_item(board, t) for t in board.todos]),
+        _group("等 agent 的待办", [_todo_item(board, t) for t in board.todos]),
         _group("最近通知", notes, newest=True),
     ]
     return _section("inbox", _head("待你处理", board.needs_you(), hot=True), *groups)
@@ -911,7 +911,7 @@ def garden_todos(g: Garden) -> str:
         items.append('<div class="item wrap">' + _line(
             f'<span class="id">{_e(t["id"])}</span>', text, when, tip=t["text"]) + "</div>")
     body = "".join(items) or '<div class="faint">没有</div>'
-    return _section("garden-todos", _head("等 Claude 的待办", len(items)), body)
+    return _section("garden-todos", _head("等 agent 的待办", len(items)), body)
 
 
 def garden_body(g: Garden) -> str:

@@ -37,7 +37,7 @@ lab.plot(["r001", "r002"], "val/loss")       # 画在一张图上，一个 run �
 lab.diff("r001", "r002")                     # 两个 run 哪里不同
 lab.spend()                                  # 各 idea 花了多少 SU / GPU 时；lab.spend(".") 逐个 run
 lab.commands()                               # 内置的和 Claude 写的所有命令
-lab.todo("把 eval 改成每 500 步一次")          # 给 Claude 留待办，显示成一行；lab.todos() 列出待办
+lab.todo("把 eval 改成每 500 步一次")          # 给 agent 留待办，显示成一行；lab.todos() 列出待办
 lab.fork("lr-warmup-cosine", from_=r, hypothesis="...", metric="...")   # 从 r 的快照分出新 idea
 lab.conf("prelim")      # 改置信度；lab.metric("...") 改指标
 lab.prune("loss 不降")   # = arb idea drop，理由记成你的笔记
@@ -50,7 +50,7 @@ lab.prune("loss 不降")   # = arb idea drop，理由记成你的笔记
 
 ### 内置分析
 
-几条常用的分析是现成的，不花 token，也不用等 Claude：
+几条常用的分析是现成的，不花 token，也不用等 agent：
 
 - `lab.plot(runs, key, log=False)`：一个 wandb 指标随 step 的曲线，一个 run 一条线，图例一个 run 一项；没有 wandb 数据的 run 写在图下面。`.data` 是长表。不用新的依赖，图是内联 SVG。
 - `lab.diff(a, b)`：只列不同的地方：命令和 `--set`、资源、代码（两个快照之间的 `git diff --stat`，只读，不碰你的分支和工作区）、拉回来的 config 逐个键。
@@ -77,8 +77,8 @@ run、状态、父 run、原因、资源（`4 GPU × 12h`）、SU（结束后是
 ## 待办
 
 - 你在 notebook 里写 `lab.todo("...")`；SessionStart hook 在当前 idea 的状态里列出未完成的待办，Claude 据此干活。
-- 在 notebook 里，`lab.todo("...")` 显示成一行：`已交给 Claude（t001）：<待办>`；cell 重跑时找到同一个未完成的待办是 `已在待办里（t001）：<待办>`；做完的是 `已完成（t001）：<待办> → <结果>`。
-- `lab.todos(include_closed=False)` 是一行一个待办的简短列表：`t001 · 等 Claude · <待办> · 3 分钟前`（状态：等 Claude、已完成、已放弃）。文字一律转义，太长的截短，悬停看全文。
+- 在 notebook 里，`lab.todo("...")` 显示成一行：`已交给 agent（t001）：<待办>`；cell 重跑时找到同一个未完成的待办是 `已在待办里（t001）：<待办>`；做完的是 `已完成（t001）：<待办> → <结果>`。
+- `lab.todos(include_closed=False)` 是一行一个待办的简短列表：`t001 · 等 agent · <待办> · 3 分钟前`（状态：等 agent、已完成、已放弃）。文字一律转义，太长的截短，悬停看全文。
 - 返回值照旧能当数据用：`t.id`、`t.text`、`t.status`、`t.result`、`t.existed`（是不是复用的），`t["id"]` 也行，`t.data` 是完整的 dict；`lab.todos()` 可以遍历、取下标，`.data` 是 dict 的列表（要 DataFrame 就 `pd.DataFrame(lab.todos().data)`）。
 - 命令行：`arb todo list [--all] [--json]` 在 idea worktree 里列这个 idea 的待办，在主 worktree 里列所有 open idea 的。
 - Claude 做完后 `arb todo done tNNN --result "..."`（≤600 字符）；不做了 `arb todo drop tNNN [--reason "..."]`。

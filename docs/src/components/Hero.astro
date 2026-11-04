@@ -98,6 +98,7 @@ const lang = pageLang.startsWith('en') ? 'en' : 'zh';
 		font-size: clamp(1rem, 0.94rem + 0.3vw, 1.125rem);
 		line-height: 1.8;
 		color: var(--sl-color-gray-2);
+		text-wrap: pretty; /* no lone character on the last line */
 	}
 	.actions {
 		display: flex;

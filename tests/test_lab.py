@@ -236,11 +236,11 @@ def test_todo_and_todos_render_as_calm_lines(idea: Path, initialized: Path) -> N
     # still reads like the row
     assert t.id == t["id"] == "t001" and t.get("status") == "open" and dict(t) == t.data
     assert t.text == "把 <eval> 改成每 *500* 步一次" and t.result is None
-    assert repr(t) == str(t) == "已交给 Claude（t001）：把 <eval> 改成每 *500* 步一次"
+    assert repr(t) == str(t) == "已交给 agent（t001）：把 <eval> 改成每 *500* 步一次"
     html = t._repr_html_()
-    assert "已交给 Claude（t001）：" in html and "&lt;eval&gt;" in html and "<eval>" not in html
+    assert "已交给 agent（t001）：" in html and "&lt;eval&gt;" in html and "<eval>" not in html
     assert "{" not in html  # no JSON tree
-    assert t._repr_markdown_() == "已交给 Claude（t001）：把 &lt;eval&gt; 改成每 \\*500\\* 步一次"
+    assert t._repr_markdown_() == "已交给 agent（t001）：把 &lt;eval&gt; 改成每 \\*500\\* 步一次"
     again = lab.todo("把 <eval> 改成每 *500* 步一次")
     assert again.existed and again.id == "t001"
     assert str(again) == "已在待办里（t001）：把 <eval> 改成每 *500* 步一次"
@@ -262,7 +262,7 @@ def test_todo_and_todos_render_as_calm_lines(idea: Path, initialized: Path) -> N
     assert lines[0] == "t001 · 已完成 · 把 <eval> 改成每 *500* 步一次 → 改好了 <train.py:42> · 刚刚"
     assert lines[1].startswith("t002 · 已放弃 · xxx") and lines[1].endswith(" · 刚刚")
     html = rows._repr_html_()
-    assert "等 Claude" not in html and "已完成" in html and "刚刚" in html
+    assert "等 agent" not in html and "已完成" in html and "刚刚" in html
     assert "<eval>" not in html and "{" not in html
     md = rows._repr_markdown_().splitlines()
     assert md[0].startswith("- t001 · 已完成 · 把 &lt;eval&gt;") and len(md) == 2

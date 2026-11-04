@@ -646,7 +646,7 @@ def spend(idea: str | None = None) -> analysis.Spend:
 # ---------------------------------------------------------------- the human's records
 
 
-TODO_STATUS = {"open": "等 Claude", "done": "已完成", "dropped": "已放弃"}
+TODO_STATUS = {"open": "等 agent", "done": "已完成", "dropped": "已放弃"}
 TODO_CLIP = 160  # one line in the notebook; the full text is in the tooltip / `.text`
 
 
@@ -712,7 +712,7 @@ class Todo(_abc.Mapping):
         elif self.status == "dropped":
             label = "已放弃"
         else:
-            label = "已在待办里" if self.existed else "已交给 Claude"
+            label = "已在待办里" if self.existed else "已交给 agent"
         return f"{label}（{self.id}）："
 
     def _tail(self) -> str | None:
@@ -1011,13 +1011,13 @@ class Pending:
 
     def text(self) -> str:
         if self.error:
-            return f"命令 {self.name} 还不存在，没能交给 Claude：{self.error}"
+            return f"命令 {self.name} 还不存在，没能交给 agent：{self.error}"
         if self.kind == "command_revise":
-            head = f"已请 Claude 修改命令 {self.name}（{self.task_id}）。改好后用到它的 cell 会自动重跑。"
+            head = f"已请 agent 修改命令 {self.name}（{self.task_id}）。改好后用到它的 cell 会自动重跑。"
         else:
-            head = f"命令 {self.name} 还不存在，已交给 Claude（{self.task_id}）。" + (
+            head = f"命令 {self.name} 还不存在，已交给 agent（{self.task_id}）。" + (
                 "写好后这个 cell 会自动重跑。" if self.watching else "写好后重新运行这个 cell。")
-        return head + ("" if self.pushed else "在 Claude 面板里说'处理待办'即可。")
+        return head + ("" if self.pushed else "在 agent 会话里说'处理待办'即可。")
 
     def _repr_markdown_(self) -> str:
         return self.text()
@@ -1204,7 +1204,7 @@ def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
         _commands.validate_scope(scope)
     ask = kwargs.pop("ask", None)
     if ask is not None and not isinstance(ask, str):
-        raise ArbError(f"ask= 是一句说明（给 Claude 看的文字），不是 {type(ask).__name__}")
+        raise ArbError(f"ask= 是一句说明（给 agent 看的文字），不是 {type(ask).__name__}")
     t = resolve()
     seed = isinstance(t, SeedTarget)
     if seed and scope == "project":
@@ -1234,7 +1234,7 @@ def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
 
 
 NO_COMMAND_YET = ("lab.{name} 还不存在：调用 lab.{name}(..., ask=\"想要什么\")，"
-                  "就会交给 Claude 写进命令库")
+                  "就会交给 agent 写进命令库")
 SIG_CLIP = 46  # signatures in the command table; the full one is in the tooltip
 SEED_BUILTINS = ("todo", "todos", "metric")  # what works in a seed's notebook
 
@@ -1293,7 +1293,7 @@ class Help(_abc.Mapping):
                        f"{_esc(self.d.description.strip())}</div>")
         out.append(f'<div style="{MUTED};font-size:.85em;margin-top:4px">'
                    f"lab.{_esc(self.name)}.source() 看代码 · "
-                   f"lab.{_esc(self.name)}.revise(\"…\") 请 Claude 改</div>")
+                   f"lab.{_esc(self.name)}.revise(\"…\") 请 agent 改</div>")
         return '<div class="arb-help" style="line-height:1.7">' + "".join(out) + "</div>"
 
 
@@ -1399,7 +1399,7 @@ class CommandTable(_abc.Sequence):
                          f"v{r['version']}" if r["version"] else "", _clip(text, 60)))
             tips.append(("", r["signature"], r.get("path") or "", text))
         foot = [] if any(r["kind"] != "builtin" for r in self.items) else [
-            "还没有自定义命令：写 lab.<名字>(..., ask=\"想要什么\")，Claude 会把它写进命令库"]
+            "还没有自定义命令：写 lab.<名字>(..., ask=\"想要什么\")，agent 会把它写进命令库"]
         return analysis.View(None, rows, styles=("muted", "code", "muted", ""), group=True,
                              titles=tips, foot=foot, css_class="arb-commands")
 

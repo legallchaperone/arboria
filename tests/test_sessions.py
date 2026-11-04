@@ -128,7 +128,7 @@ def test_command_todo_is_pushed_to_the_live_session(idea: Path, initialized: Pat
     lab.use("exp1", repo=initialized)
     p = lab.svd("对 attention 权重做 SVD")
     assert p.pushed and p.task_id == "t001"
-    assert p.text() == "命令 svd 还不存在，已交给 Claude（t001）。写好后重新运行这个 cell。"
+    assert p.text() == "命令 svd 还不存在，已交给 agent（t001）。写好后重新运行这个 cell。"
     (msg,) = inbox.messages()
     assert msg["type"] == "user" and msg["message"]["role"] == "user"
     text = msg["message"]["content"]
@@ -149,7 +149,7 @@ def test_push_can_be_turned_off(idea: Path, initialized: Path, arb, monkeypatch,
     _hook(arb, idea, monkeypatch, inbox.path)
     lab.use("exp1", repo=initialized)
     p = lab.svd("x")
-    assert not p.pushed and "在 Claude 面板里说'处理待办'即可" in p.text()
+    assert not p.pushed and "在 agent 会话里说'处理待办'即可" in p.text()
     assert inbox.messages(1, timeout=0.3) == []
 
 

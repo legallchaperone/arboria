@@ -57,6 +57,6 @@ notebook 里出现命令待办时，arb 尽力把它发进这个 idea worktree �
 - SessionStart hook 把会话的收件 socket（Claude Code 导出的 `CLAUDE_CODE_MESSAGING_SOCKET`）记在 `.arboria/sessions/<worktree 的哈希>.json`（权限 0600；进程已退出的条目会被清掉）。
 - 消息很短：待办 id、命令名和“运行 arb commands guide 查看约定”，只由校验过的字段拼成，不含你写的说明原文。
 - arb 不保存也不发送 `CLAUDE_CODE_MESSAGING_TOKEN`（notebook 的 kernel 不是那个会话的子进程），也绝不读进程环境里的 socket，只发给 hook 记下的会话。
-- 没有会话、socket 不对、2 秒超时或任何错误都静默跳过，cell 里多一句“在 Claude 面板里说'处理待办'即可”。`arboria.toml` 里 `[claude] push = false` 关掉推送。
+- 没有会话、socket 不对、2 秒超时或任何错误都静默跳过，cell 里多一句“在 agent 会话里说'处理待办'即可”。`arboria.toml` 里 `[claude] push = false` 关掉推送。
 
 会话收不收这条消息由 Claude Code 的 `crossSessionInbound` 设置决定。默认（没设置）时，普通会话直接收下，`bypassPermissions` 模式的会话会弹框等你批准。`arb install-claude` **不改**这个设置。想完全不收：`"crossSessionInbound": "refuse"`。

@@ -592,20 +592,24 @@ pub fn wandb_id(project: &ProjectId, run_id: &str) -> String {
 
 /// `#SBATCH` lines are not shell-expanded: `$USER` / `${USER}` → `%u`.
 pub fn sbatch_value(path: &str) -> String {
-    // Python: re.sub(r"\$\{USER\}|\$USER(?![A-Za-z0-9_])", "%u", path)
-    let mut out = String::with_capacity(path.len());
-    let mut rest = path;
+    replace_user_var(path, "%u")
+}
+
+/// Python `re.sub(r"\$\{USER\}|\$USER(?![A-Za-z0-9_])", with, s)`.
+pub(crate) fn replace_user_var(s: &str, with: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut rest = s;
     while let Some(i) = rest.find('$') {
         out.push_str(&rest[..i]);
         let tail = &rest[i..];
         if let Some(r) = tail.strip_prefix("${USER}") {
-            out.push_str("%u");
+            out.push_str(with);
             rest = r;
         } else if let Some(r) = tail
             .strip_prefix("$USER")
             .filter(|r| !r.starts_with(|c: char| c.is_ascii_alphanumeric() || c == '_'))
         {
-            out.push_str("%u");
+            out.push_str(with);
             rest = r;
         } else {
             out.push('$');
@@ -716,4 +720,75 @@ pub fn render_sbatch(plan: &Plan, run_id: &RunId, idea: &IdeaName, segment: u32)
     let mut text = lines.join("\n");
     text.push('\n');
     Ok(text)
+}
+
+/// Python `shlex.split(text)` (POSIX mode, no comments). The error is shlex's own
+/// `ValueError` text: `No closing quotation` / `No escaped character`.
+pub fn shlex_split(text: &str) -> std::result::Result<Vec<String>, &'static str> {
+    #[derive(Clone, Copy, PartialEq)]
+    enum St {
+        Space,
+        Word,
+        Quote(char),
+        Escape(Option<char>),
+    }
+    let is_space = |c: char| matches!(c, ' ' | '\t' | '\r' | '\n');
+    let mut out = Vec::new();
+    let mut token = String::new();
+    // a quoted token is kept even when empty (`""` → [""])
+    let mut quoted = false;
+    let mut state = St::Space;
+    for c in text.chars() {
+        state = match state {
+            St::Space | St::Word if is_space(c) => {
+                if state == St::Word || quoted {
+                    out.push(std::mem::take(&mut token));
+                    quoted = false;
+                }
+                St::Space
+            }
+            St::Space | St::Word => match c {
+                '\\' => St::Escape(None),
+                '\'' | '"' => {
+                    quoted = true;
+                    St::Quote(c)
+                }
+                _ => {
+                    token.push(c);
+                    St::Word
+                }
+            },
+            St::Quote(q) if c == q => St::Word,
+            St::Quote('"') if c == '\\' => St::Escape(Some('"')),
+            St::Quote(q) => {
+                token.push(c);
+                St::Quote(q)
+            }
+            St::Escape(in_quote) => {
+                // inside "…" a backslash only escapes `"` and `\`
+                if in_quote.is_some() && c != '"' && c != '\\' {
+                    token.push('\\');
+                }
+                token.push(c);
+                match in_quote {
+                    Some(q) => St::Quote(q),
+                    None => St::Word,
+                }
+            }
+        };
+    }
+    match state {
+        St::Quote(_) => Err("No closing quotation"),
+        St::Escape(_) => Err("No escaped character"),
+        St::Word => {
+            out.push(token);
+            Ok(out)
+        }
+        St::Space => {
+            if quoted {
+                out.push(token);
+            }
+            Ok(out)
+        }
+    }
 }

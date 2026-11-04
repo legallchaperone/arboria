@@ -15,11 +15,12 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use arboria_core::clusters::Profile;
 use arboria_core::model::{IdeaName, ProjectId, RunId};
 use arboria_core::slurm::{self, Ask, OverrideValue};
-use arboria_core::{canonical, cards, db, model, records, Error};
+use arboria_core::{canonical, cards, clusters, config, db, model, records, Error};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -95,6 +96,8 @@ fn load(name: &str) -> Option<VectorFile> {
 enum Got {
     Out(Value),
     Err(Error),
+    /// An error that is not an [`Error`] (e.g. shlex's `ValueError: …`), as `<class>: <message>`.
+    ErrText(String),
     Skip(&'static str),
 }
 
@@ -115,6 +118,8 @@ fn run(name: &str, f: impl Fn(&Value) -> Got) -> usize {
             (Got::Skip(why), _, _) => skipped.push(format!("{} ({why})", c.id)),
             (Got::Out(v), Some(want), None) if &v == want => {}
             (Got::Err(e), None, Some(want)) if &format!("{}: {e}", e.python_class()) == want => {}
+            (Got::ErrText(e), None, Some(want)) if &e == want => {}
+            (Got::ErrText(e), _, _) => failures.push(format!("{}: got error {e:?}", c.id)),
             (Got::Out(v), _, _) => failures.push(format!(
                 "{}: got output {v}, want {}",
                 c.id,
@@ -597,6 +602,134 @@ fn render_sbatch() {
     });
 }
 
+// ---------------------------------------------------------------- config / clusters
+
+/// A TOML value from a vector's JSON input (ints stay ints, floats floats).
+fn toml_of(v: &Value) -> Option<toml::Value> {
+    Some(match v {
+        Value::String(s) => toml::Value::String(s.clone()),
+        Value::Bool(b) => toml::Value::Boolean(*b),
+        Value::Number(n) if n.is_f64() => toml::Value::Float(n.as_f64()?),
+        Value::Number(n) => toml::Value::Integer(n.as_i64()?),
+        Value::Array(a) => toml::Value::Array(a.iter().map(toml_of).collect::<Option<_>>()?),
+        Value::Object(o) => toml::Value::Table(
+            o.iter()
+                .map(|(k, v)| Some((k.clone(), toml_of(v)?)))
+                .collect::<Option<_>>()?,
+        ),
+        Value::Null => return None,
+    })
+}
+
+#[test]
+fn shell_split() {
+    run("shell_split", |i| {
+        match slurm::shlex_split(s(i, "text").unwrap()) {
+            Ok(v) => Got::Out(json!(v)),
+            Err(e) => Got::ErrText(format!("ValueError: {e}")),
+        }
+    });
+}
+
+#[test]
+fn validate_project_id() {
+    run("validate_project_id", |i| {
+        let where_ = s(i, "where").unwrap();
+        match toml_of(&i["value"]) {
+            Some(v) => got(config::validate_project_id(&v, where_).map(String::from)),
+            // Python repr(None); TOML has no null, the command line passes strings
+            None => Got::Err(Error::arb(format!(
+                "{where_} must match ^[a-z0-9][a-z0-9-]{{0,30}}$ (lowercase letters, digits, '-', at most 31 chars); got None"
+            ))),
+        }
+    });
+}
+
+#[test]
+fn derive_project_id() {
+    run("derive_project_id", |i| {
+        Got::Out(json!(config::project_id_for(Path::new(
+            s(i, "main").unwrap()
+        ))))
+    });
+}
+
+#[test]
+fn add_project_id() {
+    run("add_project_id", |i| {
+        got(
+            config::validate_project_id_str(s(i, "project_id").unwrap(), "project id")
+                .and_then(|id| config::add_project_id(s(i, "text").unwrap(), &id)),
+        )
+    });
+}
+
+#[test]
+fn arboria_toml() {
+    run("arboria_toml", |i| {
+        let cfg = match s(i, "toml") {
+            None => toml::Table::new(),
+            Some(text) => text.parse().expect("vectors leave invalid TOML out"),
+        };
+        got(
+            config::parse_project_config(&cfg, Path::new("/repo/arboria.toml")).map(|c| {
+                let pid = c.project_id.as_ref().map_or("p", ProjectId::as_str);
+                json!({
+                    "claude": {"push": c.claude.push},
+                    "default_machine": c.default_machine,
+                    "project_id": c.project_id,
+                    "run": {"command": c.run.command, "override_style": c.run.override_style},
+                    "total_su": c.total_su,
+                    "wandb": {
+                        "configured": c.wandb.configured(),
+                        "entity": c.wandb.entity,
+                        "project": c.wandb.project,
+                        "run_url_r001": c.wandb.run_url(&format!("{pid}-r001")),
+                    },
+                    "watch": {
+                        "fail_patterns": c.watch.fail_patterns,
+                        "observation_minutes": c.watch.observation_minutes,
+                    },
+                })
+            }),
+        )
+    });
+}
+
+#[test]
+fn check_remote_path() {
+    run("check_remote_path", |i| {
+        // a missing / null value is Python None: "must be a non-empty string"
+        let v = toml_of(&i["value"]).unwrap_or(toml::Value::Integer(0));
+        got(clusters::check_remote_path(&v, s(i, "where").unwrap()))
+    });
+}
+
+#[test]
+fn clusters_parse_profile() {
+    run("clusters_parse_profile", |i| {
+        let all: toml::Table = s(i, "toml").unwrap().parse().unwrap();
+        let name = s(i, "name").unwrap();
+        let raw = all.get(name).expect("the case's table");
+        got(
+            clusters::parse_profile(name, raw, s(i, "source").unwrap()).map(|p| {
+                let mut v = serde_json::to_value(&p).unwrap();
+                v["account_set"] = json!(p.account_set());
+                v["source"] = json!(p.source);
+                // the TOML order of the partitions (the map itself is sorted)
+                let order: Vec<&str> = raw["partitions"]
+                    .as_table()
+                    .unwrap()
+                    .keys()
+                    .map(String::as_str)
+                    .collect();
+                v["partition_order"] = json!(order);
+                v
+            }),
+        )
+    });
+}
+
 /// The Python constants the Rust core already defines. Python-only ones (and those of
 /// modules not ported yet) are listed in `UNCHECKED` so a new constant gets noticed.
 #[test]
@@ -615,10 +748,6 @@ fn constants() {
         "commands.NAME_RE",
         "backends.base.JOB_ID_RE",
         // not ported yet: wire them with their module
-        "clusters.KINDS",
-        "clusters.TOP_KEYS",
-        "clusters.PARTITION_KEYS",
-        "config.PROJECT_COMMENT",
         "backends.ssh.FIND_WINDOW",
         "backends.base._SLURM_STATES",
     ];
@@ -691,6 +820,19 @@ fn constants() {
             "slurm.MIN_WALLTIME_S" => json!(slurm::MIN_WALLTIME_S),
             "slurm.MAX_JOB_NAME" => json!(slurm::MAX_JOB_NAME),
             "clusters.PATH_ROLES" => json!(arboria_core::clusters::PATH_ROLES),
+            "clusters.KINDS" => json!(clusters::KINDS),
+            // Python sets, exported sorted
+            "clusters.TOP_KEYS" => {
+                let mut k = clusters::TOP_KEYS.to_vec();
+                k.sort_unstable();
+                json!(k)
+            }
+            "clusters.PARTITION_KEYS" => {
+                let mut k = clusters::PARTITION_KEYS.to_vec();
+                k.sort_unstable();
+                json!(k)
+            }
+            "config.PROJECT_COMMENT" => json!(config::PROJECT_COMMENT),
             "config.OVERRIDE_STYLES" => json!(config::OVERRIDE_STYLES),
             "config.DEFAULT_OVERRIDE_STYLE" => json!(config::DEFAULT_OVERRIDE_STYLE),
             "config.DEFAULT_OBSERVATION_MINUTES" => json!(config::DEFAULT_OBSERVATION_MINUTES),
@@ -755,6 +897,13 @@ const WIRED: &[&str] = &[
     "segment_plan",
     "shell_quote",
     "slurm_time",
+    "add_project_id",
+    "arboria_toml",
+    "check_remote_path",
+    "clusters_parse_profile",
+    "derive_project_id",
+    "shell_split",
+    "validate_project_id",
 ];
 
 #[test]
@@ -806,15 +955,10 @@ macro_rules! pending {
 }
 
 pending!(
-    add_project_id,
-    arboria_toml,
     billed_su,
     build_command,
     check_mermaid,
-    check_remote_path,
-    clusters_parse_profile,
     command_name,
-    derive_project_id,
     derive_status,
     find_job,
     first_hit,
@@ -827,8 +971,6 @@ pending!(
     parse_weights,
     restrict_path,
     sacct_poll,
-    shell_split,
     su_from_billing,
-    validate_project_id,
     validate_question,
 );

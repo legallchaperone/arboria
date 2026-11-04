@@ -9,13 +9,12 @@
 //!   `.arboria/seeds/` (the backup mirror of the seed notebooks).
 //! - Tests never touch the real `~/arboria`: they set `ARBORIA_HOME`.
 //!
-//! The pure accessors are real; everything that runs git or touches files is stubbed.
 
-#![allow(unused_variables)] // phase-1 stubs; remove when the module is ported
+use std::path::{Component, Path, PathBuf};
 
-use std::path::{Path, PathBuf};
-
-use crate::Result;
+use crate::gitutil;
+use crate::records::py_strip;
+use crate::{Error, Result};
 
 /// `.arboria`.
 pub const STATE_DIR_NAME: &str = ".arboria";
@@ -83,12 +82,106 @@ impl RepoContext {
 /// Resolve the repository context for `cwd` (default: the process cwd) with
 /// `git rev-parse`. `Error::NotARepo` outside any repo.
 pub fn locate(cwd: Option<&Path>) -> Result<RepoContext> {
-    todo!("port of arboria.paths.locate")
+    let cwd = match cwd {
+        Some(c) => c.to_path_buf(),
+        None => std::env::current_dir()?,
+    };
+    let cwd = resolve(&cwd);
+    let common = gitutil::run(
+        &["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        &cwd,
+        &[],
+        false,
+    )?;
+    if common.status != 0 {
+        return Err(Error::NotARepo(format!(
+            "{} is not inside a git repository",
+            cwd.display()
+        )));
+    }
+    let common_dir = resolve(Path::new(&common.text()));
+    let top = gitutil::run(&["rev-parse", "--show-toplevel"], &cwd, &[], false)?;
+    let toplevel =
+        (top.status == 0 && !top.text().is_empty()).then(|| resolve(Path::new(&top.text())));
+    let main = common_dir
+        .parent()
+        .map_or_else(|| common_dir.clone(), Path::to_path_buf);
+    Ok(RepoContext {
+        cwd,
+        common_dir,
+        main,
+        toplevel,
+    })
+}
+
+/// Python's `Path.resolve()` (non-strict): symlinks resolved as far as the path exists,
+/// the rest appended as is.
+pub fn resolve(path: &Path) -> PathBuf {
+    let abs = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir().unwrap_or_default().join(path)
+    };
+    if let Ok(p) = abs.canonicalize() {
+        return p;
+    }
+    // the longest existing prefix, canonicalized, plus the missing tail (normalized)
+    let mut tail = Vec::new();
+    let mut head = abs.as_path();
+    loop {
+        match head.canonicalize() {
+            Ok(base) => {
+                let mut out = base;
+                for part in tail.iter().rev() {
+                    match part {
+                        Component::ParentDir => {
+                            out.pop();
+                        }
+                        Component::CurDir => {}
+                        c => out.push(c),
+                    }
+                }
+                return out;
+            }
+            Err(_) => match (head.parent(), head.components().next_back()) {
+                (Some(parent), Some(last)) => {
+                    tail.push(last);
+                    head = parent;
+                }
+                _ => return abs,
+            },
+        }
+    }
 }
 
 /// Add `pattern` to `<common dir>/info/exclude` once; returns whether it was added.
 pub fn ensure_excluded(common_dir: &Path, pattern: &str, comment: &str) -> Result<bool> {
-    todo!("port of arboria.paths.ensure_excluded")
+    let exclude = common_dir.join("info").join("exclude");
+    std::fs::create_dir_all(exclude.parent().expect("has a parent"))?;
+    let mut text = match std::fs::read_to_string(&exclude) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e.into()),
+    };
+    // Python str.splitlines() / strip(); the file is plain ASCII in practice
+    if text.lines().any(|l| py_strip(l) == pattern) {
+        return Ok(false);
+    }
+    if !text.is_empty() && !text.ends_with('\n') {
+        text.push('\n');
+    }
+    text.push_str(&format!("# {comment}\n{pattern}\n"));
+    std::fs::write(&exclude, text)?;
+    Ok(true)
+}
+
+/// [`ensure_excluded`] with arb's own pattern: `/.arboria/`.
+pub fn ensure_state_excluded(common_dir: &Path) -> Result<bool> {
+    ensure_excluded(
+        common_dir,
+        &format!("/{STATE_DIR_NAME}/"),
+        "arboria state (local only)",
+    )
 }
 
 /// The seed home: `~/arboria` or `$ARBORIA_HOME`. Not a git repo.
@@ -132,13 +225,30 @@ impl Home {
 
     /// Whether `path` is inside the home.
     pub fn contains(&self, path: &Path) -> bool {
-        todo!("port of arboria.paths.Home.contains")
+        let p = resolve(path);
+        p.starts_with(&self.root)
     }
 }
 
 /// `$ARBORIA_HOME` (expanded, resolved) or `~/arboria`.
 pub fn home_root() -> PathBuf {
-    todo!("port of arboria.paths.home_root")
+    let root = match std::env::var_os(HOME_ENV) {
+        Some(env) if !env.is_empty() => expand_user(Path::new(&env)),
+        _ => user_home().join("arboria"),
+    };
+    resolve(&root)
+}
+
+fn user_home() -> PathBuf {
+    std::env::home_dir().unwrap_or_default()
+}
+
+/// Python `Path.expanduser()` for `~` and `~/…` (not `~user`).
+fn expand_user(p: &Path) -> PathBuf {
+    match p.strip_prefix("~") {
+        Ok(rest) => user_home().join(rest),
+        Err(_) => p.to_path_buf(),
+    }
 }
 
 /// The home at [`home_root`].
@@ -148,10 +258,30 @@ pub fn home() -> Home {
 
 /// `$ARBORIA_CACHE_DIR`, else `$XDG_CACHE_HOME/arboria`, else `~/.cache/arboria`.
 pub fn cache_dir() -> PathBuf {
-    todo!("port of arboria.paths.cache_dir")
+    if let Some(env) = std::env::var_os(CACHE_ENV).filter(|e| !e.is_empty()) {
+        return expand_user(Path::new(&env));
+    }
+    let base = match std::env::var_os("XDG_CACHE_HOME").filter(|e| !e.is_empty()) {
+        Some(xdg) => expand_user(Path::new(&xdg)),
+        None => user_home().join(".cache"),
+    };
+    base.join("arboria")
 }
 
 /// `(home, seed name)` if `path` is `<home>/seeds/<name>.py` of an initialized home.
 pub fn seed_of_notebook(path: &Path) -> Option<(Home, String)> {
-    todo!("port of arboria.paths.seed_of_notebook")
+    let p = std::path::absolute(path).ok()?;
+    if !p.exists() {
+        return None;
+    }
+    // the notebook may be a link: resolve its directory, keep its own name
+    let p = p.parent()?.canonicalize().ok()?.join(p.file_name()?);
+    if p.extension()? != "py" || p.parent()?.file_name()? != SEEDS_DIR {
+        return None;
+    }
+    let home = Home {
+        root: p.parent()?.parent()?.to_path_buf(),
+    };
+    let name = p.file_stem()?.to_str()?.to_string();
+    home.initialized().then_some((home, name))
 }

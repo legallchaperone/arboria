@@ -21,6 +21,9 @@ publish = false
 arboria-core = { path = "crates/arboria-core" }
 anyhow = "=1.0.104"
 clap = { version = "=4.6.7", features = ["derive"] }
+# [watch] fail_patterns (Python `re` syntax; what `regex` cannot compile is refused).
+# Linear time: a pattern can never hang on a log line.
+regex = "=1.13.1"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 # float_roundtrip: parse floats exactly like Python (test vectors carry e.g. 110.898)
@@ -28,7 +31,9 @@ serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
 # card hash and probe hashes (default-features off: no oid / alloc extras)
 sha2 = { version = "=0.11.1", default-features = false }
 thiserror = "=2.0.21"
-toml = "=1.1.8"
+# preserve_order: tables iterate in file order, like Python dicts from tomllib (the first
+# bad partition is the one reported)
+toml = { version = "=1.1.8", features = ["preserve_order"] }
 tracing = "=0.1.44"
 
 [workspace.lints.rust]

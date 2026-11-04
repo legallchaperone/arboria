@@ -8,11 +8,10 @@
 //! - A user without a git identity gets [`FALLBACK_IDENTITY`] for hidden refs and the
 //!   backup repo only.
 
-#![allow(unused_variables)] // phase-1 stubs; remove when the module is ported
-
 use std::path::Path;
+use std::process::{Command, Stdio};
 
-use crate::Result;
+use crate::{Error, Result};
 
 /// Variables that would redirect git away from the `cwd` we pass.
 pub const SCRUBBED_ENV: &[&str] = &[
@@ -48,30 +47,68 @@ impl Output {
 
 /// Run `git <args>` in `cwd` with extra env; `Error::Git` on failure when `check`.
 pub fn run(args: &[&str], cwd: &Path, env: &[(&str, &str)], check: bool) -> Result<Output> {
-    todo!("port of arboria.gitutil.run")
+    let mut cmd = Command::new("git");
+    cmd.args(args)
+        .current_dir(cwd)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for var in SCRUBBED_ENV {
+        cmd.env_remove(var);
+    }
+    cmd.envs(env.iter().copied());
+    let out = cmd
+        .output()
+        .map_err(|e| Error::Arb(format!("cannot run git in {}: {e}", cwd.display())))?;
+    let status = out.status.code().unwrap_or(-1);
+    let stderr = String::from_utf8_lossy(&out.stderr).into_owned();
+    if check && status != 0 {
+        return Err(Error::Git {
+            args: args.join(" "),
+            cwd: cwd.to_path_buf(),
+            code: status,
+            stderr: stderr.trim().to_string(),
+        });
+    }
+    Ok(Output {
+        status,
+        stdout: out.stdout,
+        stderr,
+    })
 }
 
 /// Run git and return its trimmed stdout.
 pub fn out(args: &[&str], cwd: &Path, env: &[(&str, &str)]) -> Result<String> {
-    todo!("port of arboria.gitutil.out")
+    Ok(run(args, cwd, env, true)?.text())
 }
 
 /// Run git; true when it exits 0 (never `Error::Git`).
 pub fn ok(args: &[&str], cwd: &Path) -> Result<bool> {
-    todo!("port of arboria.gitutil.ok")
+    Ok(run(args, cwd, &[], false)?.status == 0)
 }
 
 /// Resolve `rev` to a commit hash (`rev-parse --verify --quiet <rev>^{commit}`).
 pub fn rev_parse(rev: &str, cwd: &Path) -> Result<Option<String>> {
-    todo!("port of arboria.gitutil.rev_parse")
+    let spec = format!("{rev}^{{commit}}");
+    let out = run(
+        &["rev-parse", "--verify", "--quiet", &spec],
+        cwd,
+        &[],
+        false,
+    )?;
+    Ok((out.status == 0).then(|| out.text()))
 }
 
 /// `show-ref --verify --quiet <ref>`.
 pub fn ref_exists(git_ref: &str, cwd: &Path) -> Result<bool> {
-    todo!("port of arboria.gitutil.ref_exists")
+    ok(&["show-ref", "--verify", "--quiet", git_ref], cwd)
 }
 
 /// [`FALLBACK_IDENTITY`] if the user has no git identity, else empty.
 pub fn identity_env(cwd: &Path) -> Result<Vec<(&'static str, &'static str)>> {
-    todo!("port of arboria.gitutil.identity_env")
+    if ok(&["var", "GIT_COMMITTER_IDENT"], cwd)? && ok(&["var", "GIT_AUTHOR_IDENT"], cwd)? {
+        Ok(Vec::new())
+    } else {
+        Ok(FALLBACK_IDENTITY.to_vec())
+    }
 }

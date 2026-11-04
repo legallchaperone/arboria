@@ -20,7 +20,6 @@ const docs = (p: string) => `/${p}/`; // the docs themselves are Chinese only
 
 const c = zh
 	? {
-			demo: '截图里都是演示数据。',
 			s1: {
 				kicker: '种子',
 				title: '从种子到实验',
@@ -66,12 +65,9 @@ const c = zh
 				body: '装好 arb，在任意 git 仓库里建一个 idea 和它的 notebook。上集群之前需要一台机器配置。',
 				start: '快速开始',
 				concepts: '核心概念',
-				status: '个人研究工具，还在开发。测试覆盖了整个流程；真集群上的第一个 run 还没跑通。',
-				statusLink: '路线图',
 			},
 		}
 	: {
-			demo: 'All screenshots show demo data.',
 			s1: {
 				kicker: 'Seeds',
 				title: 'From a seed to an experiment',
@@ -117,8 +113,6 @@ const c = zh
 				body: 'Install arb and create an idea and its notebook in any git repository. Before running on a cluster you need a machine profile. The documentation is in Chinese.',
 				start: 'Quick start (Chinese)',
 				concepts: 'Concepts (Chinese)',
-				status: 'A personal research tool under active development. The tests cover the whole flow; the first real run on the cluster has not happened yet.',
-				statusLink: 'Roadmap (Chinese)',
 			},
 		};
 
@@ -209,9 +203,6 @@ const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
 			<LinkButton href={docs('start/quickstart')}>{c.end.start}</LinkButton>
 			<LinkButton href={docs('start/concepts')} variant="minimal">{c.end.concepts}</LinkButton>
 		</div>
-		<p class="fine">
-			{c.end.status} <a href={docs('project/status')}>{c.end.statusLink}</a> · {c.demo}
-		</p>
 	</section>
 </div>
 
@@ -336,13 +327,5 @@ const sizes = '(min-width: 72rem) 32rem, (min-width: 50rem) 45vw, 92vw';
 		flex-wrap: wrap;
 		gap: 0.75rem 1rem;
 		margin-top: 1.25rem;
-	}
-	.end .fine {
-		margin-top: 2rem;
-		font-size: var(--sl-text-xs);
-		color: var(--sl-color-gray-3);
-	}
-	.end .fine a {
-		color: var(--sl-color-text-accent);
 	}
 </style>

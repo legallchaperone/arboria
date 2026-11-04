@@ -115,3 +115,74 @@ def test_cell_reruns_when_claude_writes_the_command(idea: Path, initialized: Pat
         pytest.skip(res.stdout.strip())
     assert res.returncode == 0, res.stdout + res.stderr
     assert "RERUN-OK SVD-V1 r001" in res.stdout and "RERUN-OK SVD-V2 r001" in res.stdout
+
+
+# ---------------------------------------------------------------- seeds
+
+SEED_CELLS = '''
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## 为什么
+
+    浅层的低秩更新也许需要**更高的秩**。
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    from arboria import lab
+
+    t = lab.resolve()
+    try:
+        lab.run(reason="x")
+    except Exception as exc:
+        msg = str(exc)
+    mo.md(f"SEED={t.seed} · {msg}")
+    return
+
+
+if __name__ == "__main__":'''
+
+
+def _seed(arb, tmp_path: Path, isolated_home: Path) -> Path:
+    arb(tmp_path, "seed", "new", "rank-schedule", "LoRA 的秩随层变化",
+        "--hypothesis", "浅层需要更高的秩", "--metric", "val/loss")
+    return isolated_home / "seeds" / "rank-schedule.py"
+
+
+def test_seed_template_passes_marimo_check(arb, tmp_path: Path, isolated_home: Path) -> None:
+    nb = _seed(arb, tmp_path, isolated_home)
+    res = _marimo("check", "--strict", str(nb), cwd=tmp_path)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "warning" not in (res.stdout + res.stderr).lower()
+
+
+def test_seed_notebook_runs_headless(arb, tmp_path: Path, isolated_home: Path) -> None:
+    nb = _seed(arb, tmp_path, isolated_home)
+    nb.write_text(nb.read_text().replace('\n\nif __name__ == "__main__":', SEED_CELLS))
+    out = tmp_path / "seed.html"
+    res = _marimo("export", "html", str(nb), "-o", str(out), cwd=tmp_path)
+    assert res.returncode == 0, res.stdout + res.stderr
+    html = _decoded(out.read_text())
+    assert "LoRA 的秩随层变化" in html and "更高的秩" in html
+    assert "SEED=rank-schedule · 这是一个种子（rank-schedule），还没种进仓库" in html
+
+
+def test_planted_notebook_passes_marimo_check(arb, tmp_path: Path, isolated_home: Path,
+                                             initialized: Path) -> None:
+    nb = _seed(arb, tmp_path, isolated_home)
+    nb.write_text(nb.read_text().replace('\n\nif __name__ == "__main__":', SEED_CELLS))
+    arb(initialized, "seed", "plant", "rank-schedule")
+    planted = initialized / ".arboria" / "notebooks" / "rank-schedule.py"
+    assert "种子里的思路" in planted.read_text()
+    res = _marimo("check", "--strict", str(planted), cwd=initialized)
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "warning" not in (res.stdout + res.stderr).lower()
+    out = tmp_path / "planted.html"
+    res = _marimo("export", "html", str(planted), "-o", str(out), cwd=initialized)
+    assert res.returncode == 0, res.stdout + res.stderr
+    html = _decoded(out.read_text())
+    assert "来自种子" in html and "种子里的思路" in html and "更高的秩" in html

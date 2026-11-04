@@ -1,6 +1,7 @@
 ---
-// Starlight's Hero, rearranged for Arboria: a short line of what it is, the title,
-// the subtitle and the buttons, then the contrast picture (HeroContrast) below.
+// Starlight's Hero, rearranged for Arboria: the name with its mark (largest), the
+// slogan and one sentence (both in the tagline), the buttons, then the contrast
+// picture (HeroContrast) below.
 import { LinkButton } from '@astrojs/starlight/components';
 import HeroContrast from './HeroContrast.astro';
 
@@ -9,13 +10,25 @@ const { entry, lang: pageLang } = Astro.locals.starlightRoute;
 const { data } = entry;
 const { title = data.title, tagline, actions = [] } = data.hero || {};
 const lang = pageLang.startsWith('en') ? 'en' : 'zh';
-const kicker = lang === 'en' ? 'Arboria · ML research with an agent' : 'Arboria · 和 agent 一起做 ML 研究';
 ---
 
 <div class="hero not-content">
 	<div class="copy">
-		<p class="kicker">{kicker}</p>
-		<h1 id={PAGE_TITLE_ID} data-page-title set:html={title} />
+		<h1 id={PAGE_TITLE_ID} data-page-title>
+			<svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+				<g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+					<path d="M16 29.5V8"></path>
+					<path d="M16 22.5c0-4.6 3.2-7.2 8.6-7.9"></path>
+					<path d="M16 17c0-3.6-2.7-5.9-7.4-6.5"></path>
+				</g>
+				<g fill="currentColor">
+					<circle cx="16" cy="6" r="3.1"></circle>
+					<circle cx="25.4" cy="14.4" r="2.7"></circle>
+					<circle cx="7.6" cy="10.3" r="2.7"></circle>
+				</g>
+			</svg>
+			<span set:html={title} />
+		</h1>
 		{tagline && <p class="tagline" set:html={tagline} />}
 		{
 			actions.length > 0 && (
@@ -44,27 +57,44 @@ const kicker = lang === 'en' ? 'Arboria · ML research with an agent' : 'Arboria
 		flex-direction: column;
 		gap: 1rem;
 	}
-	.kicker {
+	h1 {
+		display: flex;
+		align-items: center;
+		gap: 0.2em;
 		margin: 0;
-		font-size: var(--sl-text-sm);
-		font-weight: 600;
+		font-size: clamp(3.25rem, 2rem + 5vw, 5.5rem);
+		line-height: 1;
+		font-weight: 650;
+		letter-spacing: -0.025em;
+		color: var(--sl-color-white);
+	}
+	.mark {
+		flex: none;
+		width: 0.86em;
+		height: 0.86em;
+		margin-left: -0.08em;
 		color: var(--arb-accent);
 	}
-	h1 {
-		margin: 0;
-		font-size: clamp(2rem, 1.2rem + 2.8vw, 3.25rem);
-		line-height: 1.2;
+	.tagline {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		margin: 0.25rem 0 0;
+	}
+	/* the slogan: second level, about 60% of the name */
+	.tagline :global(.slogan) {
+		font-size: clamp(1.75rem, 1.15rem + 2.4vw, 3.25rem);
+		line-height: 1.25;
 		font-weight: 600;
 		letter-spacing: -0.01em;
 		color: var(--sl-color-white);
 	}
-	/* the title breaks at its comma, never inside a half */
-	h1 :global(span) {
+	/* it breaks between its halves, never inside one */
+	.tagline :global(.slogan > span) {
 		display: inline-block;
 	}
-	.tagline {
-		margin: 0;
-		max-width: 44rem;
+	.tagline :global(.desc) {
+		max-width: 40rem;
 		font-size: clamp(1rem, 0.94rem + 0.3vw, 1.125rem);
 		line-height: 1.8;
 		color: var(--sl-color-gray-2);

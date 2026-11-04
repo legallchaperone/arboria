@@ -215,6 +215,33 @@ fn wandb_id() {
 }
 
 #[test]
+fn git_refs() {
+    use arboria_core::{ideas, inspection, records};
+    run("git_refs", |i| {
+        let arg = s(i, "arg").unwrap();
+        let out = match s(i, "kind").unwrap() {
+            "run" => records::run_ref(&RunId::parse(arg).unwrap()),
+            "inspect" => inspection::ref_name(&model::TaskId::parse(arg).unwrap()),
+            "branch" => ideas::branch_for(&model::IdeaName::parse(arg).unwrap()),
+            "worktree" => {
+                let main = std::path::PathBuf::from(s(i, "main").unwrap());
+                let ctx = arboria_core::paths::RepoContext {
+                    cwd: main.clone(),
+                    common_dir: main.join(".git"),
+                    main,
+                    toplevel: None,
+                };
+                ideas::worktree_for(&ctx, &model::IdeaName::parse(arg).unwrap())
+                    .display()
+                    .to_string()
+            }
+            other => panic!("unknown kind {other}"),
+        };
+        Got::Out(serde_json::Value::String(out))
+    });
+}
+
+#[test]
 fn next_id() {
     run("next_id", |i| {
         let prefix = s(i, "prefix").unwrap();
@@ -869,6 +896,7 @@ const WIRED: &[&str] = &[
     "check_project",
     "wandb_id",
     "next_id",
+    "git_refs",
     "check_job_ids",
     "constants",
     "billed_gpus",
@@ -962,7 +990,6 @@ pending!(
     derive_status,
     find_job,
     first_hit,
-    git_refs,
     inspect_check_path,
     inspect_validate_result,
     machine_propose,

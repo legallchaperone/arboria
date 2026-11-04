@@ -235,8 +235,7 @@ def seed_new(
     hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="What you expect and why (≤300 chars).")] = None,
     metric: Annotated[Optional[str], typer.Option("--metric", help="How success would be measured (≤200 chars).")] = None,
 ) -> None:
-    """(Human only) new seed and its notebook (<home>/seeds/NAME.py); prints the notebook
-    path."""
+    """(Human only) new seed and its notebook <home>/seeds/NAME.py (prints its path)."""
     seeds_mod.require_human(f"arb seed new {name}", "写一个种子")
     h, ledger = seeds_mod.open_home(_info)
     with ledger:
@@ -327,8 +326,7 @@ def seed_plant(
     metric: Annotated[Optional[str], typer.Option("--metric", help="Default: the seed's.")] = None,
     again: Annotated[bool, typer.Option("--again", help="Plant a seed that is already planted (into another repo, or under another name).")] = False,
 ) -> None:
-    """(Human only) plant a seed into a repo as a new idea (branch, worktree, notebook);
-    the idea's notebook links back to the seed and carries its markdown cells."""
+    """(Human only) plant a seed into a repo as a new idea, whose notebook links back."""
     seeds_mod.require_human(f"arb seed plant {name}", "会建分支和 worktree")
     h = seeds_mod.ensure_home(_info)
     if repo is None and h.contains(Path.cwd()):

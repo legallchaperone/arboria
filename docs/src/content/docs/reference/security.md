@@ -16,6 +16,7 @@ Arboria 防的是 **“Claude 顺手照做”**：会话里一句话、一段日
 | 远端 | `SshSlurm` 只复用你登录好的 ssh 主连接（BatchMode，不弹 Duo），只认本项目的作业名，读写路径限制在本项目的 `<runs>/<project>`、`<out>/<project>` 下。 |
 | 快照 | 不动你的分支、暂存区和工作区（`tests/test_snapshot.py` 是这条的契约）。 |
 | 看板 | 只读：账本以 `mode=ro` 打开，不起进程、不联网、没有会动手的控件；文字 HTML 转义。 |
+| 字体 | notebook 和看板的字体（Noto Sans SC、Maple Mono CN，都是 SIL OFL 1.1）随包分发，以 `data:` URI 嵌在 arb 生成的样式表里：不从网上加载任何东西。 |
 | notebook 命令 | Claude 写、在你的 kernel 里以你的权限运行；`arb` 自己从不执行命令代码（`arb commands list` 只用 `ast` 读）。用之前看 diff。 |
 | 会话推送 | 只发给 hook 记下的本机会话 socket；不存不发 messaging token；消息只由校验过的字段拼成；失败静默跳过。 |
 | 种子园 | `install-claude --home` 禁止 Claude 编辑种子 notebook 和种子园的 `.arboria/`。种下（建分支和 worktree）只在你的终端里做。 |

@@ -27,7 +27,7 @@ myproj-<idea>/                每个 idea 的 worktree（分支 idea/<idea>）
 └── arboria.css → ../myproj/.arboria/notebooks/arboria.css
 ```
 
-- 字体：notebook 和看板用的 Maple Mono CN（v7.9，Regular 和 Bold，WOFF2）随包分发，在 `arboria/ui/fonts/`，许可证是 SIL Open Font License 1.1（同目录的 `OFL.txt`）；arb 生成的 `arboria.css` / 看板的 `dashboard.css` 把它以 `data:` URI 嵌进去，不联网。
+- 字体：notebook 和看板的文字用 Noto Sans SC（2.004，可变字重，来自 notofonts/noto-cjk 的 Sans2.004 发布），代码用 Maple Mono CN（v7.9，Regular 和 Bold）。两者都以 WOFF2 随包分发，在 `arboria/ui/fonts/`，许可证都是 SIL Open Font License 1.1（同目录的 `OFL-NotoSansSC.txt`、`OFL-MapleMono.txt`，来源和版本见 `NOTICE`）；arb 生成的 `arboria.css` / 看板的 `dashboard.css` 把它们以 `data:` URI 嵌进去，不联网。
 
 - 旧版本的账本原地迁移。
 - 快照存成隐藏的 git ref `refs/arboria/runs/<run>`；放弃的 idea 的最终快照在 `refs/arboria/ideas/<name>/final`，打标签 `arboria/archive/<name>`。这些 ref 默认不会被 push。

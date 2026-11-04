@@ -3,7 +3,8 @@
 A seed has a name (same slug rules as ideas), a one-line gist, optionally a hypothesis
 and a metric, and its own marimo notebook `<home>/seeds/<name>.py`. Everything is the
 human's: seeds are written through `arb seed ...` (or `lab.metric` in the seed notebook),
-Claude may read the notebooks but never edits them. When the idea is ready, the human
+Claude may read them (`arb seed list/show`, the notebooks) but never writes them: every
+command that changes a seed refuses inside Claude Code (`require_human`). When the idea is ready, the human
 plants it into a repo: `arb seed plant` creates a normal idea (branch, worktree,
 notebook) there through the same code path as `arb idea new`.
 
@@ -30,7 +31,8 @@ from .paths import Home, RepoContext, home
 
 FIELDS = ("gist", "hypothesis", "metric")
 STATUS_LABELS = {"thinking": "思考中", "planted": "已种下", "dropped": "已放弃"}
-HUMAN_ONLY = "{command} 只由人在自己的终端里做（会{what}）；Claude 不能运行它"
+HUMAN_ONLY = ("{command} 只由人在自己的终端里做（{what}）；Claude 不能运行它。种子是人的："
+              "Claude 可以读（arb seed list / show、seeds/<名字>.py），不写")
 PLANT_NEEDS = ("种下需要假设和指标：种子 {name} 还没有{missing}。"
                "用 --hypothesis / --metric 给出，或先 arb seed set {name} --hypothesis …")
 

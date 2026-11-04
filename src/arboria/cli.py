@@ -235,7 +235,9 @@ def seed_new(
     hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="What you expect and why (≤300 chars).")] = None,
     metric: Annotated[Optional[str], typer.Option("--metric", help="How success would be measured (≤200 chars).")] = None,
 ) -> None:
-    """New seed and its notebook (<home>/seeds/NAME.py); prints the notebook path."""
+    """(Human only) new seed and its notebook (<home>/seeds/NAME.py); prints the notebook
+    path."""
+    seeds_mod.require_human(f"arb seed new {name}", "写一个种子")
     h, ledger = seeds_mod.open_home(_info)
     with ledger:
         seed = seeds_mod.new_seed(h, ledger, name, gist, hypothesis, metric)
@@ -294,7 +296,8 @@ def seed_set(
     hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="≤300 chars; \"\" clears it.")] = None,
     metric: Annotated[Optional[str], typer.Option("--metric", help="≤200 chars; \"\" clears it.")] = None,
 ) -> None:
-    """Change a seed's gist, hypothesis or metric."""
+    """(Human only) change a seed's gist, hypothesis or metric."""
+    seeds_mod.require_human(f"arb seed set {name}", "改种子")
     if gist is None and hypothesis is None and metric is None:
         raise ArbError("nothing to change: pass --gist, --hypothesis and/or --metric")
     h, ledger = seeds_mod.open_home(_info)
@@ -326,7 +329,7 @@ def seed_plant(
 ) -> None:
     """(Human only) plant a seed into a repo as a new idea (branch, worktree, notebook);
     the idea's notebook links back to the seed and carries its markdown cells."""
-    seeds_mod.require_human(f"arb seed plant {name}", "建分支和 worktree")
+    seeds_mod.require_human(f"arb seed plant {name}", "会建分支和 worktree")
     h = seeds_mod.ensure_home(_info)
     if repo is None and h.contains(Path.cwd()):
         raise ArbError("which repo? run this inside the target repo, or pass --repo PATH")
@@ -650,9 +653,20 @@ def lesson_retire(lesson_id: Annotated[str, typer.Argument(help="Lesson id, e.g.
 # ---------------------------------------------------------------- todos
 
 
+def _todo_ledger() -> tuple[Ledger, int | None]:
+    """The ledger todos live in here: the home's (cwd inside it: seed todos) or the
+    project's; plus the current idea's id inside an idea worktree."""
+    h = seeds_mod.home_of()
+    if h is not None and h.initialized:
+        return Ledger(h.state_dir), None
+    ctx, ledger = _open()
+    idea = ideas_mod.current_idea(ctx, ledger)
+    return ledger, idea["id"] if idea else None
+
+
 def _todo_line(t: dict[str, Any]) -> str:
     kind = "" if t.get("kind", "plain") == "plain" else f"[{t['kind']}] "
-    line = f"{t['id']:<5} {t['status']:<7} {t['idea']:<20} {kind}{t['text']}"
+    line = f"{t['id']:<5} {t['status']:<7} {tasks_mod.owner_name(t):<20} {kind}{t['text']}"
     if t["result"]:
         line += f"\n      → {t['result']}"
     return line
@@ -664,11 +678,11 @@ def todo_list(
     show_all: Annotated[bool, typer.Option("--all", help="Include done and dropped todos.")] = False,
     as_json: JsonOpt = False,
 ) -> None:
-    """Todos of the current idea (in an idea worktree) or of every open idea."""
-    ctx, ledger = _open()
+    """Todos of the current idea (in an idea worktree), of every open idea, or (in the
+    seed home) of the seeds."""
+    ledger, idea_id = _todo_ledger()
     with ledger:
-        idea = ideas_mod.current_idea(ctx, ledger)
-        rows = tasks_mod.list_tasks(ledger, idea["id"] if idea else None, include_closed=show_all)
+        rows = tasks_mod.list_tasks(ledger, idea_id, include_closed=show_all)
     if as_json:
         _echo_json(rows)
         return
@@ -686,7 +700,7 @@ def todo_done(
     result: Annotated[str, typer.Option("--result", help="What was done / found (≤600 chars).")],
 ) -> None:
     """Mark a todo done with a short result for the human."""
-    _, ledger = _open()
+    ledger, _ = _todo_ledger()
     with ledger:
         tasks_mod.done(ledger, task_id, result)
     typer.echo(f"done {task_id}")
@@ -699,7 +713,7 @@ def todo_drop(
     reason: Annotated[Optional[str], typer.Option("--reason", help="Why (≤600 chars).")] = None,
 ) -> None:
     """Drop a todo that will not be done."""
-    _, ledger = _open()
+    ledger, _ = _todo_ledger()
     with ledger:
         tasks_mod.drop(ledger, task_id, reason)
     typer.echo(f"dropped {task_id}")
@@ -766,7 +780,18 @@ def status(
     as_json: JsonOpt = False,
     brief: Annotated[bool, typer.Option("--brief", help="Compact text (as used by the hook).")] = False,
 ) -> None:
-    """Current idea (inside an idea worktree) or an overview of open ideas."""
+    """Current idea (inside an idea worktree), an overview of open ideas, or (in the seed
+    home) the seeds."""
+    h = seeds_mod.home_of()
+    if h is not None and h.initialized:
+        with Ledger(h.state_dir) as ledger:
+            if as_json:
+                _echo_json({"scope": "home", "home": str(h.root),
+                            "seeds": seeds_mod.list_seeds(h, ledger, include_dropped=True),
+                            "todos": tasks_mod.list_tasks(ledger)})
+            else:
+                typer.echo(report.home_status(h, ledger, brief=brief))
+        return
     ctx, ledger = _open()
     with ledger:
         data = report.status_data(ctx, ledger)
@@ -883,11 +908,23 @@ def hook_session_start() -> None:
 def install_claude(
     main: Annotated[bool, typer.Option("--main", help="Write into the main worktree instead.")] = False,
     user: Annotated[bool, typer.Option("--user", help="Write into ~/.claude/settings.json instead.")] = False,
+    home: Annotated[bool, typer.Option("--home", help="Set up the seed home (~/arboria): its .claude/settings.json and CLAUDE.md.")] = False,
 ) -> None:
     """Add the SessionStart hook and permission rules to .claude/settings.json (the
     machine-specific global commands dir goes into .claude/settings.local.json)."""
-    if main and user:
-        raise ArbError("use only one of --main / --user")
+    if main + user + home > 1:
+        raise ArbError("use only one of --main / --user / --home")
+    if home:
+        h = seeds_mod.ensure_home(_info)
+        path, changes = install_mod.install(h.root, local=False,
+                                            deny_rules=install_mod.HOME_DENY_RULES)
+        for c in changes:
+            typer.echo(c)
+        typer.echo(f"updated {path}" if changes else f"{path} already up to date")
+        result = claudemd.sync_home(h.root)
+        if result.changed:
+            typer.echo(f"{result.action} arboria block in {result.path}")
+        return
     ctx: RepoContext | None = None
     if user:
         root = Path.home()

@@ -6,7 +6,7 @@ from typing import Any
 
 from .claudemd import accepted_lessons, lesson_line
 from .db import Ledger, now
-from .tasks import list_tasks, payload
+from .tasks import list_tasks, owner_name, payload
 from .ideas import current_idea
 from .paths import RepoContext
 
@@ -174,14 +174,14 @@ def todo_lines(todos: list[dict[str, Any]], brief: bool, with_idea: bool) -> lis
         for t in cmds:
             name = payload(t).get("name", "?")
             extra = "，修改" if t["kind"] == "command_revise" else ""
-            where = f"，{t['idea']}" if with_idea else ""
+            where = f"，{owner_name(t)}" if with_idea else ""
             items.append(f"{name}（{t['id']}{extra}{where}）")
         lines.append(COMMAND_TODOS_HEADER + "、".join(items)
                      + "——按 `arb commands guide` 的约定写，详情见 `arb todo list --json`")
     if plain:
         lines.append(TODOS_HEADER + "（做完用 `arb todo done tNNN --result \"...\"`）")
         for t in plain:
-            where = f" [{t['idea']}]" if with_idea else ""
+            where = f" [{owner_name(t)}]" if with_idea else ""
             lines.append(f"- {t['id']}{where}: {_clip(t['text'], 300 if brief else 10_000)}")
     return lines
 
@@ -316,3 +316,44 @@ def export_markdown(ctx: RepoContext, ledger: Ledger) -> str:
                     out.append(f"  > {line}")
         out.append("")
     return "\n".join(out).rstrip() + "\n"
+
+
+# ---------------------------------------------------------------- the seed home
+
+HOME_FOOTER = (
+    "Seed home rules: this folder is the human's seed garden (ideas without a repo yet). "
+    "`seeds/<name>.py` are the human's marimo notebooks: read them for context, never edit "
+    "them; never edit .arboria/. Read seeds with `arb seed list` / `arb seed show NAME`; "
+    "seeds are created, changed, dropped and planted only by the human (`arb seed ...`). "
+    "Work comes from the todos: `arb todo list`, finish with `arb todo done tNNN --result \"...\"`; "
+    "a command todo here is a global command (read `arb commands guide` first)."
+)
+HOME_SHOWN = 5
+
+
+def home_status(h: Any, ledger: Ledger, brief: bool = False) -> str:
+    """The home at a glance: counts, the most recently edited seeds, open todos."""
+    from .notebooks import display_path
+    from .seeds import counts, list_seeds
+
+    n = counts(ledger)
+    seeds = list_seeds(h, ledger)
+    lines = [f"[arboria] 种子园 {display_path(h.root)} — {n['thinking']} 个在思考中，"
+             f"{n['planted']} 个已种下，{n['dropped']} 个已放弃"]
+    shown = seeds[:HOME_SHOWN] if brief else seeds
+    if shown:
+        lines.append("最近编辑的种子：" if brief else "种子（最近编辑的在前）：")
+    for s in shown:
+        planted = "".join(f" → {p['idea']}" for p in s["planted_to"])
+        lines.append(f"- {s['name']}（{s['last_edited'][:10]}{'，已种下' + planted if planted else ''}）"
+                     + (f"：{_clip(s['gist'], 160 if brief else 10_000)}" if s["gist"] else ""))
+        if not brief and s["hypothesis"]:
+            lines.append(f"    假设：{s['hypothesis']}")
+    if brief and len(seeds) > len(shown):
+        lines.append(f"  … 另有 {len(seeds) - len(shown)} 个，见 `arb seed list`")
+    if not seeds:
+        lines.append("还没有种子（人用 `arb seed new NAME \"一句话想法\"` 种下第一颗）")
+    lines.extend(todo_lines(list_tasks(ledger), brief, with_idea=True))
+    if brief:
+        lines.append(HOME_FOOTER)
+    return "\n".join(lines)

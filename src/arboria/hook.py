@@ -10,8 +10,8 @@ from typing import IO
 
 from . import sessions
 from .db import Ledger, now
-from .paths import RepoContext, locate
-from .report import status_data, status_parts
+from .paths import Home, RepoContext, home, locate
+from .report import home_status, status_data, status_parts
 
 MAX_CONTEXT_CHARS = 4000
 
@@ -34,8 +34,32 @@ def cap(text: str, limit: int = MAX_CONTEXT_CHARS) -> str:
     return text[: limit - len(marker)] + marker
 
 
+def _json(text: str) -> str:
+    return json.dumps(
+        {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}},
+        ensure_ascii=False,
+    )
+
+
+def build_home_output(h: Home) -> str | None:
+    """In the seed home: the seeds at a glance and the open todos."""
+    if not h.initialized:
+        return None
+    try:
+        sessions.record(h.state_dir, h.root)
+    except Exception:
+        _log_error(None, h.state_dir)
+    with Ledger(h.state_dir) as ledger:
+        text = home_status(h, ledger, brief=True)
+    return _json(cap(text))
+
+
 def build_output(cwd: Path) -> str | None:
-    """The hook's stdout JSON, or None when cwd is not in an initialized arboria repo."""
+    """The hook's stdout JSON, or None when cwd is neither in an initialized arboria repo
+    nor in the seed home."""
+    h = home()
+    if h.contains(cwd):
+        return build_home_output(h)
     try:
         ctx = locate(cwd)
     except Exception:  # not a git repo, git missing, ...
@@ -48,10 +72,7 @@ def build_output(cwd: Path) -> str | None:
     # Lessons + rules (tail) are kept whole; the state part is truncated to fit.
     budget = max(MAX_CONTEXT_CHARS - len(tail) - 1, 500)
     text = cap(cap(head, budget) + "\n" + tail)
-    return json.dumps(
-        {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}},
-        ensure_ascii=False,
-    )
+    return _json(text)
 
 
 def remember_session(ctx: RepoContext) -> None:
@@ -63,10 +84,11 @@ def remember_session(ctx: RepoContext) -> None:
         _log_error(ctx.cwd)
 
 
-def _log_error(cwd: Path | None) -> None:
+def _log_error(cwd: Path | None, state: Path | None = None) -> None:
     try:
-        ctx = locate(cwd)
-        state = ctx.state_dir
+        if state is None:
+            h = home()
+            state = h.state_dir if cwd is not None and h.contains(cwd) else locate(cwd).state_dir
         if state.is_dir():
             with open(state / "hook.log", "a", encoding="utf-8") as fh:
                 fh.write(f"--- {now()} session-start hook error (cwd={cwd})\n")

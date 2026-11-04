@@ -24,6 +24,14 @@ PROTECTED_PATHS = ["**/.arboria/notebooks/**", "**/.arboria/ledger.db*", "**/.ar
 EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 FILE_RULES = [f"{tool}({path})" for path in PROTECTED_PATHS for tool in EDIT_TOOLS]
 DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES]
+# The seed home (`arb install-claude --home`): the seed notebooks and the whole state dir
+# are the human's (its commands are the global ones, outside the home), and so are the
+# seed commands that write (they also refuse inside Claude Code).
+SEED_RULES = ["Bash(arb seed new:*)", "Bash(arb seed set:*)", "Bash(arb seed drop:*)",
+              "Bash(arb seed plant:*)"]
+HOME_PROTECTED_PATHS = ["**/seeds/**", "**/.arboria/**"]
+HOME_DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *SEED_RULES,
+                   *(f"{tool}({path})" for path in HOME_PROTECTED_PATHS for tool in EDIT_TOOLS)]
 SETTINGS_NAME = "settings.json"
 LOCAL_NAME = "settings.local.json"  # per machine, not committed
 LOCAL_EXCLUDE = f"/.claude/{LOCAL_NAME}"
@@ -47,7 +55,8 @@ def _section(parent: dict[str, Any], key: str, kind: type, where: str) -> Any:
 
 
 def merge_settings(settings: dict[str, Any], where: str = "settings.json",
-                   add_dirs: list[str] | None = None) -> list[str]:
+                   add_dirs: list[str] | None = None,
+                   deny_rules: list[str] | None = None) -> list[str]:
     """Add our entries to `settings` in place; return a list of what changed.
 
     `add_dirs` go into `permissions.additionalDirectories` (the global notebook-command
@@ -61,7 +70,7 @@ def merge_settings(settings: dict[str, Any], where: str = "settings.json",
         changes.append(f"hooks.SessionStart += {HOOK_COMMAND}")
     perms = _section(settings, "permissions", dict, where)
     deny = _section(perms, "deny", list, where)
-    for rule in DENY_RULES:
+    for rule in DENY_RULES if deny_rules is None else deny_rules:
         if rule not in deny:
             deny.append(rule)
             changes.append(f"permissions.deny += {rule}")
@@ -144,20 +153,21 @@ def _save(path: Path, settings: dict[str, Any]) -> None:
 
 
 def install(root: Path, add_dirs: list[str] | None = None, *,
-            local: bool = True) -> tuple[Path, list[str]]:
+            local: bool = True, deny_rules: list[str] | None = None) -> tuple[Path, list[str]]:
     """Merge into `<root>/.claude/settings.json` (created if missing).
 
     The global commands dir is an absolute path on this machine, so with `local` (a
     project) it goes into `.claude/settings.local.json`, which is not committed; an entry
     an older arb wrote into settings.json is moved there. Without `local` (`--user`,
-    `~/.claude/settings.json` is already personal) it stays in settings.json."""
+    `~/.claude/settings.json` is already personal; `--home`, the home is no repo) it stays
+    in settings.json."""
     if add_dirs is None:
         add_dirs = default_add_dirs()
     path = Path(root) / ".claude" / SETTINGS_NAME
     settings = _load(path)
     local_path = path.with_name(LOCAL_NAME)
     local_settings = _load(local_path) if local else {}
-    changes = merge_settings(settings, str(path), None if local else add_dirs)
+    changes = merge_settings(settings, str(path), None if local else add_dirs, deny_rules)
     local_changes: list[str] = []
     if local:
         changes += remove_directories(settings, add_dirs, str(path))

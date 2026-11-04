@@ -49,6 +49,18 @@ RULES = """\
 
 LESSONS_HEADING = "## 经验（已确认）"
 
+# The block in the seed home's CLAUDE.md (`arb install-claude --home`): no lessons there
+# (they are per project), and the home is not a repo, so nothing is committed.
+HOME_RULES = """\
+## 种子园（Arboria）
+- 这里是人的种子园：还没有仓库的研究想法。当前的种子和待办由会话开始时的 hook 注入。
+- `seeds/<名字>.py`（marimo）是人的 notebook：读它了解人的想法，绝不修改；也不要改 `.arboria/`。
+- 看种子用 `arb seed list`、`arb seed show NAME`。种子只由人写：`arb seed new/set/drop` 你都不能运行。
+- 种下（`arb seed plant NAME --repo …`）由人在自己的终端里做：它会在那个仓库里建 idea 的分支和 worktree。
+- 你的工作来自待办：`arb todo list` 查看，做完用 `arb todo done tNNN --result "..."`（≤600 字）交代结果。
+- 命令待办（人在种子 notebook 里调用了 `lab.<名字>(...)`）：先运行 `arb commands guide`，只写全局命令目录里的那个文件；种子没有 run，命令里不用 `ctx.run`。
+- 讨论想法时引用种子 notebook 里的内容；你的结论写进 `arb todo done --result`，不写进 notebook。"""
+
 
 # ---------------------------------------------------------------- lessons
 
@@ -273,3 +285,27 @@ def sync(ctx: RepoContext, ledger: Ledger, *, commit: bool = True) -> SyncResult
     if hint:
         result.hints.append(hint)
     return result
+
+
+# ---------------------------------------------------------------- the seed home
+
+
+def render_home_block() -> str:
+    return "\n".join([BEGIN, *HOME_RULES.splitlines(), END]) + "\n"
+
+
+def sync_home(root: Path) -> SyncResult:
+    """Write the home block into <home>/CLAUDE.md (the rest of the file is kept)."""
+    path = Path(root) / FILENAME
+    old = path.read_bytes() if path.exists() else None
+    text = None if old is None else old.decode("utf-8", errors="surrogateescape")
+    new_text, action = apply_block(text, render_home_block(), str(path))
+    new = new_text.encode("utf-8", errors="surrogateescape")
+    if old == new:
+        return SyncResult(path, None)
+    tmp = path.with_name(f".{FILENAME}.arboria-tmp")
+    tmp.write_bytes(new)
+    if path.exists():
+        os.chmod(tmp, path.stat().st_mode & 0o7777)
+    os.replace(tmp, path)
+    return SyncResult(path, action)

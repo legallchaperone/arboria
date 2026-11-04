@@ -27,7 +27,7 @@ regex = "=1.13.1"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 # float_roundtrip: parse floats exactly like Python (test vectors carry e.g. 110.898)
-serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip", "preserve_order"] }
 # card hash and probe hashes (default-features off: no oid / alloc extras)
 sha2 = { version = "=0.11.1", default-features = false }
 thiserror = "=2.0.21"

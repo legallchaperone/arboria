@@ -44,7 +44,7 @@ def test_render_block_content() -> None:
                    "wandb.init(id=ARBORIA_WANDB_ID, group=ARBORIA_IDEA)", "ARBORIA_IDEA",
                    "$ARBORIA_OUT/config.yaml", "ARBORIA_*", "sbatch",
                    "`notebook.py`", "绝不修改", "arb todo list", "arb todo done tNNN --result",
-                   "`arb note` 只由人写", "arb run summary"):
+                   "`arb note` 只由人写", "arb run summary", "写成命令（默认项目范围）"):
         assert needle in block, needle
     assert "ARBORIA_RUN_ID" not in block  # wandb ids are namespaced by project now
     assert len(lines) <= claudemd.MAX_BLOCK_LINES

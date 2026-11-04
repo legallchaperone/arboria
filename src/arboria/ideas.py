@@ -58,11 +58,14 @@ def new_idea(
     *,
     from_run: dict[str, Any] | None = None,
     warn: Callable[[str], None] | None = None,
+    seed: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create branch idea/NAME + worktree + notebook and record the idea.
 
     With `from_run`, the branch starts at that run's snapshot commit and the run's idea
-    is the parent (it may be closed: the snapshot outlives the branch)."""
+    is the parent (it may be closed: the snapshot outlives the branch). `seed` (from
+    `arb seed plant`): name, notebook, markdown and home of the seed it grew from; the
+    notebook header links back to it and the idea_new event records it."""
     validate_name(name)
     hypothesis = validate_text("hypothesis", hypothesis)
     metric = validate_text("metric", metric)
@@ -108,12 +111,13 @@ def new_idea(
             )
             row = ledger.one("SELECT * FROM ideas WHERE id = ?", (cur.lastrowid,))
             nb = notebooks.create(ctx, row, parent_row["name"] if parent_row else None,
-                                  from_run, warn=warn)
+                                  from_run, warn=warn, seed=seed)
+            origin = {"seed": seed["name"], "seed_home": seed.get("home")} if seed else {}
             ledger.event("idea_new", name, {
                 "branch": branch, "base": base,
                 "parent": parent_row["name"] if parent_row else None,
                 "from_run": from_run["id"] if from_run else None,
-                "notebook": str(nb.relative_to(ctx.state_dir))})
+                "notebook": str(nb.relative_to(ctx.state_dir))} | origin)
     except BaseException:
         gitutil.run(["worktree", "remove", "--force", str(path)], ctx.main, check=False)
         gitutil.run(["branch", "-D", branch], ctx.main, check=False)

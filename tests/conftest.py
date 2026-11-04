@@ -61,6 +61,15 @@ def no_real_claude_session(tmp_path_factory: pytest.TempPathFactory,
     monkeypatch.setenv("ARBORIA_CONFIG_DIR", str(tmp_path_factory.mktemp("arboria-config")))
 
 
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path_factory: pytest.TempPathFactory,
+                  monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The seed home (`~/arboria`) is a fresh, not yet created folder in every test."""
+    home = tmp_path_factory.mktemp("arboria-home") / "arboria"
+    monkeypatch.setenv("ARBORIA_HOME", str(home))
+    return home.resolve()
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     """A main worktree `proj` with one commit, a .gitignore and some files."""

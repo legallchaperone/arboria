@@ -29,7 +29,8 @@ arb ui --home             # 种子园（在任何仓库之外，这是默认）
 - 账本用 SQLite 的只读模式打开（`file:…?mode=ro`），看板的代码不 import 任何写入路径。
 - 不联网、不 ssh、不调 wandb API。集群状态是 `arb watch` / `arb poll` 最后写进账本的样子。
 - 没有会动手的按钮：批准、接受经验、取消都留在你的终端里，看板只把命令显示成可以一键选中复制的文本，例如 `arb approve r014`。
-- 账本里的文字一律 HTML 转义。样式在包里，不用网络字体，离线可用。
+- 账本里的文字一律 HTML 转义。样式和字体都在包里，离线可用。
+- 字体和 notebook 一样是 Maple Mono CN：`arb ui` 让 marimo 运行 arb 缓存目录（`~/.cache/arboria/ui/`，`ARBORIA_CACHE_DIR` 可改）里指向包内看板的链接，旁边的 `dashboard.css` 里嵌着字体。缓存写不了时直接运行包里的看板，退回系统字体。
 
 ## 看什么
 

@@ -15,6 +15,7 @@ myproj/                       主 worktree
     ├── ledger.db             SQLite 账本（WAL），schema 版本在 PRAGMA user_version
     ├── backup/ledger.sql     备份提交时导出的数据库
     ├── notebooks/<idea>.py   每个 idea 的 notebook
+    ├── notebooks/arboria.css notebook 的样式和字体（arb 生成，不进备份）
     ├── commands/<名字>.py    项目的 notebook 命令（Claude 写）
     ├── cache/commands/<名字>/ 命令的缓存
     ├── runs/<run>/out/       拉回来的 ARBORIA_OUT
@@ -22,8 +23,11 @@ myproj/                       主 worktree
     ├── notifications.log     watch / poll 的通知
     └── hook.log              hook 的错误
 myproj-<idea>/                每个 idea 的 worktree（分支 idea/<idea>）
-└── notebook.py → ../myproj/.arboria/notebooks/<idea>.py
+├── notebook.py → ../myproj/.arboria/notebooks/<idea>.py
+└── arboria.css → ../myproj/.arboria/notebooks/arboria.css
 ```
+
+- 字体：notebook 和看板用的 Maple Mono CN（v7.9，Regular 和 Bold，WOFF2）随包分发，在 `arboria/ui/fonts/`，许可证是 SIL Open Font License 1.1（同目录的 `OFL.txt`）；arb 生成的 `arboria.css` / 看板的 `dashboard.css` 把它以 `data:` URI 嵌进去，不联网。
 
 - 旧版本的账本原地迁移。
 - 快照存成隐藏的 git ref `refs/arboria/runs/<run>`；放弃的 idea 的最终快照在 `refs/arboria/ideas/<name>/final`，打标签 `arboria/archive/<name>`。这些 ref 默认不会被 push。
@@ -45,7 +49,8 @@ myproj-<idea>/                每个 idea 的 worktree（分支 idea/<idea>）
 | --- | --- |
 | `~/.config/arboria/clusters.toml` | 机器配置（`ARBORIA_CONFIG_DIR`） |
 | `~/.config/arboria/commands/` | 全局 notebook 命令 |
-| `~/arboria/`（`ARBORIA_HOME`） | 种子园：`seeds/<名字>.py` 是种子 notebook；`.arboria/` 和项目的一样，另有 `.arboria/seeds/`（每次备份提交前把种子 notebook 复制进来） |
+| `~/.cache/arboria/ui/` | 看板的样式（带字体）和指向包内看板的链接（`ARBORIA_CACHE_DIR`；可以随时删，`arb ui` 会重建） |
+| `~/arboria/`（`ARBORIA_HOME`） | 种子园：`seeds/<名字>.py` 是种子 notebook，`seeds/arboria.css` 是它们的样式和字体；`.arboria/` 和项目的一样，另有 `.arboria/seeds/`（每次备份提交前把种子 notebook 复制进来） |
 
 种子园不是 git 仓库；账本的 schema 和项目的相同（`seeds`、`plantings` 两张表，待办属于一个 idea 或一个种子）。
 

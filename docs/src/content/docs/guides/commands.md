@@ -3,7 +3,7 @@ title: 自定义命令
 description: notebook 的中心是命令库：内置的分析加上 Claude 为你写的命令。lab.<名字>(...) 第一次调用时交给 Claude，写好后 cell 自动重跑。
 ---
 
-原则：**研究你来做，代码交给 Claude。** 你在 notebook 里直接写想要的分析，一行一个：
+原则：**分析由 agent 写成命令，你只写一行调用。** 你在 notebook 里直接写想要的分析，一行一个：
 
 ```python
 lab.svd(r012, ask="对 attention 权重做 SVD，画前 20 个奇异值")

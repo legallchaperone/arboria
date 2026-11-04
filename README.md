@@ -1,6 +1,8 @@
 # Arboria
 
-**研究你来做，代码交给 agent。**
+**Research, fast and slow.**
+
+改代码、跑实验这些快的事交给 agent，看数据、想 idea 这些慢的事留给你，Arboria 让两种节奏在同一个 notebook 里合上拍。
 
 Arboria（`arb`）让你和 agent 一起动手做 ML 研究：数据、曲线和决定在你手里，代码交给 agent。常用的分析在 notebook 里写一行就有；缺一个也只写一行，agent 写一次，之后它就是你的命令。上集群的每个作业，都要你在自己的终端里签字。既不是 agent 包办一切、你读报告点头，也不是全靠手的古法科研。
 

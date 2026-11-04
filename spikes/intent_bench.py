@@ -2,7 +2,10 @@
 # requires-python = ">=3.11"
 # dependencies = ["mlx-lm==0.32.0"]
 # ///
-"""Spike: can a small local model turn a Chinese intent into one Arboria command line?
+"""Spike (v2): can a small local model turn a Chinese intent into one Arboria command line?
+
+v2: config keys in the prompt, an "ask" route for questions that need the agent, arg-name repair,
+and the system prompt's KV cache reused across calls (pass --no-cache to compare).
 
 Run on an Apple-silicon Mac:   uv run spikes/intent_bench.py
 Optional:                      uv run spikes/intent_bench.py --models mlx-community/Qwen3.5-2B-4bit
@@ -31,13 +34,21 @@ COMMANDS = {
     "svd": {"args": {"run": "run", "k": "int", "log": "bool"}, "desc": "（项目命令）run 的权重做 SVD，画前 k 个奇异值"},
     "attn_entropy": {"args": {"run": "run", "layers": "list[int]|null"}, "desc": "（项目命令）每层 attention 的平均熵"},
     "todos": {"args": {}, "desc": "待办列表"},
-    "run": {"args": {"reason": "str", "from_": "run", "set": "dict"}, "desc": "生成审核单（新的 run，要人签字）"},
+    "run": {"args": {"reason": "str", "from_": "run", "set": "dict"}, "desc": "生成审核单（新的 run，要人签字）；set 的键只能是 config 里的键"},
+    "ask": {"args": {"question": "str"}, "desc": "需要推理、解释原因、出主意的问题：交给 agent 对话（不是命令）"},
 }
 RUNS = {
-    "r011": "warmup 2k · lr 3e-4 · 完成 · val/loss 2.915",
-    "r012": "warmup 4k · lr 3e-4 · 完成 · val/loss 2.879",
-    "r013": "warmup 8k · lr 6e-4 · 运行中 · val/loss 2.860",
-    "r014": "warmup 16k · lr 6e-4 · 待签字",
+    "r011": "完成 · val/loss 2.915",
+    "r012": "完成 · val/loss 2.879",
+    "r013": "运行中 · val/loss 2.860",
+    "r014": "待签字",
+}
+# v2: the run's resolved config keys (Arboria has them in runs.config_json), so `set` can be filled
+CONFIG = {
+    "r011": {"warmup": 2000, "lr": 3e-4, "batch_size": 256, "dropout": 0.1, "seed": 1},
+    "r012": {"warmup": 4000, "lr": 3e-4, "batch_size": 256, "dropout": 0.1, "seed": 1},
+    "r013": {"warmup": 8000, "lr": 6e-4, "batch_size": 256, "dropout": 0.1, "seed": 1},
+    "r014": {"warmup": 16000, "lr": 6e-4, "batch_size": 256, "dropout": 0.1, "seed": 1},
 }
 METRICS = ["val/loss", "train/loss", "val/acc", "grad_norm", "lr"]
 
@@ -81,15 +92,15 @@ CASES = [
     ("attention 有没有塌成 one-hot，看 r011", "attn_entropy", {"run": "r011"}),
     ("从 r013 再跑一个 warmup 16000 的", "run", {"from_": "r013", "set": {"warmup": 16000}}),
     ("基于 r012 把 lr 改成 1e-3 再跑一次", "run", {"from_": "r012", "set": {"lr": 0.001}}),
-    ("r011 换三个 seed 重跑", "run", {"from_": "r011"}),
-    ("用 r013 的配置，batch size 翻倍", "run", {"from_": "r013"}),
-    ("把 r012 的 dropout 关掉试试", "run", {"from_": "r012"}),
+    ("r011 换个 seed 重跑", "run", {"from_": "r011", "set": {"seed": 2}}),
+    ("用 r013 的配置，batch size 翻倍", "run", {"from_": "r013", "set": {"batch_size": 512}}),
+    ("把 r012 的 dropout 关掉试试", "run", {"from_": "r012", "set": {"dropout": 0}}),
     ("比较 r012 和 r013 的 val/loss 曲线", "plot", {"runs": ["r012", "r013"], "key": "val/loss"}),
     ("r013 最新的 val/acc 怎么样了", "plot", {"runs": ["r013"], "key": "val/acc"}),
     ("前 2k 步的尖峰在 r011 r012 里对比", "plot", {"runs": ["r011", "r012"]}),
     ("今天天气怎么样", None, {}),
     ("帮我写一封邮件给导师", None, {}),
-    ("这个尖峰可能是什么原因", None, {}),
+    ("这个尖峰可能是什么原因", "ask", {}),
     ("把 r011 删掉", None, {}),
     ("给 r014 签字", None, {}),
     ("提交到集群跑", None, {}),
@@ -103,11 +114,15 @@ SYSTEM = f"""你把研究者的一句话翻译成 Arboria 的一条命令，只�
 {json.dumps(COMMANDS, ensure_ascii=False)}
 run（实验）：
 {json.dumps(RUNS, ensure_ascii=False)}
+每个 run 的 config：
+{json.dumps(CONFIG, ensure_ascii=False)}
 指标：{", ".join(METRICS)}
-注意：签字、删除、提交到集群都不是命令（返回 null）；改参数再跑一次用 run。
+注意：签字、删除、提交到集群都不是命令（返回 null）；改参数再跑一次用 run，set 里写改动后的值；问原因、要解释、要主意的用 ask。
 例子：
 "r011 和 r012 的 loss 对比" → {{"command": "plot", "args": {{"runs": ["r011", "r012"], "key": "val/loss"}}}}
 "r013 跟 r012 哪里不一样" → {{"command": "diff", "args": {{"a": "r012", "b": "r013"}}}}
+"r011 的 warmup 改成 3000 再跑" → {{"command": "run", "args": {{"from_": "r011", "set": {{"warmup": 3000}}}}}}
+"为什么 r012 比 r011 好" → {{"command": "ask", "args": {{"question": "为什么 r012 比 r011 好"}}}}
 "晚饭吃什么" → {{"command": null}}"""
 
 
@@ -133,7 +148,29 @@ def valid(ans) -> bool:
     if spec is None or not isinstance(args, dict) or any(k not in spec["args"] for k in args):
         return False
     runs = [*(args.get("runs") or []), *[args[k] for k in ("a", "b", "run", "from_") if isinstance(args.get(k), str)]]
+    if ans["command"] == "run" and isinstance(args.get("set"), dict):
+        if not args["set"] or any(k not in CONFIG["r011"] for k in args["set"]):
+            return False
     return all(r in RUNS for r in runs) and (args.get("key") is None or args["key"] in METRICS)
+
+
+def repair(ans):
+    """What Arboria would do before showing a ghost line: fix arg names that are one edit away."""
+    if not isinstance(ans, dict) or ans.get("command") not in COMMANDS:
+        return ans
+    import difflib
+    spec = COMMANDS[ans["command"]]["args"]
+    args = ans.get("args") or {}
+    fixed = {}
+    for k, v in (args.items() if isinstance(args, dict) else []):
+        if k not in spec:
+            near = difflib.get_close_matches(k, list(spec), n=1, cutoff=0.6)
+            k = near[0] if near else k
+        fixed[k] = v
+    if isinstance(fixed.get("set"), dict):
+        keys = list(next(iter(CONFIG.values())))
+        fixed["set"] = {(difflib.get_close_matches(k, keys, n=1, cutoff=0.6) or [k])[0]: v for k, v in fixed["set"].items()}
+    return {**ans, "args": fixed}
 
 
 def args_ok(got: dict, want: dict) -> bool:
@@ -157,22 +194,63 @@ def _num_eq(a, b) -> bool:
         return False
 
 
-def bench(model_id: str, max_tokens: int) -> dict:
+def bench(model_id: str, max_tokens: int, use_cache: bool) -> dict:
+    import copy
+
     from mlx_lm import generate, load
 
     t0 = time.time()
     model, tok = load(model_id)
     load_s = time.time() - t0
 
-    def ask(intent: str) -> tuple[str, float]:
+    def tokens(intent: str) -> list[int]:
         msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": intent}]
         try:
-            prompt = tok.apply_chat_template(msgs, add_generation_prompt=True, enable_thinking=False)
+            ids = tok.apply_chat_template(msgs, add_generation_prompt=True, enable_thinking=False)
         except TypeError:
-            prompt = tok.apply_chat_template(msgs, add_generation_prompt=True)
+            ids = tok.apply_chat_template(msgs, add_generation_prompt=True)
+        return list(ids) if not isinstance(ids, str) else tok.encode(ids)
+
+    # v2: the system prompt is the same every time, so prefill it once and reuse its KV cache.
+    mode, prefix_cache, n_prefix = "off", None, 0
+    if use_cache:
+        try:
+            from mlx_lm.models.cache import make_prompt_cache
+
+            a, b = tokens("甲"), tokens("乙乙乙")
+            while n_prefix < min(len(a), len(b)) and a[n_prefix] == b[n_prefix]:
+                n_prefix += 1
+            prefix_cache = make_prompt_cache(model)
+            generate(model, tok, prompt=a[:n_prefix], max_tokens=1, prompt_cache=prefix_cache, verbose=False)
+            # generate() also fed one sampled token through the model; drop it again when the cache allows
+            from mlx_lm.models.cache import can_trim_prompt_cache, trim_prompt_cache
+            extra = prefix_cache[0].offset - n_prefix if hasattr(prefix_cache[0], "offset") else 0
+            if extra > 0:
+                if can_trim_prompt_cache(prefix_cache):
+                    trim_prompt_cache(prefix_cache, extra)
+                else:
+                    raise RuntimeError("cache not trimmable")
+            copy.deepcopy(prefix_cache)  # each call works on a copy; fail here, not mid-run
+            mode = f"prefix {n_prefix} tokens"
+        except Exception as e:  # any API mismatch: run without the cache, and say so
+            mode, prefix_cache = f"off ({type(e).__name__}: {e})", None
+
+    def ask(intent: str) -> tuple[str, float]:
+        ids = tokens(intent)
         t = time.time()
-        out = generate(model, tok, prompt=prompt, max_tokens=max_tokens, verbose=False)
+        if prefix_cache is not None:
+            cache = copy.deepcopy(prefix_cache)
+            out = generate(model, tok, prompt=ids[n_prefix:], max_tokens=max_tokens, prompt_cache=cache, verbose=False)
+        else:
+            out = generate(model, tok, prompt=ids, max_tokens=max_tokens, verbose=False)
         return out, time.time() - t
+
+    def score(ans, want_cmd, want_args):
+        ok_shape = valid(ans)
+        got_cmd = ans.get("command") if isinstance(ans, dict) else "?"
+        ok_cmd = ok_shape and got_cmd == want_cmd
+        ok_args = ok_cmd and (want_cmd in (None, "ask") or args_ok(ans.get("args") or {}, want_args))
+        return ok_shape, ok_cmd, ok_args
 
     ask("热身")  # warm-up, not counted
     rows, lat = [], []
@@ -180,21 +258,22 @@ def bench(model_id: str, max_tokens: int) -> dict:
         out, s = ask(intent)
         lat.append(s)
         ans = parse(out)
-        ok_json, ok_shape = ans is not None, valid(ans)
-        got_cmd = ans.get("command") if isinstance(ans, dict) else "?"
-        ok_cmd = ok_shape and got_cmd == want_cmd
-        ok_args = ok_cmd and (want_cmd is None or args_ok(ans.get("args") or {}, want_args))
-        rows.append({"intent": intent, "want": want_cmd, "got": ans, "raw": out.strip()[:200], "json": ok_json,
-                     "valid": ok_shape, "cmd": ok_cmd, "args": ok_args, "secs": round(s, 3)})
+        fixed = repair(ans)
+        v0, c0, a0 = score(ans, want_cmd, want_args)
+        v1, c1, a1 = score(fixed, want_cmd, want_args)
+        rows.append({"intent": intent, "want": want_cmd, "got": fixed, "raw": out.strip()[:200], "json": ans is not None,
+                     "valid_raw": v0, "args_raw": a0, "valid": v1, "cmd": c1, "args": a1, "secs": round(s, 3)})
     lat.sort()
     n = len(rows)
-    null_cases = [r for r in rows if r["want"] is None]
+    nulls = [r for r in rows if r["want"] is None]
     return {
-        "model": model_id, "load_s": round(load_s, 1),
-        "json_ok": sum(r["json"] for r in rows) / n, "valid": sum(r["valid"] for r in rows) / n,
-        "command_ok": sum(r["cmd"] for r in rows) / n, "args_ok": sum(r["args"] for r in rows) / n,
-        "null_ok": sum(r["cmd"] for r in null_cases) / len(null_cases),
-        "false_suggest": sum(1 for r in null_cases if r["valid"] and r["got"].get("command")) / len(null_cases),
+        "model": model_id, "load_s": round(load_s, 1), "cache": mode,
+        "json_ok": sum(r["json"] for r in rows) / n,
+        "valid_raw": sum(r["valid_raw"] for r in rows) / n, "args_raw": sum(r["args_raw"] for r in rows) / n,
+        "valid": sum(r["valid"] for r in rows) / n, "command_ok": sum(r["cmd"] for r in rows) / n,
+        "args_ok": sum(r["args"] for r in rows) / n,
+        "null_ok": sum(r["cmd"] for r in nulls) / len(nulls),
+        "false_suggest": sum(1 for r in nulls if r["valid"] and r["got"].get("command")) / len(nulls),
         "p50_ms": round(statistics.median(lat) * 1000), "p95_ms": round(lat[int(0.95 * n) - 1] * 1000),
         "rows": rows,
     }
@@ -202,15 +281,17 @@ def bench(model_id: str, max_tokens: int) -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--models", nargs="+", default=["mlx-community/Qwen3.5-2B-4bit", "mlx-community/Qwen3.5-4B-4bit"])
+    ap.add_argument("--models", nargs="+", default=["mlx-community/Qwen3.5-4B-4bit"])
+    ap.add_argument("--no-cache", action="store_true", help="don't reuse the system prompt's KV cache")
     ap.add_argument("--max-tokens", type=int, default=96)
     ap.add_argument("--out", default="intent_bench_results.json")
     a = ap.parse_args()
-    results = [bench(m, a.max_tokens) for m in a.models]
-    print(f"\n{'模型':38} {'JSON':>5} {'合法':>5} {'命令对':>6} {'参数对':>6} {'该空则空':>8} {'误建议':>6} {'p50':>7} {'p95':>7}")
+    results = [bench(m, a.max_tokens, not a.no_cache) for m in a.models]
+    print(f"\n{'模型':32} {'JSON':>5} {'合法':>5} {'修正后合法':>8} {'命令对':>6} {'参数对(原/修正)':>14} {'该空则空':>8} {'误建议':>6} {'p50':>7} {'p95':>7}")
     for r in results:
-        print(f"{r['model']:38} {r['json_ok']:5.0%} {r['valid']:5.0%} {r['command_ok']:6.0%} {r['args_ok']:6.0%} "
-              f"{r['null_ok']:8.0%} {r['false_suggest']:6.0%} {r['p50_ms']:5d}ms {r['p95_ms']:5d}ms")
+        print(f"{r['model'].split('/')[-1]:32} {r['json_ok']:5.0%} {r['valid_raw']:5.0%} {r['valid']:8.0%} {r['command_ok']:6.0%} "
+              f"{r['args_raw']:6.0%} / {r['args_ok']:<6.0%} {r['null_ok']:8.0%} {r['false_suggest']:6.0%} {r['p50_ms']:5d}ms {r['p95_ms']:5d}ms")
+        print(f"  缓存：{r['cache']} · 载入 {r['load_s']} 秒")
     for r in results:
         bad = [x for x in r["rows"] if not x["args"]]
         print(f"\n{r['model']} 错的 {len(bad)} 条：")

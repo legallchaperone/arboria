@@ -4,6 +4,8 @@
 
 ## 1. 本地模型懂不懂中文意图（`intent_bench.py`，在 Mac 上跑）
 
+第一次结果（v1）：2B 错 20/50、命令只对 68%、6 句该空的乱建议 4 句（还编出 delete、submit）；4B 错 6/50，p50 1.6 秒，错在“改配置再跑”填不对 set、把 from_ 写成 from、两句该画图选了 inspect、“尖峰可能是什么原因”给了 inspect。v2 默认只测 4B：提示里给出每个 run 的 config 键，加“ask（问 agent）”去向，参数名差一点的由 arb 修正，系统提示的 KV 缓存复用（`--no-cache` 对照）。
+
 ```bash
 uv run spikes/intent_bench.py
 ```

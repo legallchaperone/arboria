@@ -44,6 +44,7 @@ TASK_STATUS = ("open", "done", "dropped")
 # plain: a free-text todo; command_new / command_revise: write or change a notebook command
 # (the details live in tasks.payload_json, see commands.py).
 TASK_KINDS = ("plain", "command_new", "command_revise")
+SEED_STATUS = ("thinking", "planted", "dropped")
 # Runs that an identical re-submit returns instead of creating a new one.
 RUN_NOT_REUSABLE = ("rejected", "cancelled", "failed")
 
@@ -53,12 +54,12 @@ BACKUP_EVENTS = frozenset({
     "lesson_propose", "lesson_accept", "lesson_reject", "lesson_retire",
     "run_submit", "run_approve", "run_queued", "run_reject", "run_cancel", "run_final",
     "run_config", "todo_new", "todo_done", "todo_drop", "idea_confidence", "idea_metric",
-    "notebook_new",
+    "notebook_new", "seed_new", "seed_set", "seed_drop", "seed_plant",
 })
 
 # Limits for the free-text fields an LLM is allowed to write.
 LIMITS = {"hypothesis": 300, "metric": 200, "change_reason": 300, "note": 1000, "summary": 1500,
-          "lesson": 200, "result": 600, "todo": 1000}
+          "lesson": 200, "result": 600, "todo": 1000, "gist": 300}
 SUMMARY_MAX_LINES = 10
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
@@ -246,8 +247,55 @@ ALTER TABLE tasks ADD COLUMN kind TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {
 ALTER TABLE tasks ADD COLUMN payload_json TEXT;
 """
 
+# v6: seeds, the repo-less ideas of the global home (paths.Home). One schema for every
+# ledger: a project's has the (empty) seeds tables, a home's the (empty) idea tables.
+# A seed may be planted into several repos (`plantings`, one row each). A todo belongs to
+# an idea or to a seed, so `tasks` is rebuilt with idea_id nullable and a seed_id.
+MIGRATION_V6 = f"""
+CREATE TABLE seeds (
+    id          INTEGER PRIMARY KEY,
+    name        TEXT NOT NULL UNIQUE,
+    gist        TEXT,
+    hypothesis  TEXT,
+    metric      TEXT,
+    status      TEXT NOT NULL DEFAULT 'thinking' CHECK (status IN {_in(SEED_STATUS)}),
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+CREATE TABLE plantings (
+    id          INTEGER PRIMARY KEY,
+    seed_id     INTEGER NOT NULL REFERENCES seeds(id),
+    repo        TEXT NOT NULL,
+    project_id  TEXT,
+    idea        TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX plantings_seed ON plantings(seed_id);
+CREATE TABLE tasks_v6 (
+    id           TEXT PRIMARY KEY,
+    idea_id      INTEGER REFERENCES ideas(id),
+    seed_id      INTEGER REFERENCES seeds(id),
+    text         TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'open' CHECK (status IN {_in(TASK_STATUS)}),
+    created_at   TEXT NOT NULL,
+    done_at      TEXT,
+    result       TEXT,
+    kind         TEXT NOT NULL DEFAULT 'plain' CHECK (kind IN {_in(TASK_KINDS)}),
+    payload_json TEXT,
+    CHECK ((status = 'open') = (done_at IS NULL)),
+    CHECK ((idea_id IS NULL) != (seed_id IS NULL))
+);
+INSERT INTO tasks_v6 (id, idea_id, text, status, created_at, done_at, result, kind, payload_json)
+    SELECT id, idea_id, text, status, created_at, done_at, result, kind, payload_json FROM tasks;
+DROP TABLE tasks;
+ALTER TABLE tasks_v6 RENAME TO tasks;
+CREATE INDEX tasks_idea ON tasks(idea_id, status);
+CREATE INDEX tasks_seed ON tasks(seed_id, status);
+"""
+
 # MIGRATIONS[i] upgrades user_version i -> i+1. Never edit a released migration.
-MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5]
+MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5,
+                         MIGRATION_V6]
 SCHEMA_VERSION = len(MIGRATIONS)
 
 
@@ -285,10 +333,10 @@ def validate_text(field: str, value: str | None, *, required: bool = True) -> st
     return value
 
 
-def validate_name(name: str) -> str:
+def validate_name(name: str, what: str = "idea") -> str:
     if not NAME_RE.match(name or ""):
         raise ArbError(
-            f"invalid idea name {name!r}: use lowercase letters, digits and '-' "
+            f"invalid {what} name {name!r}: use lowercase letters, digits and '-' "
             "(must start with a letter or digit, max 63 chars)"
         )
     return name
@@ -469,6 +517,9 @@ NOTEBOOKS_GITIGNORE = "!/notebooks/\n/notebooks/*\n!/notebooks/*.py\n"
 # The project's notebook commands are versioned too, so every change Claude makes to one
 # can be reviewed later (`git -C .arboria log -p commands/`).
 COMMANDS_GITIGNORE = "!/commands/\n/commands/*\n!/commands/*.py\n"
+# A home (paths.Home) versions copies of its seed notebooks, `seeds/*.py` next to the
+# state dir, mirrored into `.arboria/seeds/` before each backup commit.
+SEEDS_GITIGNORE = "!/seeds/\n/seeds/*\n!/seeds/*.py\n"
 
 
 def ensure_backup_gitignore(state_dir: Path) -> None:
@@ -478,8 +529,33 @@ def ensure_backup_gitignore(state_dir: Path) -> None:
         text += ("" if text.endswith("\n") else "\n") + NOTEBOOKS_GITIGNORE
     if "!/commands/" not in text:
         text += ("" if text.endswith("\n") else "\n") + COMMANDS_GITIGNORE
+    if (state_dir / "seeds").is_dir() and "!/seeds/" not in text:  # a home only
+        text += ("" if text.endswith("\n") else "\n") + SEEDS_GITIGNORE
     if not gi.exists() or gi.read_text() != text:
         gi.write_text(text)
+
+
+def mirror_seeds(state_dir: Path) -> None:
+    """In a home: copy `<home>/seeds/*.py` into `.arboria/seeds/` (changed files only) so
+    the backup repo versions the human's seed notebooks. Copies of deleted notebooks stay
+    (the backup is history, not a sync). Projects have no `.arboria/seeds/`: no-op."""
+    mirror = Path(state_dir) / "seeds"
+    source = Path(state_dir).parent / "seeds"
+    if not mirror.is_dir() or not source.is_dir():
+        return
+    for src in sorted(source.glob("*.py")):
+        try:
+            if not src.is_file():
+                continue
+            data = src.read_bytes()
+            dst = mirror / src.name
+            if dst.is_file() and dst.read_bytes() == data:
+                continue
+            tmp = dst.with_name(f".{dst.name}.arboria-tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, dst)
+        except OSError as exc:
+            print(f"warning: could not back up {src}: {exc}", file=sys.stderr)
 
 
 def _backup_git(args: list[str], state_dir: Path) -> str:
@@ -497,6 +573,7 @@ def init_backup_repo(state_dir: Path) -> None:
 def commit_backup(state_dir: Path, message: str) -> bool:
     """Commit backup/ledger.sql, the notebooks and the commands if anything changed. Returns True if a
     commit was made. What is versioned is decided by the backup repo's .gitignore."""
+    mirror_seeds(state_dir)
     ensure_backup_gitignore(state_dir)
     _backup_git(["add", "-A", "--", "."], state_dir)
     if gitutil.ok(["diff", "--cached", "--quiet"], state_dir) and gitutil.ok(

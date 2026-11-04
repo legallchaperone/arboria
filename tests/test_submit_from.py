@@ -281,7 +281,7 @@ def test_migration_to_v4_keeps_data(tmp_path: Path, version: int) -> None:
                  " created_at) VALUES ('d001', 'run', 'r001', 'q', 'approve', 'human', 't')")
     conn.close()
     with Ledger(state) as ledger:
-        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 5
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 6
         run = ledger.one("SELECT * FROM runs")
         assert (run["id"], run["status"], run["change_reason"], run["parent_run"]) == \
             ("r001", "succeeded", "why", None)

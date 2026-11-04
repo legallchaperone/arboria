@@ -78,7 +78,7 @@ def test_migration_v4_to_v5_adds_task_kind(tmp_path: Path) -> None:
     conn.execute("INSERT INTO tasks (id, idea_id, text, created_at) VALUES ('t001', 1, 'x', 't')")
     conn.close()
     with Ledger(state) as ledger:
-        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 5
+        assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION == 6
         row = ledger.one("SELECT * FROM tasks")
         assert (row["id"], row["text"], row["kind"], row["payload_json"]) == \
             ("t001", "x", "plain", None)

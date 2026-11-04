@@ -1,0 +1,98 @@
+{
+  "cases": [
+    {
+      "id": "run",
+      "input": {
+        "arg": "r001",
+        "kind": "run",
+        "main": null
+      },
+      "output": "refs/arboria/runs/r001"
+    },
+    {
+      "id": "run-1000",
+      "input": {
+        "arg": "r1000",
+        "kind": "run",
+        "main": null
+      },
+      "output": "refs/arboria/runs/r1000"
+    },
+    {
+      "id": "inspect",
+      "input": {
+        "arg": "t007",
+        "kind": "inspect",
+        "main": null
+      },
+      "output": "refs/arboria/inspect/t007"
+    },
+    {
+      "id": "branch",
+      "input": {
+        "arg": "dmd-distill",
+        "kind": "branch",
+        "main": null
+      },
+      "output": "idea/dmd-distill"
+    },
+    {
+      "id": "worktree",
+      "input": {
+        "arg": "dmd-distill",
+        "kind": "worktree",
+        "main": "/Users/wchen38/code/WaveFront"
+      },
+      "output": "/Users/wchen38/code/WaveFront-dmd-distill"
+    },
+    {
+      "id": "worktree-root",
+      "input": {
+        "arg": "x",
+        "kind": "worktree",
+        "main": "/repo"
+      },
+      "output": "/repo-x"
+    },
+    {
+      "id": "inspect-t1000",
+      "input": {
+        "arg": "t1000",
+        "kind": "inspect",
+        "main": null
+      },
+      "output": "refs/arboria/inspect/t1000"
+    },
+    {
+      "id": "branch-digits",
+      "input": {
+        "arg": "lr-3e-4",
+        "kind": "branch",
+        "main": null
+      },
+      "output": "idea/lr-3e-4"
+    },
+    {
+      "id": "worktree-trailing-slash",
+      "input": {
+        "arg": "lr-3e-4",
+        "kind": "worktree",
+        "main": "/repo/"
+      },
+      "output": "/repo-lr-3e-4"
+    },
+    {
+      "id": "worktree-cjk-parent",
+      "input": {
+        "arg": "dmd",
+        "kind": "worktree",
+        "main": "/Users/wchen38/研究/WaveFront"
+      },
+      "output": "/Users/wchen38/研究/WaveFront-dmd"
+    }
+  ],
+  "name": "git_refs",
+  "notes": "Git names arb writes. kind=run: records.run_ref (refs/arboria/runs/<run>); kind=inspect: inspection.ref_name (refs/arboria/inspect/<todo>); kind=branch: ideas.branch_for (idea/<name>); kind=worktree: ideas.worktree_for (sibling folder <main>-<idea> of the main worktree; input.main is that path).",
+  "source": "arboria.records.run_ref (+ inspection.ref_name, ideas.branch_for, ideas.worktree_for)",
+  "version": 1
+}

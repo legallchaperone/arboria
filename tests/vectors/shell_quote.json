@@ -1,0 +1,306 @@
+{
+  "cases": [
+    {
+      "id": "simple",
+      "input": {
+        "argv": [
+          "python",
+          "train.py"
+        ]
+      },
+      "output": {
+        "join": "python train.py",
+        "quoted": [
+          "python",
+          "train.py"
+        ]
+      }
+    },
+    {
+      "id": "hydra",
+      "input": {
+        "argv": [
+          "python",
+          "train.py",
+          "optim.lr=0.0003"
+        ]
+      },
+      "output": {
+        "join": "python train.py optim.lr=0.0003",
+        "quoted": [
+          "python",
+          "train.py",
+          "optim.lr=0.0003"
+        ]
+      }
+    },
+    {
+      "id": "spaces",
+      "input": {
+        "argv": [
+          "python",
+          "-c",
+          "print('hi there')"
+        ]
+      },
+      "output": {
+        "join": "python -c 'print('\"'\"'hi there'\"'\"')'",
+        "quoted": [
+          "python",
+          "-c",
+          "'print('\"'\"'hi there'\"'\"')'"
+        ]
+      }
+    },
+    {
+      "id": "empty-arg",
+      "input": {
+        "argv": [
+          "echo",
+          ""
+        ]
+      },
+      "output": {
+        "join": "echo ''",
+        "quoted": [
+          "echo",
+          "''"
+        ]
+      }
+    },
+    {
+      "id": "dollar",
+      "input": {
+        "argv": [
+          "echo",
+          "$HOME",
+          "${USER}"
+        ]
+      },
+      "output": {
+        "join": "echo '$HOME' '${USER}'",
+        "quoted": [
+          "echo",
+          "'$HOME'",
+          "'${USER}'"
+        ]
+      }
+    },
+    {
+      "id": "double-quote",
+      "input": {
+        "argv": [
+          "a\"b"
+        ]
+      },
+      "output": {
+        "join": "'a\"b'",
+        "quoted": [
+          "'a\"b'"
+        ]
+      }
+    },
+    {
+      "id": "single-quote",
+      "input": {
+        "argv": [
+          "it's"
+        ]
+      },
+      "output": {
+        "join": "'it'\"'\"'s'",
+        "quoted": [
+          "'it'\"'\"'s'"
+        ]
+      }
+    },
+    {
+      "id": "only-quote",
+      "input": {
+        "argv": [
+          "'"
+        ]
+      },
+      "output": {
+        "join": "''\"'\"''",
+        "quoted": [
+          "''\"'\"''"
+        ]
+      }
+    },
+    {
+      "id": "unicode",
+      "input": {
+        "argv": [
+          "--name=学习率"
+        ]
+      },
+      "output": {
+        "join": "'--name=学习率'",
+        "quoted": [
+          "'--name=学习率'"
+        ]
+      }
+    },
+    {
+      "id": "safe-punct",
+      "input": {
+        "argv": [
+          "a@b%c+d=e:f,g.h/i-j_k"
+        ]
+      },
+      "output": {
+        "join": "a@b%c+d=e:f,g.h/i-j_k",
+        "quoted": [
+          "a@b%c+d=e:f,g.h/i-j_k"
+        ]
+      }
+    },
+    {
+      "id": "glob",
+      "input": {
+        "argv": [
+          "*.py",
+          "a?b",
+          "[x]"
+        ]
+      },
+      "output": {
+        "join": "'*.py' 'a?b' '[x]'",
+        "quoted": [
+          "'*.py'",
+          "'a?b'",
+          "'[x]'"
+        ]
+      }
+    },
+    {
+      "id": "tilde-hash",
+      "input": {
+        "argv": [
+          "~/x",
+          "#c"
+        ]
+      },
+      "output": {
+        "join": "'~/x' '#c'",
+        "quoted": [
+          "'~/x'",
+          "'#c'"
+        ]
+      }
+    },
+    {
+      "id": "semicolon",
+      "input": {
+        "argv": [
+          "a;b",
+          "a&&b",
+          "a|b"
+        ]
+      },
+      "output": {
+        "join": "'a;b' 'a&&b' 'a|b'",
+        "quoted": [
+          "'a;b'",
+          "'a&&b'",
+          "'a|b'"
+        ]
+      }
+    },
+    {
+      "id": "newline",
+      "input": {
+        "argv": [
+          "a\nb"
+        ]
+      },
+      "output": {
+        "join": "'a\nb'",
+        "quoted": [
+          "'a\nb'"
+        ]
+      }
+    },
+    {
+      "id": "tab",
+      "input": {
+        "argv": [
+          "a\tb"
+        ]
+      },
+      "output": {
+        "join": "'a\tb'",
+        "quoted": [
+          "'a\tb'"
+        ]
+      }
+    },
+    {
+      "id": "backslash",
+      "input": {
+        "argv": [
+          "a\\b"
+        ]
+      },
+      "output": {
+        "join": "'a\\b'",
+        "quoted": [
+          "'a\\b'"
+        ]
+      }
+    },
+    {
+      "id": "parens",
+      "input": {
+        "argv": [
+          "(x)",
+          "!x"
+        ]
+      },
+      "output": {
+        "join": "'(x)' '!x'",
+        "quoted": [
+          "'(x)'",
+          "'!x'"
+        ]
+      }
+    },
+    {
+      "id": "latin1",
+      "input": {
+        "argv": [
+          "é"
+        ]
+      },
+      "output": {
+        "join": "'é'",
+        "quoted": [
+          "'é'"
+        ]
+      }
+    },
+    {
+      "id": "dash-flags",
+      "input": {
+        "argv": [
+          "--lr",
+          "1e-4",
+          "-v"
+        ]
+      },
+      "output": {
+        "join": "--lr 1e-4 -v",
+        "quoted": [
+          "--lr",
+          "1e-4",
+          "-v"
+        ]
+      }
+    }
+  ],
+  "name": "shell_quote",
+  "notes": "Python's shlex.join / shlex.quote, which render_sbatch uses for the command line and the ARBORIA_RUN_ID/WANDB_ID/IDEA exports. quote(): '' for the empty string; unchanged if every char is ASCII [A-Za-z0-9_@%+=:,./-]; else wrapped in single quotes with each ' written as '\"'\"'. Output {join, quoted}.",
+  "source": "shlex.join",
+  "version": 1
+}

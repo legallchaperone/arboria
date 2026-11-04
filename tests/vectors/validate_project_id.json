@@ -1,0 +1,88 @@
+{
+  "cases": [
+    {
+      "id": "ok",
+      "input": {
+        "value": "wavefront-3f2a",
+        "where": "project id"
+      },
+      "output": "wavefront-3f2a"
+    },
+    {
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 'WaveFront'",
+      "id": "err-upper",
+      "input": {
+        "value": "WaveFront",
+        "where": "project id"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [project] id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 'a_b'",
+      "id": "err-where",
+      "input": {
+        "value": "a_b",
+        "where": "/repo/arboria.toml: [project] id"
+      }
+    },
+    {
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 5",
+      "id": "err-int",
+      "input": {
+        "value": 5,
+        "where": "project id"
+      }
+    },
+    {
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+      "id": "err-long",
+      "input": {
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "where": "project id"
+      }
+    },
+    {
+      "id": "ok-31",
+      "input": {
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c",
+        "where": "project id"
+      },
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c"
+    },
+    {
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got None",
+      "id": "err-null",
+      "input": {
+        "value": null,
+        "where": "project id"
+      }
+    },
+    {
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got ''",
+      "id": "err-empty",
+      "input": {
+        "value": "",
+        "where": "project id"
+      }
+    },
+    {
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got '-a'",
+      "id": "err-dash-start",
+      "input": {
+        "value": "-a",
+        "where": "project id"
+      }
+    },
+    {
+      "id": "quirk-trailing-newline-accepted",
+      "input": {
+        "value": "proj\n",
+        "where": "project id"
+      },
+      "output": "proj\n"
+    }
+  ],
+  "name": "validate_project_id",
+  "notes": "Same rule as check_project, with config's message and `where` prefix.",
+  "source": "arboria.config.validate_project_id",
+  "version": 1
+}

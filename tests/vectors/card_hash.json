@@ -1,0 +1,1883 @@
+{
+  "cases": [
+    {
+      "id": "1gpu-1h",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "997afe584fae138f928afe515e79203a2cc07259a78c6841b3c821a36e8956cb"
+    },
+    {
+      "id": "1gpu-1h-hydra",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py",
+            "model=dmd",
+            "optim.lr=0.0003",
+            "trainer.max_steps=200000"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "70c6f50cc247708e11cbf5bb6863727c0c49b10666b3f39c63516b73bf1b451f"
+    },
+    {
+      "id": "4gpu-12h",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 4,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 43200
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "1a20eb7d8b67a2e17ad01cd3c3c1e772a57d85832f818c5ab9531b5a7f1352bc"
+    },
+    {
+      "id": "2nodes-8gpu-24h",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 8,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 2,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 86400
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4"
+      },
+      "output": "8c8b70ae2cf65815f71a546fdcf2f40f61414599ad273ddb24fe436df2a17138"
+    },
+    {
+      "id": "1gpu-72h-2segments",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 259200
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "d359ba6337d6a6cde9d575dd0ff00a51361ee8e9ada5660575e691051620ad9f"
+    },
+    {
+      "id": "4gpu-7d-4segments",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 4,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 604800
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "4f673892da60a1ada0d80d7bf25d0055e04b145281a4aa357489725236ae8f92"
+    },
+    {
+      "id": "4gpu-48h-exact-limit",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 4,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 172800
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "845852a0c8763ba484f391979a40fac417fe7f2daba23bacd57d5d6d99565640"
+    },
+    {
+      "id": "48h1s-2segments",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 172801
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "819facca5468544f5ec74b97bf255f9a7e26a4cc237420a3c578809d04f265fa"
+    },
+    {
+      "id": "interactive-2h-charge2",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 2,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4-interactive",
+          "repeat": null,
+          "walltime_s": 7200
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "ad299f4b5c59ff7e125e9058626e46a17d29c7cc863aff5b30ea77560a8ea90f"
+    },
+    {
+      "id": "mem110-1gpu-not-over",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": 110,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "997afe584fae138f928afe515e79203a2cc07259a78c6841b3c821a36e8956cb"
+    },
+    {
+      "id": "mem111-1gpu-billed2",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": 111,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "05cfe0058ef9e5a1732cbb04ff200113777ae0af33de66fc6e83559039fa549c"
+    },
+    {
+      "id": "mem221-2gpu-not-over",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 2,
+          "machine": "deltaai",
+          "mem_gb": 221,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "25458c6ebc202d09bde7f43d8b602921a7ecc25471b47e3fda0393156cb8e949"
+    },
+    {
+      "id": "mem222-2gpu-billed3",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 2,
+          "machine": "deltaai",
+          "mem_gb": 222,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "3e0161c07cc8facf67a12f154cec704464e9a603d8c30ec103297f0c8d195edb"
+    },
+    {
+      "id": "mem443-4gpu-default-max",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 4,
+          "machine": "deltaai",
+          "mem_gb": 443,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "9de4cbb0b751429120fc52b4f62de9908d7172e5ed4f1025a4c544326a166597"
+    },
+    {
+      "id": "cpus72-1gpu",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": 72,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "997afe584fae138f928afe515e79203a2cc07259a78c6841b3c821a36e8956cb"
+    },
+    {
+      "id": "cpus73-1gpu-billed2",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": 73,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "9cf7d6ae9755a0a99464c9506356e52f90c812268a71637fcad9ad5fa8301131"
+    },
+    {
+      "id": "cpus288-1gpu-billed4",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": 288,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 1800
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "b6e520c282f3df23b87d4ca0121f6b580d3de943ab1cf2e3ee7ec68ce4351d3c"
+    },
+    {
+      "id": "small-mem-cpus",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": 4,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": 8,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "0fe7a6453e7ce7b3421e9cb21e1845608c5b64328eaa61330fd712f885a2347c"
+    },
+    {
+      "id": "repeat-nonce",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": "a1b2c3d4",
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "07195dbf16d89a402dbca4e86c095d147acd4437c80d97c4f1f8a746c1d2c3e5"
+    },
+    {
+      "id": "project-31-chars",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "2105dcd7d7595e297fcad73aaca66ded75e6e81b2af91bac894715b07a20b60f"
+    },
+    {
+      "id": "command-quoting",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "-c",
+            "print('hi there')",
+            "--name=学习率 实验",
+            "$HOME",
+            "a\"b",
+            "it's"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "4653492637cfebe2d4a82a53bbb7b807221de67d1b2d7fd0ec7a84a4d048a4d5"
+    },
+    {
+      "id": "argparse-overrides",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py",
+            "--lr",
+            "0.0001",
+            "--batch-size",
+            "64",
+            "--use-ema",
+            "true"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 3600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "23f9758fc04aa2f4ec0ec42d4b12534759aa52fbbbb2b8cec4efe26456027341"
+    },
+    {
+      "id": "uv-env-prelude",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 4,
+          "machine": "deltaai-uv",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 21600
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [
+            "source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate"
+          ],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai-uv",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/${USER}/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [
+            "module load cuda",
+            "export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache"
+          ],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "054ef89c8805d99c3049b58eaada36c72d419f6cd5e492cf4fce577e0aaf5188"
+    },
+    {
+      "id": "fake-machine",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 2,
+          "machine": "fake",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 216000
+        },
+        "profile": {
+          "account": "acct1",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "",
+          "billing_per_su": 0.0,
+          "cpus_per_gpu": 16,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "",
+          "kind": "fake",
+          "max_segments": 2,
+          "mem_per_gpu_gb": 100.0,
+          "name": "fake",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/tmp/arboria-fake/remote/cache",
+            "ckpt": "/tmp/arboria-fake/remote/ckpt",
+            "data": "/tmp/arboria-fake/remote/data",
+            "out": "/tmp/arboria-fake/remote/out",
+            "runs": "/tmp/arboria-fake/remote/runs"
+          },
+          "prelude": [],
+          "root": "/tmp/arboria-fake/state",
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "4e0139592398483fa000c52e0921df14c7173a3dc813c227722511783daaed27"
+    },
+    {
+      "id": "min-walltime-60s",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 60
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "2495744999fbcf678e729eae53f426e7b8c64cae231e682b8568345fe430e00b"
+    },
+    {
+      "id": "est-su-tie-0.125",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 450
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "8455f8e0d2a7385028173e3d219b578cf176b73d0a7f756992aaa9e27ef7500a"
+    },
+    {
+      "id": "est-su-tie-0.375",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 1350
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "f077b23f9a6f0fdea966b51f19d1e3dfd87d932f840e31dc41d05622366f7ea9"
+    },
+    {
+      "id": "est-su-tie-0.625",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 1,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4",
+          "repeat": null,
+          "walltime_s": 2250
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "2baf91e845b8e1e53454b62651614028a43ad714866e00b37be85029b1172591"
+    },
+    {
+      "id": "est-su-odd-seconds",
+      "input": {
+        "ask": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "cpus": null,
+          "gpus": 3,
+          "machine": "deltaai",
+          "mem_gb": null,
+          "nodes": 1,
+          "partition": "ghx4-interactive",
+          "repeat": null,
+          "walltime_s": 12345
+        },
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a",
+        "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+      },
+      "output": "fdd83c75c4d57c91ed7e0de587c0f5a91bbc14d90e98632ef51e4cf56915166a"
+    }
+  ],
+  "name": "card_hash",
+  "notes": "input.profile is the normalized Profile (the output shape of clusters_parse_profile); input.ask is dataclasses.asdict(slurm.Ask). `arb submit` fills the Ask before build_plan: partition = profile.default_partition, nodes = 1, mem_gb/cpus = null unless given, walltime_s = parse_walltime(--time), repeat = secrets.token_hex(4) with --repeat. output is sha256(canonical_json(card_payload(...)).encode('utf-8')).hexdigest(); the same case ids as card_payload.",
+  "source": "arboria.slurm.card_hash",
+  "version": 1
+}

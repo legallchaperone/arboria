@@ -1,0 +1,160 @@
+{
+  "cases": [
+    {
+      "id": "plain",
+      "input": {
+        "value": "/projects/bjki/$USER/arboria/runs",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/projects/bjki/$USER/arboria/runs"
+    },
+    {
+      "id": "braced",
+      "input": {
+        "value": "/work/hdd/bjki/${USER}/ckpt",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/work/hdd/bjki/${USER}/ckpt"
+    },
+    {
+      "id": "trailing",
+      "input": {
+        "value": "/a/b/",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/a/b"
+    },
+    {
+      "id": "double-slash",
+      "input": {
+        "value": "/a//b",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/a//b"
+    },
+    {
+      "id": "dots-in-name",
+      "input": {
+        "value": "/a/.cache/v1.2",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/a/.cache/v1.2"
+    },
+    {
+      "id": "user-suffix",
+      "input": {
+        "value": "/a/$USER.old",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/a/$USER.old"
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/a/$USERNAME': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-username",
+      "input": {
+        "value": "/a/$USERNAME",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/projects/<proj>/$USER' still has a <placeholder>; fill it in (TO CONFIRM at machine init)",
+      "id": "err-placeholder",
+      "input": {
+        "value": "/projects/<proj>/$USER",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = 'projects/x' must be an absolute path",
+      "id": "err-relative",
+      "input": {
+        "value": "projects/x",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs must be a non-empty string",
+      "id": "err-empty",
+      "input": {
+        "value": "",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-root",
+      "input": {
+        "value": "/",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/a/../b': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-dotdot",
+      "input": {
+        "value": "/a/../b",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/a/./b': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-dot",
+      "input": {
+        "value": "/a/./b",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/a b': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-space",
+      "input": {
+        "value": "/a b",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '~/x' must be an absolute path",
+      "id": "err-home",
+      "input": {
+        "value": "~/x",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs must be a non-empty string",
+      "id": "err-int",
+      "input": {
+        "value": 5,
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/数据': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-unicode",
+      "input": {
+        "value": "/数据",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      }
+    },
+    {
+      "id": "quirk-trailing-newline-accepted",
+      "input": {
+        "value": "/a/b\n",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/a/b\n"
+    },
+    {
+      "id": "quirk-inner-newline-accepted",
+      "input": {
+        "value": "/a\n/b",
+        "where": "clusters.toml: [deltaai.paths] runs"
+      },
+      "output": "/a\n/b"
+    }
+  ],
+  "name": "check_remote_path",
+  "notes": "Remote profile path: absolute, segments [A-Za-z0-9._-]+ (not . or ..), $USER / ${USER} the only variable; trailing '/' removed (a run of them).",
+  "source": "arboria.clusters.check_remote_path",
+  "version": 1
+}

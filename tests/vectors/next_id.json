@@ -1,0 +1,212 @@
+{
+  "cases": [
+    {
+      "id": "runs-empty",
+      "input": {
+        "existing": [],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r001"
+    },
+    {
+      "id": "runs-one",
+      "input": {
+        "existing": [
+          "r001"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r002"
+    },
+    {
+      "id": "runs-9",
+      "input": {
+        "existing": [
+          "r001",
+          "r009"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r010"
+    },
+    {
+      "id": "runs-gap",
+      "input": {
+        "existing": [
+          "r001",
+          "r005"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r006"
+    },
+    {
+      "id": "runs-99",
+      "input": {
+        "existing": [
+          "r099"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r100"
+    },
+    {
+      "id": "runs-999",
+      "input": {
+        "existing": [
+          "r999"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r1000"
+    },
+    {
+      "id": "runs-1000",
+      "input": {
+        "existing": [
+          "r999",
+          "r1000"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r1001"
+    },
+    {
+      "id": "runs-unordered",
+      "input": {
+        "existing": [
+          "r010",
+          "r002",
+          "r007"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r011"
+    },
+    {
+      "id": "runs-short-pad",
+      "input": {
+        "existing": [
+          "r1"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r002"
+    },
+    {
+      "id": "runs-non-numeric",
+      "input": {
+        "existing": [
+          "rabc",
+          "r00x",
+          "r002"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r003"
+    },
+    {
+      "id": "runs-only-non-numeric",
+      "input": {
+        "existing": [
+          "rabc"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r001"
+    },
+    {
+      "id": "runs-foreign-prefix",
+      "input": {
+        "existing": [
+          "x005",
+          "r001"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r006"
+    },
+    {
+      "id": "decisions",
+      "input": {
+        "existing": [
+          "d001",
+          "d002"
+        ],
+        "prefix": "d",
+        "table": "decisions"
+      },
+      "output": "d003"
+    },
+    {
+      "id": "tasks",
+      "input": {
+        "existing": [
+          "t041"
+        ],
+        "prefix": "t",
+        "table": "tasks"
+      },
+      "output": "t042"
+    },
+    {
+      "id": "tasks-empty",
+      "input": {
+        "existing": [],
+        "prefix": "t",
+        "table": "tasks"
+      },
+      "output": "t001"
+    },
+    {
+      "id": "lessons",
+      "input": {
+        "existing": [
+          "l003"
+        ],
+        "prefix": "l",
+        "table": "lessons"
+      },
+      "output": "l004"
+    },
+    {
+      "id": "runs-zero",
+      "input": {
+        "existing": [
+          "r000"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r001"
+    },
+    {
+      "id": "runs-negative-like",
+      "input": {
+        "existing": [
+          "r-5",
+          "r002"
+        ],
+        "prefix": "r",
+        "table": "runs"
+      },
+      "output": "r003"
+    }
+  ],
+  "name": "next_id",
+  "notes": "Next text id: prefix + (max numeric suffix + 1) zero-padded to 3 digits. The suffix is id[len(prefix):] whether or not the id starts with the prefix; suffixes that are not all digits are ignored (str.isdigit). Gaps are not filled. Prefixes in use: r (runs), d (decisions), t (tasks), l (lessons).",
+  "source": "arboria.db.Ledger.next_id",
+  "version": 1
+}

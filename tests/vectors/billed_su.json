@@ -1,0 +1,176 @@
+{
+  "cases": [
+    {
+      "id": "reported-deltaai",
+      "input": {
+        "elapsed": 259,
+        "reported": 0.12971583333333334,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 0.1297
+    },
+    {
+      "id": "reported-644s",
+      "input": {
+        "elapsed": 644,
+        "reported": 0.17888888888888888,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 0.1789
+    },
+    {
+      "id": "reported-int",
+      "input": {
+        "elapsed": 3600,
+        "reported": 4,
+        "request": {
+          "billed_gpus": 4,
+          "charge": 1.0
+        }
+      },
+      "output": 4.0
+    },
+    {
+      "id": "reported-zero",
+      "input": {
+        "elapsed": 3600,
+        "reported": 0.0,
+        "request": {
+          "billed_gpus": 4,
+          "charge": 1.0
+        }
+      },
+      "output": 0.0
+    },
+    {
+      "id": "estimate-1h",
+      "input": {
+        "elapsed": 3600,
+        "reported": null,
+        "request": {
+          "billed_gpus": 4,
+          "charge": 1.0
+        }
+      },
+      "output": 4.0
+    },
+    {
+      "id": "estimate-interactive",
+      "input": {
+        "elapsed": 1800,
+        "reported": null,
+        "request": {
+          "billed_gpus": 2,
+          "charge": 2.0
+        }
+      },
+      "output": 2.0
+    },
+    {
+      "id": "estimate-odd",
+      "input": {
+        "elapsed": 12345,
+        "reported": null,
+        "request": {
+          "billed_gpus": 3,
+          "charge": 1.0
+        }
+      },
+      "output": 10.2875
+    },
+    {
+      "id": "estimate-7s",
+      "input": {
+        "elapsed": 7,
+        "reported": null,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 0.0019
+    },
+    {
+      "id": "estimate-9s",
+      "input": {
+        "elapsed": 9,
+        "reported": null,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 0.0025
+    },
+    {
+      "id": "estimate-zero",
+      "input": {
+        "elapsed": 0,
+        "reported": null,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 0.0
+    },
+    {
+      "id": "tie-0.00005",
+      "input": {
+        "elapsed": null,
+        "reported": 5e-05,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 0.0001
+    },
+    {
+      "id": "tie-0.00015",
+      "input": {
+        "elapsed": null,
+        "reported": 0.00015,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 0.0001
+    },
+    {
+      "id": "tie-1.23445",
+      "input": {
+        "elapsed": null,
+        "reported": 1.23445,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": 1.2345
+    },
+    {
+      "id": "no-elapsed",
+      "input": {
+        "elapsed": null,
+        "reported": null,
+        "request": {
+          "billed_gpus": 1,
+          "charge": 1.0
+        }
+      },
+      "output": null
+    }
+  ],
+  "name": "billed_su",
+  "notes": "jobs.billed_su: round(reported, 4) when sacct billing gave a value, else round(elapsed / 3600 * billed_gpus * charge, 4) (left to right, f64), null without elapsed. Python round() is correctly rounded (ties to even on the exact binary value). input.request holds the run's request_json fields used.",
+  "source": "arboria.monitor._billed",
+  "version": 1
+}

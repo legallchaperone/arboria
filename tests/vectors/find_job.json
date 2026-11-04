@@ -1,0 +1,131 @@
+{
+  "cases": [
+    {
+      "id": "in-squeue",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "",
+        "squeue": "555 arb-wavefront-3f2a-r003-s1\n"
+      },
+      "output": {
+        "commands": [
+          "squeue --name=arb-wavefront-3f2a-r003-s1 -u \"$USER\" -h -o '%i %j'"
+        ],
+        "job_id": "555"
+      }
+    },
+    {
+      "id": "in-sacct",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "556|arb-wavefront-3f2a-r003-s1\n",
+        "squeue": ""
+      },
+      "output": {
+        "commands": [
+          "squeue --name=arb-wavefront-3f2a-r003-s1 -u \"$USER\" -h -o '%i %j'",
+          "sacct --name=arb-wavefront-3f2a-r003-s1 -n -X -P -o JobID,JobName --starttime=now-30days"
+        ],
+        "job_id": "556"
+      }
+    },
+    {
+      "id": "none",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "",
+        "squeue": ""
+      },
+      "output": {
+        "commands": [
+          "squeue --name=arb-wavefront-3f2a-r003-s1 -u \"$USER\" -h -o '%i %j'",
+          "sacct --name=arb-wavefront-3f2a-r003-s1 -n -X -P -o JobID,JobName --starttime=now-30days"
+        ],
+        "job_id": null
+      }
+    },
+    {
+      "id": "exact-name-only",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "560|arb-wavefront-3f2a-r003-s1-x\n561|\n",
+        "squeue": "557 arb-wavefront-3f2a-r003-s10\n558 arb-other-1a2b-r003-s1\n559 xarb-wavefront-3f2a-r003-s1\n"
+      },
+      "output": {
+        "commands": [
+          "squeue --name=arb-wavefront-3f2a-r003-s1 -u \"$USER\" -h -o '%i %j'",
+          "sacct --name=arb-wavefront-3f2a-r003-s1 -n -X -P -o JobID,JobName --starttime=now-30days"
+        ],
+        "job_id": null
+      }
+    },
+    {
+      "id": "squeue-and-sacct-same",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "9|arb-wavefront-3f2a-r003-s1\n",
+        "squeue": "9 arb-wavefront-3f2a-r003-s1\n"
+      },
+      "output": {
+        "commands": [
+          "squeue --name=arb-wavefront-3f2a-r003-s1 -u \"$USER\" -h -o '%i %j'"
+        ],
+        "job_id": "9"
+      }
+    },
+    {
+      "error": "BackendError: several jobs named arb-wavefront-3f2a-r003-s1 (1, 2); cancel the extras by hand before resuming",
+      "id": "err-several",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "",
+        "squeue": "1 arb-wavefront-3f2a-r003-s1\n2 arb-wavefront-3f2a-r003-s1\n"
+      }
+    },
+    {
+      "error": "BackendError: several jobs named arb-wavefront-3f2a-r003-s1 (1, 2); cancel the extras by hand before resuming",
+      "id": "err-several-sacct",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "1|arb-wavefront-3f2a-r003-s1\n2|arb-wavefront-3f2a-r003-s1\n",
+        "squeue": ""
+      }
+    },
+    {
+      "id": "same-id-twice",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s1",
+        "sacct": "",
+        "squeue": "5 arb-wavefront-3f2a-r003-s1\n5 arb-wavefront-3f2a-r003-s1\n"
+      },
+      "output": {
+        "commands": [
+          "squeue --name=arb-wavefront-3f2a-r003-s1 -u \"$USER\" -h -o '%i %j'"
+        ],
+        "job_id": "5"
+      }
+    },
+    {
+      "error": "BackendError: job arb-other-1a2b-r003-s1 belongs to project other-1a2b, not wavefront-3f2a; refused",
+      "id": "err-other-project",
+      "input": {
+        "name": "arb-other-1a2b-r003-s1",
+        "sacct": "",
+        "squeue": ""
+      }
+    },
+    {
+      "error": "ArbError: not an arboria job name: 'jupyter'",
+      "id": "err-not-arboria",
+      "input": {
+        "name": "jupyter",
+        "sacct": "",
+        "squeue": ""
+      }
+    }
+  ],
+  "name": "find_job",
+  "notes": "input.squeue / input.sacct are the stdouts of `squeue --name=<n> -u \"$USER\" -h -o '%i %j'` and `sacct --name=<n> -n -X -P -o JobID,JobName --starttime=now-30days` (sacct only runs when squeue found nothing). Output {job_id, commands: the remote commands run}. Backend project: wavefront-3f2a.",
+  "source": "arboria.backends.ssh.SshSlurm.find_job",
+  "version": 1
+}

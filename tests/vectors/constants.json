@@ -1,0 +1,628 @@
+{
+  "cases": [
+    {
+      "id": "db.SCHEMA_VERSION",
+      "input": {
+        "name": "db.SCHEMA_VERSION"
+      },
+      "output": 7
+    },
+    {
+      "id": "db.LIMITS",
+      "input": {
+        "name": "db.LIMITS"
+      },
+      "output": {
+        "change_reason": 300,
+        "gist": 300,
+        "hypothesis": 300,
+        "inspect_summary": 600,
+        "inspect_text": 8000,
+        "inspect_title": 80,
+        "lesson": 200,
+        "line_note": 200,
+        "mermaid": 8000,
+        "metric": 200,
+        "note": 1000,
+        "question": 300,
+        "result": 600,
+        "span_note": 600,
+        "summary": 1500,
+        "todo": 1000
+      }
+    },
+    {
+      "id": "db.SUMMARY_MAX_LINES",
+      "input": {
+        "name": "db.SUMMARY_MAX_LINES"
+      },
+      "output": 10
+    },
+    {
+      "id": "db.NAME_RE",
+      "input": {
+        "name": "db.NAME_RE"
+      },
+      "output": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    {
+      "id": "db.CONFIDENCE",
+      "input": {
+        "name": "db.CONFIDENCE"
+      },
+      "output": [
+        "guess",
+        "prelim",
+        "confirmed",
+        "rejected"
+      ]
+    },
+    {
+      "id": "db.IDEA_STATUS",
+      "input": {
+        "name": "db.IDEA_STATUS"
+      },
+      "output": [
+        "open",
+        "merged",
+        "dropped"
+      ]
+    },
+    {
+      "id": "db.RUN_STATUS",
+      "input": {
+        "name": "db.RUN_STATUS"
+      },
+      "output": [
+        "draft",
+        "awaiting_approval",
+        "approved",
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "rejected"
+      ]
+    },
+    {
+      "id": "db.RUN_ACTIVE",
+      "input": {
+        "name": "db.RUN_ACTIVE"
+      },
+      "output": [
+        "approved",
+        "queued",
+        "running"
+      ]
+    },
+    {
+      "id": "db.RUN_FINAL",
+      "input": {
+        "name": "db.RUN_FINAL"
+      },
+      "output": [
+        "succeeded",
+        "failed",
+        "cancelled"
+      ]
+    },
+    {
+      "id": "db.RUN_NOT_REUSABLE",
+      "input": {
+        "name": "db.RUN_NOT_REUSABLE"
+      },
+      "output": [
+        "rejected",
+        "cancelled",
+        "failed"
+      ]
+    },
+    {
+      "id": "db.JOB_STATES",
+      "input": {
+        "name": "db.JOB_STATES"
+      },
+      "output": [
+        "submitting",
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "cancelled",
+        "timeout",
+        "unknown"
+      ]
+    },
+    {
+      "id": "db.JOB_TERMINAL",
+      "input": {
+        "name": "db.JOB_TERMINAL"
+      },
+      "output": [
+        "completed",
+        "failed",
+        "cancelled",
+        "timeout"
+      ]
+    },
+    {
+      "id": "db.SUBJECT_TYPES",
+      "input": {
+        "name": "db.SUBJECT_TYPES"
+      },
+      "output": [
+        "run",
+        "idea",
+        "lesson"
+      ]
+    },
+    {
+      "id": "db.LESSON_STATUS",
+      "input": {
+        "name": "db.LESSON_STATUS"
+      },
+      "output": [
+        "proposed",
+        "accepted",
+        "retired"
+      ]
+    },
+    {
+      "id": "db.LESSON_SOURCES",
+      "input": {
+        "name": "db.LESSON_SOURCES"
+      },
+      "output": [
+        "idea",
+        "run",
+        "none"
+      ]
+    },
+    {
+      "id": "db.TASK_STATUS",
+      "input": {
+        "name": "db.TASK_STATUS"
+      },
+      "output": [
+        "open",
+        "done",
+        "dropped"
+      ]
+    },
+    {
+      "id": "db.TASK_KINDS",
+      "input": {
+        "name": "db.TASK_KINDS"
+      },
+      "output": [
+        "plain",
+        "command_new",
+        "command_revise",
+        "inspect"
+      ]
+    },
+    {
+      "id": "db.INSPECT_VIEWS",
+      "input": {
+        "name": "db.INSPECT_VIEWS"
+      },
+      "output": [
+        "code",
+        "pseudo",
+        "simple",
+        "map"
+      ]
+    },
+    {
+      "id": "db.SEED_STATUS",
+      "input": {
+        "name": "db.SEED_STATUS"
+      },
+      "output": [
+        "thinking",
+        "planted",
+        "dropped"
+      ]
+    },
+    {
+      "id": "db.BACKUP_EVENTS",
+      "input": {
+        "name": "db.BACKUP_EVENTS"
+      },
+      "output": [
+        "command_promote",
+        "decision",
+        "idea_close",
+        "idea_confidence",
+        "idea_metric",
+        "idea_new",
+        "inspect_done",
+        "lesson_accept",
+        "lesson_propose",
+        "lesson_reject",
+        "lesson_retire",
+        "note",
+        "notebook_new",
+        "run_approve",
+        "run_cancel",
+        "run_config",
+        "run_final",
+        "run_new",
+        "run_queued",
+        "run_reject",
+        "run_submit",
+        "seed_drop",
+        "seed_new",
+        "seed_plant",
+        "seed_revive",
+        "seed_set",
+        "todo_done",
+        "todo_drop",
+        "todo_new"
+      ]
+    },
+    {
+      "id": "event_kinds",
+      "input": {
+        "name": "event_kinds"
+      },
+      "output": [
+        "command_call",
+        "command_promote",
+        "decision",
+        "idea_close",
+        "idea_confidence",
+        "idea_metric",
+        "idea_new",
+        "inspect_done",
+        "job_state",
+        "job_submit",
+        "lesson_accept",
+        "lesson_propose",
+        "lesson_reject",
+        "lesson_retire",
+        "note",
+        "notebook_new",
+        "run_approve",
+        "run_cancel",
+        "run_config",
+        "run_final",
+        "run_new",
+        "run_queued",
+        "run_reject",
+        "run_status",
+        "run_submit",
+        "run_summary",
+        "seed_drop",
+        "seed_new",
+        "seed_plant",
+        "seed_revive",
+        "seed_set",
+        "todo_done",
+        "todo_drop",
+        "todo_new"
+      ]
+    },
+    {
+      "id": "slurm.MIN_WALLTIME_S",
+      "input": {
+        "name": "slurm.MIN_WALLTIME_S"
+      },
+      "output": 60
+    },
+    {
+      "id": "slurm.MAX_JOB_NAME",
+      "input": {
+        "name": "slurm.MAX_JOB_NAME"
+      },
+      "output": 64
+    },
+    {
+      "id": "slurm.JOB_NAME_RE",
+      "input": {
+        "name": "slurm.JOB_NAME_RE"
+      },
+      "output": "^arb-([a-z0-9][a-z0-9-]{0,30})-([a-z0-9]+)-s([1-9][0-9]*)$"
+    },
+    {
+      "id": "slurm.PROJECT_RE",
+      "input": {
+        "name": "slurm.PROJECT_RE"
+      },
+      "output": "^[a-z0-9][a-z0-9-]{0,30}$"
+    },
+    {
+      "id": "slurm._OVERRIDE_KEY_RE",
+      "input": {
+        "name": "slurm._OVERRIDE_KEY_RE"
+      },
+      "output": "^[+~]{0,2}[A-Za-z_][A-Za-z0-9_.\\-/]*$"
+    },
+    {
+      "id": "clusters.KINDS",
+      "input": {
+        "name": "clusters.KINDS"
+      },
+      "output": [
+        "slurm",
+        "fake"
+      ]
+    },
+    {
+      "id": "clusters.PATH_ROLES",
+      "input": {
+        "name": "clusters.PATH_ROLES"
+      },
+      "output": [
+        "runs",
+        "data",
+        "cache",
+        "ckpt",
+        "out"
+      ]
+    },
+    {
+      "id": "clusters.TOP_KEYS",
+      "input": {
+        "name": "clusters.TOP_KEYS"
+      },
+      "output": [
+        "account",
+        "arch",
+        "balance_cmd",
+        "billing_per_su",
+        "cpus_per_gpu",
+        "default_partition",
+        "env_activate",
+        "gpus_per_node",
+        "host",
+        "kind",
+        "max_segments",
+        "mem_per_gpu_gb",
+        "partitions",
+        "paths",
+        "prelude",
+        "root"
+      ]
+    },
+    {
+      "id": "clusters.PARTITION_KEYS",
+      "input": {
+        "name": "clusters.PARTITION_KEYS"
+      },
+      "output": [
+        "charge",
+        "max_walltime"
+      ]
+    },
+    {
+      "id": "config.OVERRIDE_STYLES",
+      "input": {
+        "name": "config.OVERRIDE_STYLES"
+      },
+      "output": [
+        "hydra",
+        "argparse",
+        "tyro"
+      ]
+    },
+    {
+      "id": "config.DEFAULT_OVERRIDE_STYLE",
+      "input": {
+        "name": "config.DEFAULT_OVERRIDE_STYLE"
+      },
+      "output": "hydra"
+    },
+    {
+      "id": "config.DEFAULT_OBSERVATION_MINUTES",
+      "input": {
+        "name": "config.DEFAULT_OBSERVATION_MINUTES"
+      },
+      "output": 10
+    },
+    {
+      "id": "config.DEFAULT_FAIL_PATTERNS",
+      "input": {
+        "name": "config.DEFAULT_FAIL_PATTERNS"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+        "CUDA out of memory",
+        "torch\\.OutOfMemoryError"
+      ]
+    },
+    {
+      "id": "config.PROJECT_COMMENT",
+      "input": {
+        "name": "config.PROJECT_COMMENT"
+      },
+      "output": "# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。"
+    },
+    {
+      "id": "commands.NAME_RE",
+      "input": {
+        "name": "commands.NAME_RE"
+      },
+      "output": "^[a-z][a-z0-9_]{0,40}$"
+    },
+    {
+      "id": "commands.RESERVED_KWARGS",
+      "input": {
+        "name": "commands.RESERVED_KWARGS"
+      },
+      "output": [
+        "scope",
+        "ask"
+      ]
+    },
+    {
+      "id": "inspection.MAX_SPANS",
+      "input": {
+        "name": "inspection.MAX_SPANS"
+      },
+      "output": 6
+    },
+    {
+      "id": "inspection.MAX_LINES",
+      "input": {
+        "name": "inspection.MAX_LINES"
+      },
+      "output": 400
+    },
+    {
+      "id": "inspection.MAX_LINE_NOTES",
+      "input": {
+        "name": "inspection.MAX_LINE_NOTES"
+      },
+      "output": 40
+    },
+    {
+      "id": "inspection.MAX_NODES",
+      "input": {
+        "name": "inspection.MAX_NODES"
+      },
+      "output": 30
+    },
+    {
+      "id": "inspection.MAX_FILE_BYTES",
+      "input": {
+        "name": "inspection.MAX_FILE_BYTES"
+      },
+      "output": 2097152
+    },
+    {
+      "id": "inspection.MERMAID_KINDS",
+      "input": {
+        "name": "inspection.MERMAID_KINDS"
+      },
+      "output": [
+        "flowchart",
+        "graph",
+        "sequenceDiagram",
+        "classDiagram",
+        "classDiagram-v2",
+        "stateDiagram",
+        "stateDiagram-v2",
+        "erDiagram",
+        "journey",
+        "gantt",
+        "pie",
+        "mindmap",
+        "timeline",
+        "block-beta",
+        "architecture-beta",
+        "C4Context",
+        "C4Container",
+        "C4Component",
+        "quadrantChart",
+        "requirementDiagram",
+        "gitGraph",
+        "sankey-beta",
+        "xychart-beta",
+        "packet-beta"
+      ]
+    },
+    {
+      "id": "inspection.REF_PREFIX",
+      "input": {
+        "name": "inspection.REF_PREFIX"
+      },
+      "output": "refs/arboria/inspect/"
+    },
+    {
+      "id": "submission.QUESTION",
+      "input": {
+        "name": "submission.QUESTION"
+      },
+      "output": "批准这个 run 上集群吗？"
+    },
+    {
+      "id": "submission.OPTIONS",
+      "input": {
+        "name": "submission.OPTIONS"
+      },
+      "output": [
+        "approve",
+        "reject",
+        "revise"
+      ]
+    },
+    {
+      "id": "monitor.HIT_LINE_MAX",
+      "input": {
+        "name": "monitor.HIT_LINE_MAX"
+      },
+      "output": 200
+    },
+    {
+      "id": "monitor.TAIL_LINES",
+      "input": {
+        "name": "monitor.TAIL_LINES"
+      },
+      "output": 50
+    },
+    {
+      "id": "backends.ssh.SSH_OPTS",
+      "input": {
+        "name": "backends.ssh.SSH_OPTS"
+      },
+      "output": [
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ControlMaster=no"
+      ]
+    },
+    {
+      "id": "backends.ssh.FIND_WINDOW",
+      "input": {
+        "name": "backends.ssh.FIND_WINDOW"
+      },
+      "output": "now-30days"
+    },
+    {
+      "id": "backends.base.JOB_ID_RE",
+      "input": {
+        "name": "backends.base.JOB_ID_RE"
+      },
+      "output": "^[0-9]+(?:_[0-9]+)?$"
+    },
+    {
+      "id": "backends.base._SLURM_STATES",
+      "input": {
+        "name": "backends.base._SLURM_STATES"
+      },
+      "output": {
+        "BOOT_FAIL": "failed",
+        "CANCELLED": "cancelled",
+        "COMPLETED": "completed",
+        "COMPLETING": "running",
+        "CONFIGURING": "running",
+        "DEADLINE": "failed",
+        "FAILED": "failed",
+        "NODE_FAIL": "failed",
+        "OUT_OF_MEMORY": "failed",
+        "PENDING": "pending",
+        "PREEMPTED": "pending",
+        "REQUEUED": "pending",
+        "REQUEUE_FED": "pending",
+        "REQUEUE_HOLD": "pending",
+        "RESIZING": "running",
+        "RESV_DEL_HOLD": "pending",
+        "REVOKED": "cancelled",
+        "RUNNING": "running",
+        "SIGNALING": "running",
+        "SPECIAL_EXIT": "failed",
+        "STAGE_OUT": "running",
+        "SUSPENDED": "running",
+        "TIMEOUT": "timeout"
+      }
+    }
+  ],
+  "name": "constants",
+  "notes": "Values the Rust port must agree on. Each case's input names the constant; tuples/frozensets as JSON lists (frozensets sorted), regexes as their pattern source (Python `re` syntax). event_kinds: every literal Ledger.event kind in src/arboria plus the backup events; backup_events: kinds after which the ledger is dumped and committed (db.BACKUP_EVENTS).",
+  "source": "arboria (module constants)",
+  "version": 1
+}

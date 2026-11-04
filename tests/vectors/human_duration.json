@@ -1,0 +1,148 @@
+{
+  "cases": [
+    {
+      "id": "0",
+      "input": {
+        "seconds": 0
+      },
+      "output": "0s"
+    },
+    {
+      "id": "1",
+      "input": {
+        "seconds": 1
+      },
+      "output": "1s"
+    },
+    {
+      "id": "45",
+      "input": {
+        "seconds": 45
+      },
+      "output": "45s"
+    },
+    {
+      "id": "59",
+      "input": {
+        "seconds": 59
+      },
+      "output": "59s"
+    },
+    {
+      "id": "60",
+      "input": {
+        "seconds": 60
+      },
+      "output": "1m"
+    },
+    {
+      "id": "90",
+      "input": {
+        "seconds": 90
+      },
+      "output": "1m30s"
+    },
+    {
+      "id": "3599",
+      "input": {
+        "seconds": 3599
+      },
+      "output": "59m59s"
+    },
+    {
+      "id": "3600",
+      "input": {
+        "seconds": 3600
+      },
+      "output": "1h"
+    },
+    {
+      "id": "5400",
+      "input": {
+        "seconds": 5400
+      },
+      "output": "1h30m"
+    },
+    {
+      "id": "3661",
+      "input": {
+        "seconds": 3661
+      },
+      "output": "1h1m1s"
+    },
+    {
+      "id": "7200",
+      "input": {
+        "seconds": 7200
+      },
+      "output": "2h"
+    },
+    {
+      "id": "43200",
+      "input": {
+        "seconds": 43200
+      },
+      "output": "12h"
+    },
+    {
+      "id": "86400",
+      "input": {
+        "seconds": 86400
+      },
+      "output": "1d"
+    },
+    {
+      "id": "108000",
+      "input": {
+        "seconds": 108000
+      },
+      "output": "1d6h"
+    },
+    {
+      "id": "129600",
+      "input": {
+        "seconds": 129600
+      },
+      "output": "1d12h"
+    },
+    {
+      "id": "172800",
+      "input": {
+        "seconds": 172800
+      },
+      "output": "2d"
+    },
+    {
+      "id": "172801",
+      "input": {
+        "seconds": 172801
+      },
+      "output": "2d1s"
+    },
+    {
+      "id": "259200",
+      "input": {
+        "seconds": 259200
+      },
+      "output": "3d"
+    },
+    {
+      "id": "604800",
+      "input": {
+        "seconds": 604800
+      },
+      "output": "7d"
+    },
+    {
+      "id": "691201",
+      "input": {
+        "seconds": 691201
+      },
+      "output": "8d1s"
+    }
+  ],
+  "name": "human_duration",
+  "notes": "Compact d/h/m/s, zero parts omitted, '0s' for 0. Inputs are >= 0.",
+  "source": "arboria.slurm.human_duration",
+  "version": 1
+}

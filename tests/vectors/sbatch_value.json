@@ -1,0 +1,85 @@
+{
+  "cases": [
+    {
+      "id": "plain",
+      "input": {
+        "path": "/projects/bjki/x/logs/s1.%j.out"
+      },
+      "output": "/projects/bjki/x/logs/s1.%j.out"
+    },
+    {
+      "id": "dollar-user",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/p/r001/logs/s1.%j.out"
+      },
+      "output": "/projects/bjki/%u/arboria/runs/p/r001/logs/s1.%j.out"
+    },
+    {
+      "id": "braced",
+      "input": {
+        "path": "/projects/bjki/${USER}/logs"
+      },
+      "output": "/projects/bjki/%u/logs"
+    },
+    {
+      "id": "twice",
+      "input": {
+        "path": "/a/$USER/b/${USER}/c"
+      },
+      "output": "/a/%u/b/%u/c"
+    },
+    {
+      "id": "username",
+      "input": {
+        "path": "/a/$USERNAME/b"
+      },
+      "output": "/a/$USERNAME/b"
+    },
+    {
+      "id": "user-underscore",
+      "input": {
+        "path": "/a/$USER_X/b"
+      },
+      "output": "/a/$USER_X/b"
+    },
+    {
+      "id": "user-dot",
+      "input": {
+        "path": "/a/$USER.old/b"
+      },
+      "output": "/a/%u.old/b"
+    },
+    {
+      "id": "user-dash",
+      "input": {
+        "path": "/a/$USER-old/b"
+      },
+      "output": "/a/%u-old/b"
+    },
+    {
+      "id": "user-end",
+      "input": {
+        "path": "/a/$USER"
+      },
+      "output": "/a/%u"
+    },
+    {
+      "id": "lowercase",
+      "input": {
+        "path": "/a/$user/b"
+      },
+      "output": "/a/$user/b"
+    },
+    {
+      "id": "empty",
+      "input": {
+        "path": ""
+      },
+      "output": ""
+    }
+  ],
+  "name": "sbatch_value",
+  "notes": "#SBATCH lines are not shell-expanded: $USER and ${USER} become %u; $USERNAME, $USER_X etc. stay ($USER must not be followed by [A-Za-z0-9_]).",
+  "source": "arboria.slurm.sbatch_value",
+  "version": 1
+}

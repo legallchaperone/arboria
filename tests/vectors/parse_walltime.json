@@ -1,0 +1,311 @@
+{
+  "cases": [
+    {
+      "id": "90m",
+      "input": {
+        "text": "90m"
+      },
+      "output": 5400
+    },
+    {
+      "id": "12h",
+      "input": {
+        "text": "12h"
+      },
+      "output": 43200
+    },
+    {
+      "id": "1d6h",
+      "input": {
+        "text": "1d6h"
+      },
+      "output": 108000
+    },
+    {
+      "id": "45s",
+      "input": {
+        "text": "45s"
+      },
+      "output": 45
+    },
+    {
+      "id": "1d",
+      "input": {
+        "text": "1d"
+      },
+      "output": 86400
+    },
+    {
+      "id": "full-units",
+      "input": {
+        "text": "1d2h3m4s"
+      },
+      "output": 93784
+    },
+    {
+      "id": "upper",
+      "input": {
+        "text": "12H"
+      },
+      "output": 43200
+    },
+    {
+      "id": "spaces",
+      "input": {
+        "text": "  2h  "
+      },
+      "output": 7200
+    },
+    {
+      "id": "48h",
+      "input": {
+        "text": "48h"
+      },
+      "output": 172800
+    },
+    {
+      "id": "2h",
+      "input": {
+        "text": "2h"
+      },
+      "output": 7200
+    },
+    {
+      "id": "leading-zero",
+      "input": {
+        "text": "007m"
+      },
+      "output": 420
+    },
+    {
+      "id": "big-hours",
+      "input": {
+        "text": "100h"
+      },
+      "output": 360000
+    },
+    {
+      "id": "7d",
+      "input": {
+        "text": "7d"
+      },
+      "output": 604800
+    },
+    {
+      "id": "clock",
+      "input": {
+        "text": "01:30:00"
+      },
+      "output": 5400
+    },
+    {
+      "id": "clock-days",
+      "input": {
+        "text": "2-00:00:00"
+      },
+      "output": 172800
+    },
+    {
+      "id": "clock-1day",
+      "input": {
+        "text": "1-00:00:00"
+      },
+      "output": 86400
+    },
+    {
+      "id": "clock-hours-over-24",
+      "input": {
+        "text": "100:00:00"
+      },
+      "output": 360000
+    },
+    {
+      "id": "clock-1-digit-hour",
+      "input": {
+        "text": "1:00:00"
+      },
+      "output": 3600
+    },
+    {
+      "id": "clock-seconds",
+      "input": {
+        "text": "00:00:59"
+      },
+      "output": 59
+    },
+    {
+      "id": "clock-max-ms",
+      "input": {
+        "text": "00:59:59"
+      },
+      "output": 3599
+    },
+    {
+      "error": "ArbError: invalid walltime '00:60:00': minutes and seconds must be < 60",
+      "id": "err-clock-minutes-60",
+      "input": {
+        "text": "00:60:00"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '00:00:60': minutes and seconds must be < 60",
+      "id": "err-clock-seconds-60",
+      "input": {
+        "text": "00:00:60"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '1:2:3'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-clock-1-digit-min",
+      "input": {
+        "text": "1:2:3"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '30:00'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-clock-mm-ss",
+      "input": {
+        "text": "30:00"
+      }
+    },
+    {
+      "error": "ArbError: walltime '0h' must be > 0",
+      "id": "err-zero-units",
+      "input": {
+        "text": "0h"
+      }
+    },
+    {
+      "error": "ArbError: walltime '00:00:00' must be > 0",
+      "id": "err-zero-clock",
+      "input": {
+        "text": "00:00:00"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime ''; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-empty",
+      "input": {
+        "text": ""
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '   '; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-blank",
+      "input": {
+        "text": "   "
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '6h1d'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-order",
+      "input": {
+        "text": "6h1d"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime 'h'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-unit-only",
+      "input": {
+        "text": "h"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '1.5h'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-decimal",
+      "input": {
+        "text": "1.5h"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime 'forever'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-word",
+      "input": {
+        "text": "forever"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '-1h'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-negative",
+      "input": {
+        "text": "-1h"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '1d 6h'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-space-inside",
+      "input": {
+        "text": "1d 6h"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime \"12h'\"; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-quote-repr",
+      "input": {
+        "text": "12h'"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime '两小时'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-chinese",
+      "input": {
+        "text": "两小时"
+      }
+    },
+    {
+      "id": "arabic-digits",
+      "input": {
+        "text": "١٢h"
+      },
+      "output": 43200
+    },
+    {
+      "id": "fullwidth-digits",
+      "input": {
+        "text": "１２h"
+      },
+      "output": 43200
+    },
+    {
+      "error": "ArbError: invalid walltime '１２Ｈ'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-fullwidth-unit",
+      "input": {
+        "text": "１２Ｈ"
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime 3600",
+      "id": "err-int",
+      "input": {
+        "text": 3600
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime None",
+      "id": "err-null",
+      "input": {
+        "text": null
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime 1.5",
+      "id": "err-float",
+      "input": {
+        "text": 1.5
+      }
+    },
+    {
+      "error": "ArbError: invalid walltime ['1h']",
+      "id": "err-list",
+      "input": {
+        "text": [
+          "1h"
+        ]
+      }
+    }
+  ],
+  "name": "parse_walltime",
+  "notes": "Seconds. Input is stripped and lowercased (Python str.strip()/lower(), Unicode). Python's \\d matches any Unicode decimal digit and int() accepts them, so non-ASCII digits are accepted (see the arabic/fullwidth cases). Error messages use Python repr() of the input.",
+  "source": "arboria.slurm.parse_walltime",
+  "version": 1
+}

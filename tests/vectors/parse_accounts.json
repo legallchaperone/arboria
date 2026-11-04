@@ -1,0 +1,210 @@
+{
+  "cases": [
+    {
+      "id": "deltaai",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear..."
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          "199"
+        ]
+      ]
+    },
+    {
+      "id": "two-accounts",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\nbdxx-dtai-gh                                50               100  other project\n"
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          "199"
+        ],
+        [
+          "bdxx-dtai-gh",
+          "50"
+        ]
+      ]
+    },
+    {
+      "id": "blank-lines-skipped",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\n\nbjki-dtai-gh                               199               200  representation lear...\n\n   \n"
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          "199"
+        ]
+      ]
+    },
+    {
+      "id": "crlf",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\r\n\r\nAccount                        Balance(Hours)   Deposited(Hours)  Project\r\n----------------------------  ----------------  ----------------  ----------------------\r\nbjki-dtai-gh                               199               200  representation lear...\r\n"
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          "199"
+        ]
+      ]
+    },
+    {
+      "id": "no-balance-column",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh\n"
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          ""
+        ]
+      ]
+    },
+    {
+      "id": "decimal-and-negative",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\na-gh   12.5   20\nb-gh   -3   10\n"
+      },
+      "output": [
+        [
+          "a-gh",
+          "12.5"
+        ],
+        [
+          "b-gh",
+          "-3"
+        ]
+      ]
+    },
+    {
+      "id": "header-only",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\n"
+      },
+      "output": []
+    },
+    {
+      "id": "no-rule",
+      "input": {
+        "text": "Account Balance\nbjki-dtai-gh 199\n"
+      },
+      "output": []
+    },
+    {
+      "id": "empty",
+      "input": {
+        "text": ""
+      },
+      "output": []
+    },
+    {
+      "id": "command-not-found",
+      "input": {
+        "text": "bash: accounts: command not found\n"
+      },
+      "output": []
+    },
+    {
+      "id": "rule-5-dashes-not-a-rule",
+      "input": {
+        "text": "Account\n-----\nbjki 1\n"
+      },
+      "output": []
+    },
+    {
+      "id": "rule-6-dashes",
+      "input": {
+        "text": "Account\n------\nbjki 1\n"
+      },
+      "output": [
+        [
+          "bjki",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "rule-spaces-and-tabs",
+      "input": {
+        "text": "Account\n--- \t ---\nbjki 1\n"
+      },
+      "output": [
+        [
+          "bjki",
+          "1"
+        ]
+      ]
+    },
+    {
+      "id": "rule-all-spaces-not-a-rule",
+      "input": {
+        "text": "Account\n        \nbjki 1\n"
+      },
+      "output": []
+    },
+    {
+      "id": "later-rules-skipped",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n----------\nbdxx-dtai-gh 50 100\n"
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          "199"
+        ],
+        [
+          "bdxx-dtai-gh",
+          "50"
+        ]
+      ]
+    },
+    {
+      "id": "quirk-footer-is-a-row",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\nTotal: 199 hours\n"
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          "199"
+        ],
+        [
+          "Total:",
+          "199"
+        ]
+      ]
+    },
+    {
+      "id": "leading-indent",
+      "input": {
+        "text": "Project Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\n   bjki-dtai-gh   199   200\n"
+      },
+      "output": [
+        [
+          "bjki-dtai-gh",
+          "199"
+        ]
+      ]
+    },
+    {
+      "id": "unicode-space-rule",
+      "input": {
+        "text": "Account\n---　---\nbjki 1\n"
+      },
+      "output": [
+        [
+          "bjki",
+          "1"
+        ]
+      ]
+    }
+  ],
+  "name": "parse_accounts",
+  "notes": "NCSA `accounts` output -> [[account, balance]]: every non-blank line after the first line that fully matches [-\\s]{6,} and contains '-' (Python re \\s, i.e. Unicode whitespace) is a row; split on whitespace (Python str.split), column 1 is the account, column 2 the balance as text ('' if missing). Later dashed lines are skipped too; lines are split with str.splitlines (\\n, \\r\\n, \\r and the other Unicode line breaks). The real DeltaAI case is the @@accounts section of tests/fixtures/deltaai_probe.txt.",
+  "source": "arboria.machine.parse_accounts",
+  "version": 1
+}

@@ -1,0 +1,232 @@
+{
+  "cases": [
+    {
+      "id": "BOOT_FAIL",
+      "input": {
+        "raw": "BOOT_FAIL"
+      },
+      "output": "failed"
+    },
+    {
+      "id": "CANCELLED",
+      "input": {
+        "raw": "CANCELLED"
+      },
+      "output": "cancelled"
+    },
+    {
+      "id": "COMPLETED",
+      "input": {
+        "raw": "COMPLETED"
+      },
+      "output": "completed"
+    },
+    {
+      "id": "COMPLETING",
+      "input": {
+        "raw": "COMPLETING"
+      },
+      "output": "running"
+    },
+    {
+      "id": "CONFIGURING",
+      "input": {
+        "raw": "CONFIGURING"
+      },
+      "output": "running"
+    },
+    {
+      "id": "DEADLINE",
+      "input": {
+        "raw": "DEADLINE"
+      },
+      "output": "failed"
+    },
+    {
+      "id": "FAILED",
+      "input": {
+        "raw": "FAILED"
+      },
+      "output": "failed"
+    },
+    {
+      "id": "NODE_FAIL",
+      "input": {
+        "raw": "NODE_FAIL"
+      },
+      "output": "failed"
+    },
+    {
+      "id": "OUT_OF_MEMORY",
+      "input": {
+        "raw": "OUT_OF_MEMORY"
+      },
+      "output": "failed"
+    },
+    {
+      "id": "PENDING",
+      "input": {
+        "raw": "PENDING"
+      },
+      "output": "pending"
+    },
+    {
+      "id": "PREEMPTED",
+      "input": {
+        "raw": "PREEMPTED"
+      },
+      "output": "pending"
+    },
+    {
+      "id": "REQUEUED",
+      "input": {
+        "raw": "REQUEUED"
+      },
+      "output": "pending"
+    },
+    {
+      "id": "REQUEUE_FED",
+      "input": {
+        "raw": "REQUEUE_FED"
+      },
+      "output": "pending"
+    },
+    {
+      "id": "REQUEUE_HOLD",
+      "input": {
+        "raw": "REQUEUE_HOLD"
+      },
+      "output": "pending"
+    },
+    {
+      "id": "RESIZING",
+      "input": {
+        "raw": "RESIZING"
+      },
+      "output": "running"
+    },
+    {
+      "id": "RESV_DEL_HOLD",
+      "input": {
+        "raw": "RESV_DEL_HOLD"
+      },
+      "output": "pending"
+    },
+    {
+      "id": "REVOKED",
+      "input": {
+        "raw": "REVOKED"
+      },
+      "output": "cancelled"
+    },
+    {
+      "id": "RUNNING",
+      "input": {
+        "raw": "RUNNING"
+      },
+      "output": "running"
+    },
+    {
+      "id": "SIGNALING",
+      "input": {
+        "raw": "SIGNALING"
+      },
+      "output": "running"
+    },
+    {
+      "id": "SPECIAL_EXIT",
+      "input": {
+        "raw": "SPECIAL_EXIT"
+      },
+      "output": "failed"
+    },
+    {
+      "id": "STAGE_OUT",
+      "input": {
+        "raw": "STAGE_OUT"
+      },
+      "output": "running"
+    },
+    {
+      "id": "SUSPENDED",
+      "input": {
+        "raw": "SUSPENDED"
+      },
+      "output": "running"
+    },
+    {
+      "id": "TIMEOUT",
+      "input": {
+        "raw": "TIMEOUT"
+      },
+      "output": "timeout"
+    },
+    {
+      "id": "cancelled-by",
+      "input": {
+        "raw": "CANCELLED by 123456"
+      },
+      "output": "cancelled"
+    },
+    {
+      "id": "plus",
+      "input": {
+        "raw": "CANCELLED+"
+      },
+      "output": "cancelled"
+    },
+    {
+      "id": "lowercase",
+      "input": {
+        "raw": "completed"
+      },
+      "output": "completed"
+    },
+    {
+      "id": "padded",
+      "input": {
+        "raw": "  RUNNING  "
+      },
+      "output": "running"
+    },
+    {
+      "id": "empty",
+      "input": {
+        "raw": ""
+      },
+      "output": "unknown"
+    },
+    {
+      "id": "blank",
+      "input": {
+        "raw": "   "
+      },
+      "output": "unknown"
+    },
+    {
+      "id": "unknown",
+      "input": {
+        "raw": "WHAT"
+      },
+      "output": "unknown"
+    },
+    {
+      "id": "tab",
+      "input": {
+        "raw": "FAILED\tx"
+      },
+      "output": "failed"
+    },
+    {
+      "id": "plus-plus",
+      "input": {
+        "raw": "TIMEOUT++"
+      },
+      "output": "timeout"
+    }
+  ],
+  "name": "map_slurm_state",
+  "notes": "sacct State -> jobs.state: first whitespace-separated word, trailing '+' removed, uppercased, looked up; anything else is 'unknown'.",
+  "source": "arboria.backends.base.map_slurm_state",
+  "version": 1
+}

@@ -1,0 +1,236 @@
+{
+  "cases": [
+    {
+      "id": "hydra",
+      "input": {
+        "overrides": [
+          [
+            "lr",
+            "0.0003"
+          ],
+          [
+            "trainer.max_steps",
+            "200000"
+          ],
+          [
+            "use_ema",
+            "true"
+          ]
+        ],
+        "style": "hydra"
+      },
+      "output": [
+        "lr=0.0003",
+        "trainer.max_steps=200000",
+        "use_ema=true"
+      ]
+    },
+    {
+      "id": "argparse",
+      "input": {
+        "overrides": [
+          [
+            "lr",
+            "0.0003"
+          ],
+          [
+            "trainer.max_steps",
+            "200000"
+          ],
+          [
+            "use_ema",
+            "true"
+          ]
+        ],
+        "style": "argparse"
+      },
+      "output": [
+        "--lr",
+        "0.0003",
+        "--trainer.max_steps",
+        "200000",
+        "--use_ema",
+        "true"
+      ]
+    },
+    {
+      "id": "tyro",
+      "input": {
+        "overrides": [
+          [
+            "lr",
+            "0.0003"
+          ],
+          [
+            "trainer.max_steps",
+            "200000"
+          ],
+          [
+            "use_ema",
+            "true"
+          ]
+        ],
+        "style": "tyro"
+      },
+      "output": [
+        "--lr",
+        "0.0003",
+        "--trainer.max_steps",
+        "200000",
+        "--use_ema",
+        "true"
+      ]
+    },
+    {
+      "id": "hydra-empty",
+      "input": {
+        "overrides": [],
+        "style": "hydra"
+      },
+      "output": []
+    },
+    {
+      "id": "argparse-empty",
+      "input": {
+        "overrides": [],
+        "style": "argparse"
+      },
+      "output": []
+    },
+    {
+      "id": "hydra-prefixes",
+      "input": {
+        "overrides": [
+          [
+            "+trainer.devices",
+            "4"
+          ],
+          [
+            "~callbacks",
+            "null"
+          ],
+          [
+            "++x",
+            "1"
+          ]
+        ],
+        "style": "hydra"
+      },
+      "output": [
+        "+trainer.devices=4",
+        "~callbacks=null",
+        "++x=1"
+      ]
+    },
+    {
+      "id": "hydra-empty-value",
+      "input": {
+        "overrides": [
+          [
+            "tag",
+            ""
+          ]
+        ],
+        "style": "hydra"
+      },
+      "output": [
+        "tag="
+      ]
+    },
+    {
+      "id": "argparse-empty-value",
+      "input": {
+        "overrides": [
+          [
+            "tag",
+            ""
+          ]
+        ],
+        "style": "argparse"
+      },
+      "output": [
+        "--tag",
+        ""
+      ]
+    },
+    {
+      "id": "argparse-dash-key",
+      "input": {
+        "overrides": [
+          [
+            "batch-size",
+            "64"
+          ]
+        ],
+        "style": "argparse"
+      },
+      "output": [
+        "--batch-size",
+        "64"
+      ]
+    },
+    {
+      "error": "ArbError: override key '+x': + / ~ prefixes are hydra syntax, not argparse",
+      "id": "err-argparse-plus",
+      "input": {
+        "overrides": [
+          [
+            "lr",
+            "1"
+          ],
+          [
+            "+x",
+            "1"
+          ]
+        ],
+        "style": "argparse"
+      }
+    },
+    {
+      "error": "ArbError: override key '~x': + / ~ prefixes are hydra syntax, not tyro",
+      "id": "err-tyro-tilde",
+      "input": {
+        "overrides": [
+          [
+            "~x",
+            "null"
+          ]
+        ],
+        "style": "tyro"
+      }
+    },
+    {
+      "error": "ArbError: unknown override style 'click'",
+      "id": "err-unknown-style",
+      "input": {
+        "overrides": [
+          [
+            "lr",
+            "0.0003"
+          ],
+          [
+            "trainer.max_steps",
+            "200000"
+          ],
+          [
+            "use_ema",
+            "true"
+          ]
+        ],
+        "style": "click"
+      }
+    },
+    {
+      "error": "ArbError: unknown override style ''",
+      "id": "err-unknown-style-empty",
+      "input": {
+        "overrides": [],
+        "style": ""
+      }
+    }
+  ],
+  "name": "render_overrides",
+  "notes": "hydra -> ['k=v']; argparse / tyro -> ['--k', 'v'] (hydra prefixes + / ~ refused).",
+  "source": "arboria.slurm.render_overrides",
+  "version": 1
+}

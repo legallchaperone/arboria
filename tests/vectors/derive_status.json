@@ -1,0 +1,258 @@
+{
+  "cases": [
+    {
+      "id": "all-pending",
+      "input": {
+        "current": "queued",
+        "n_segments": 1,
+        "states": [
+          "pending"
+        ]
+      },
+      "output": "queued"
+    },
+    {
+      "id": "running",
+      "input": {
+        "current": "queued",
+        "n_segments": 1,
+        "states": [
+          "running"
+        ]
+      },
+      "output": "running"
+    },
+    {
+      "id": "completed",
+      "input": {
+        "current": "running",
+        "n_segments": 1,
+        "states": [
+          "completed"
+        ]
+      },
+      "output": "succeeded"
+    },
+    {
+      "id": "failed",
+      "input": {
+        "current": "running",
+        "n_segments": 1,
+        "states": [
+          "failed"
+        ]
+      },
+      "output": "failed"
+    },
+    {
+      "id": "cancelled",
+      "input": {
+        "current": "running",
+        "n_segments": 1,
+        "states": [
+          "cancelled"
+        ]
+      },
+      "output": "cancelled"
+    },
+    {
+      "id": "timeout-last",
+      "input": {
+        "current": "running",
+        "n_segments": 1,
+        "states": [
+          "timeout"
+        ]
+      },
+      "output": "failed"
+    },
+    {
+      "id": "unknown",
+      "input": {
+        "current": "queued",
+        "n_segments": 1,
+        "states": [
+          "unknown"
+        ]
+      },
+      "output": "queued"
+    },
+    {
+      "id": "submitting",
+      "input": {
+        "current": "queued",
+        "n_segments": 1,
+        "states": [
+          "submitting"
+        ]
+      },
+      "output": "queued"
+    },
+    {
+      "id": "2seg-first-timeout-second-pending",
+      "input": {
+        "current": "running",
+        "n_segments": 2,
+        "states": [
+          "timeout",
+          "pending"
+        ]
+      },
+      "output": "running"
+    },
+    {
+      "id": "2seg-timeout-then-completed",
+      "input": {
+        "current": "running",
+        "n_segments": 2,
+        "states": [
+          "timeout",
+          "completed"
+        ]
+      },
+      "output": "succeeded"
+    },
+    {
+      "id": "2seg-both-timeout",
+      "input": {
+        "current": "running",
+        "n_segments": 2,
+        "states": [
+          "timeout",
+          "timeout"
+        ]
+      },
+      "output": "failed"
+    },
+    {
+      "id": "2seg-completed-then-completed",
+      "input": {
+        "current": "running",
+        "n_segments": 2,
+        "states": [
+          "completed",
+          "completed"
+        ]
+      },
+      "output": "succeeded"
+    },
+    {
+      "id": "2seg-one-row-only",
+      "input": {
+        "current": "running",
+        "n_segments": 2,
+        "states": [
+          "completed"
+        ]
+      },
+      "output": "running"
+    },
+    {
+      "id": "2seg-one-row-approved",
+      "input": {
+        "current": "approved",
+        "n_segments": 2,
+        "states": [
+          "completed"
+        ]
+      },
+      "output": "approved"
+    },
+    {
+      "id": "approved-pending",
+      "input": {
+        "current": "approved",
+        "n_segments": 2,
+        "states": [
+          "pending"
+        ]
+      },
+      "output": "approved"
+    },
+    {
+      "id": "failed-beats-cancelled",
+      "input": {
+        "current": "running",
+        "n_segments": 2,
+        "states": [
+          "cancelled",
+          "failed"
+        ]
+      },
+      "output": "failed"
+    },
+    {
+      "id": "cancelled-beats-running",
+      "input": {
+        "current": "running",
+        "n_segments": 2,
+        "states": [
+          "running",
+          "cancelled"
+        ]
+      },
+      "output": "cancelled"
+    },
+    {
+      "id": "4seg-progress",
+      "input": {
+        "current": "queued",
+        "n_segments": 4,
+        "states": [
+          "timeout",
+          "timeout",
+          "running",
+          "pending"
+        ]
+      },
+      "output": "running"
+    },
+    {
+      "id": "4seg-done",
+      "input": {
+        "current": "running",
+        "n_segments": 4,
+        "states": [
+          "timeout",
+          "timeout",
+          "timeout",
+          "completed"
+        ]
+      },
+      "output": "succeeded"
+    },
+    {
+      "id": "no-states",
+      "input": {
+        "current": "queued",
+        "n_segments": 1,
+        "states": []
+      },
+      "output": "queued"
+    },
+    {
+      "id": "no-states-approved",
+      "input": {
+        "current": "approved",
+        "n_segments": 1,
+        "states": []
+      },
+      "output": "approved"
+    },
+    {
+      "id": "completed-but-approved",
+      "input": {
+        "current": "approved",
+        "n_segments": 1,
+        "states": [
+          "completed"
+        ]
+      },
+      "output": "succeeded"
+    }
+  ],
+  "name": "derive_status",
+  "notes": "Run status from its jobs' states (segment order), the plan's segment count and the run's current status.",
+  "source": "arboria.monitor.derive_status",
+  "version": 1
+}

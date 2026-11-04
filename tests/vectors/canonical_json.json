@@ -1,0 +1,407 @@
+{
+  "cases": [
+    {
+      "id": "mem-per-gpu",
+      "input": {
+        "obj": 110.898
+      },
+      "output": "110.898"
+    },
+    {
+      "id": "1e-4",
+      "input": {
+        "obj": 0.0001
+      },
+      "output": "0.0001"
+    },
+    {
+      "id": "6e-4",
+      "input": {
+        "obj": 0.0006
+      },
+      "output": "0.0006"
+    },
+    {
+      "id": "1e-5",
+      "input": {
+        "obj": 1e-05
+      },
+      "output": "1e-05"
+    },
+    {
+      "id": "0.1+0.2",
+      "input": {
+        "obj": 0.30000000000000004
+      },
+      "output": "0.30000000000000004"
+    },
+    {
+      "id": "float-integral",
+      "input": {
+        "obj": 1.0
+      },
+      "output": "1.0"
+    },
+    {
+      "id": "float-2.0",
+      "input": {
+        "obj": 2.0
+      },
+      "output": "2.0"
+    },
+    {
+      "id": "neg-zero",
+      "input": {
+        "obj": -0.0
+      },
+      "output": "-0.0"
+    },
+    {
+      "id": "1e16",
+      "input": {
+        "obj": 1e+16
+      },
+      "output": "1e+16"
+    },
+    {
+      "id": "9.999e15",
+      "input": {
+        "obj": 9999999999999998.0
+      },
+      "output": "9999999999999998.0"
+    },
+    {
+      "id": "1.5e300",
+      "input": {
+        "obj": 1.5e+300
+      },
+      "output": "1.5e+300"
+    },
+    {
+      "id": "5e-324",
+      "input": {
+        "obj": 5e-324
+      },
+      "output": "5e-324"
+    },
+    {
+      "id": "max-float",
+      "input": {
+        "obj": 1.7976931348623157e+308
+      },
+      "output": "1.7976931348623157e+308"
+    },
+    {
+      "id": "third",
+      "input": {
+        "obj": 0.3333333333333333
+      },
+      "output": "0.3333333333333333"
+    },
+    {
+      "id": "su-0.13",
+      "input": {
+        "obj": 0.13
+      },
+      "output": "0.13"
+    },
+    {
+      "id": "su-raw",
+      "input": {
+        "obj": 0.12971583333333334
+      },
+      "output": "0.12971583333333334"
+    },
+    {
+      "id": "int",
+      "input": {
+        "obj": 42
+      },
+      "output": "42"
+    },
+    {
+      "id": "neg-int",
+      "input": {
+        "obj": -7
+      },
+      "output": "-7"
+    },
+    {
+      "id": "i64-max",
+      "input": {
+        "obj": 9223372036854775807
+      },
+      "output": "9223372036854775807"
+    },
+    {
+      "id": "i64-min",
+      "input": {
+        "obj": -9223372036854775808
+      },
+      "output": "-9223372036854775808"
+    },
+    {
+      "id": "u64-max",
+      "input": {
+        "obj": 18446744073709551615
+      },
+      "output": "18446744073709551615"
+    },
+    {
+      "id": "zero",
+      "input": {
+        "obj": 0
+      },
+      "output": "0"
+    },
+    {
+      "id": "null",
+      "input": {
+        "obj": null
+      },
+      "output": "null"
+    },
+    {
+      "id": "true",
+      "input": {
+        "obj": true
+      },
+      "output": "true"
+    },
+    {
+      "id": "false",
+      "input": {
+        "obj": false
+      },
+      "output": "false"
+    },
+    {
+      "id": "empty-string",
+      "input": {
+        "obj": ""
+      },
+      "output": "\"\""
+    },
+    {
+      "id": "ascii",
+      "input": {
+        "obj": "python train.py"
+      },
+      "output": "\"python train.py\""
+    },
+    {
+      "id": "chinese",
+      "input": {
+        "obj": "批准这个 run 上集群吗？"
+      },
+      "output": "\"批准这个 run 上集群吗？\""
+    },
+    {
+      "id": "emoji-astral",
+      "input": {
+        "obj": "😀 ok"
+      },
+      "output": "\"😀 ok\""
+    },
+    {
+      "id": "escapes",
+      "input": {
+        "obj": "q\"b\\s/n\nr\rt\tb\bf\f"
+      },
+      "output": "\"q\\\"b\\\\s/n\\nr\\rt\\tb\\bf\\f\""
+    },
+    {
+      "id": "controls",
+      "input": {
+        "obj": "\u0000\u0001\u001f"
+      },
+      "output": "\"\\u0000\\u0001\\u001f\""
+    },
+    {
+      "id": "line-sep",
+      "input": {
+        "obj": "a b c"
+      },
+      "output": "\"a b c\""
+    },
+    {
+      "id": "dollar-user",
+      "input": {
+        "obj": "/projects/bjki/$USER/arboria/runs"
+      },
+      "output": "\"/projects/bjki/$USER/arboria/runs\""
+    },
+    {
+      "id": "empty-list",
+      "input": {
+        "obj": []
+      },
+      "output": "[]"
+    },
+    {
+      "id": "empty-dict",
+      "input": {
+        "obj": {}
+      },
+      "output": "{}"
+    },
+    {
+      "id": "nested",
+      "input": {
+        "obj": {
+          "a": {
+            "x": [
+              []
+            ],
+            "y": ""
+          },
+          "b": [
+            1,
+            2.5,
+            {
+              "a": [
+                true,
+                false
+              ],
+              "z": null
+            }
+          ]
+        }
+      },
+      "output": "{\"a\":{\"x\":[[]],\"y\":\"\"},\"b\":[1,2.5,{\"a\":[true,false],\"z\":null}]}"
+    },
+    {
+      "id": "key-order",
+      "input": {
+        "obj": {
+          "10": 7,
+          "9": 8,
+          "B": 3,
+          "_": 4,
+          "a": 2,
+          "a-": 6,
+          "a1": 5,
+          "b": 1
+        }
+      },
+      "output": "{\"10\":7,\"9\":8,\"B\":3,\"_\":4,\"a\":2,\"a-\":6,\"a1\":5,\"b\":1}"
+    },
+    {
+      "id": "key-order-unicode",
+      "input": {
+        "obj": {
+          "Z": 6,
+          "z": 2,
+          "é": 1,
+          "中": 3,
+          "￿": 4,
+          "😀": 5
+        }
+      },
+      "output": "{\"Z\":6,\"z\":2,\"é\":1,\"中\":3,\"￿\":4,\"😀\":5}"
+    },
+    {
+      "id": "list-order-kept",
+      "input": {
+        "obj": [
+          "b",
+          "a",
+          3,
+          1.0
+        ]
+      },
+      "output": "[\"b\",\"a\",3,1.0]"
+    },
+    {
+      "id": "card-payload-1gpu",
+      "input": {
+        "obj": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "env": {
+            "arch": "aarch64",
+            "env_activate": [],
+            "paths": {
+              "cache": "/projects/bjki/$USER/arboria/cache",
+              "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+              "data": "/work/nvme/bjki/$USER/data",
+              "out": "/projects/bjki/$USER/arboria/out",
+              "runs": "/projects/bjki/$USER/arboria/runs"
+            },
+            "prelude": []
+          },
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "project": "wavefront-3f2a",
+          "resources": {
+            "account": "bjki-dtai-gh",
+            "billed_gpus": 1,
+            "charge": 1.0,
+            "cpus_per_node": 72,
+            "gpus": 1,
+            "gpus_per_node": 1,
+            "mem_gb_per_node": 110,
+            "nodes": 1
+          },
+          "segments": [
+            3600
+          ],
+          "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+        }
+      },
+      "output": "{\"command\":[\"python\",\"train.py\"],\"env\":{\"arch\":\"aarch64\",\"env_activate\":[],\"paths\":{\"cache\":\"/projects/bjki/$USER/arboria/cache\",\"ckpt\":\"/work/hdd/bjki/$USER/arboria/ckpt\",\"data\":\"/work/nvme/bjki/$USER/data\",\"out\":\"/projects/bjki/$USER/arboria/out\",\"runs\":\"/projects/bjki/$USER/arboria/runs\"},\"prelude\":[]},\"machine\":\"deltaai\",\"partition\":\"ghx4\",\"project\":\"wavefront-3f2a\",\"resources\":{\"account\":\"bjki-dtai-gh\",\"billed_gpus\":1,\"charge\":1.0,\"cpus_per_node\":72,\"gpus\":1,\"gpus_per_node\":1,\"mem_gb_per_node\":110,\"nodes\":1},\"segments\":[3600],\"snapshot_commit\":\"5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f\"}"
+    },
+    {
+      "id": "card-payload-uv",
+      "input": {
+        "obj": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "env": {
+            "arch": "aarch64",
+            "env_activate": [
+              "source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate"
+            ],
+            "paths": {
+              "cache": "/projects/bjki/$USER/arboria/cache",
+              "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+              "data": "/work/nvme/bjki/$USER/data",
+              "out": "/projects/bjki/${USER}/arboria/out",
+              "runs": "/projects/bjki/$USER/arboria/runs"
+            },
+            "prelude": [
+              "module load cuda",
+              "export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache"
+            ]
+          },
+          "machine": "deltaai-uv",
+          "partition": "ghx4",
+          "project": "wavefront-3f2a",
+          "resources": {
+            "account": "bjki-dtai-gh",
+            "billed_gpus": 1,
+            "charge": 1.0,
+            "cpus_per_node": 72,
+            "gpus": 1,
+            "gpus_per_node": 1,
+            "mem_gb_per_node": 110,
+            "nodes": 1
+          },
+          "segments": [
+            3600
+          ],
+          "snapshot_commit": "5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f"
+        }
+      },
+      "output": "{\"command\":[\"python\",\"train.py\"],\"env\":{\"arch\":\"aarch64\",\"env_activate\":[\"source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate\"],\"paths\":{\"cache\":\"/projects/bjki/$USER/arboria/cache\",\"ckpt\":\"/work/hdd/bjki/$USER/arboria/ckpt\",\"data\":\"/work/nvme/bjki/$USER/data\",\"out\":\"/projects/bjki/${USER}/arboria/out\",\"runs\":\"/projects/bjki/$USER/arboria/runs\"},\"prelude\":[\"module load cuda\",\"export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache\"]},\"machine\":\"deltaai-uv\",\"partition\":\"ghx4\",\"project\":\"wavefront-3f2a\",\"resources\":{\"account\":\"bjki-dtai-gh\",\"billed_gpus\":1,\"charge\":1.0,\"cpus_per_node\":72,\"gpus\":1,\"gpus_per_node\":1,\"mem_gb_per_node\":110,\"nodes\":1},\"segments\":[3600],\"snapshot_commit\":\"5f0c2e7b9a1d4c3e8f6a0b2d4e6f8a1c3e5b7d9f\"}"
+    }
+  ],
+  "name": "canonical_json",
+  "notes": "json.dumps(obj, sort_keys=True, separators=(',', ':'), ensure_ascii=False): the card hash input. Floats use Python repr (shortest round-trip; exponent form when exp < -4 or >= 16, written like 1e-05 / 1e+16; integral floats keep '.0'). Keys sort by code point (= UTF-8 byte order). Only \" \\\\ and U+0000..U+001F are escaped (\\n \\r \\t \\b \\f short forms, others \\u00xx lowercase); U+007F, U+2028 and non-ASCII are written raw. NaN/Infinity and ints outside i64/u64 are not representable in the vector files and are left out.",
+  "source": "arboria.slurm.canonical_json",
+  "version": 1
+}

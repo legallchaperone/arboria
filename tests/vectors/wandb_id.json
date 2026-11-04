@@ -1,0 +1,96 @@
+{
+  "cases": [
+    {
+      "id": "deltaai",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r001"
+      },
+      "output": "wavefront-3f2a-r001"
+    },
+    {
+      "id": "deltaai-segment-3",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r042"
+      },
+      "output": "wavefront-3f2a-r042"
+    },
+    {
+      "id": "braced-user",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r001"
+      },
+      "output": "wavefront-3f2a-r001"
+    },
+    {
+      "id": "project-31",
+      "input": {
+        "project": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c",
+        "run_id": "r1000"
+      },
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c-r1000"
+    },
+    {
+      "id": "fake",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r007"
+      },
+      "output": "wavefront-3f2a-r007"
+    },
+    {
+      "id": "array-job-id",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r001"
+      },
+      "output": "wavefront-3f2a-r001"
+    },
+    {
+      "id": "segment-12",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r042"
+      },
+      "output": "wavefront-3f2a-r042"
+    },
+    {
+      "id": "project-1-char",
+      "input": {
+        "project": "a",
+        "run_id": "r001"
+      },
+      "output": "a-r001"
+    },
+    {
+      "id": "run-id-not-validated",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "R-1/x"
+      },
+      "output": "wavefront-3f2a-R-1/x"
+    },
+    {
+      "error": "ArbError: invalid project id 'Bad_Project'; must match ^[a-z0-9][a-z0-9-]{0,30}$",
+      "id": "err-bad-project",
+      "input": {
+        "project": "Bad_Project",
+        "run_id": "r001"
+      }
+    },
+    {
+      "error": "ArbError: invalid project id None; must match ^[a-z0-9][a-z0-9-]{0,30}$",
+      "id": "err-project-null",
+      "input": {
+        "project": null,
+        "run_id": "r001"
+      }
+    }
+  ],
+  "name": "wandb_id",
+  "notes": "<project>-<run> (ARBORIA_WANDB_ID). The run id is not validated.",
+  "source": "arboria.slurm.wandb_id",
+  "version": 1
+}

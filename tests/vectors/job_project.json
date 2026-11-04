@@ -1,0 +1,85 @@
+{
+  "cases": [
+    {
+      "id": "typical",
+      "input": {
+        "name": "arb-wavefront-3f2a-r001-s1"
+      },
+      "output": "wavefront-3f2a"
+    },
+    {
+      "id": "dashes",
+      "input": {
+        "name": "arb-my-proj-1a2b-r003-s2"
+      },
+      "output": "my-proj-1a2b"
+    },
+    {
+      "id": "legacy",
+      "input": {
+        "name": "arboria-r001-s1"
+      },
+      "output": null
+    },
+    {
+      "id": "other-job",
+      "input": {
+        "name": "jupyter"
+      },
+      "output": null
+    },
+    {
+      "id": "empty",
+      "input": {
+        "name": ""
+      },
+      "output": null
+    },
+    {
+      "id": "too-long",
+      "input": {
+        "name": "arb-aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c-r0000000000000000000000000-s1"
+      },
+      "output": null
+    },
+    {
+      "id": "segment-12",
+      "input": {
+        "name": "arb-wavefront-3f2a-r003-s12"
+      },
+      "output": "wavefront-3f2a"
+    },
+    {
+      "id": "short",
+      "input": {
+        "name": "arb-a-b-s1"
+      },
+      "output": "a"
+    },
+    {
+      "id": "upper",
+      "input": {
+        "name": "arb-Proj-r001-s1"
+      },
+      "output": null
+    },
+    {
+      "id": "segment-0",
+      "input": {
+        "name": "arb-wavefront-3f2a-r001-s0"
+      },
+      "output": null
+    },
+    {
+      "id": "null",
+      "input": {
+        "name": null
+      },
+      "output": null
+    }
+  ],
+  "name": "job_project",
+  "notes": "The project of an arboria job name, or null for anything else.",
+  "source": "arboria.slurm.job_project",
+  "version": 1
+}

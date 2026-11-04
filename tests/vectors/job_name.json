@@ -1,0 +1,116 @@
+{
+  "cases": [
+    {
+      "id": "typical",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r001",
+        "segment": 1
+      },
+      "output": "arb-wavefront-3f2a-r001-s1"
+    },
+    {
+      "id": "segment-4",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r001",
+        "segment": 4
+      },
+      "output": "arb-wavefront-3f2a-r001-s4"
+    },
+    {
+      "id": "run-1000",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r1000",
+        "segment": 2
+      },
+      "output": "arb-wavefront-3f2a-r1000-s2"
+    },
+    {
+      "id": "project-31",
+      "input": {
+        "project": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c",
+        "run_id": "r001",
+        "segment": 1
+      },
+      "output": "arb-aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c-r001-s1"
+    },
+    {
+      "id": "exactly-64",
+      "input": {
+        "project": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c",
+        "run_id": "r000000000000000000000000",
+        "segment": 1
+      },
+      "output": "arb-aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c-r000000000000000000000000-s1"
+    },
+    {
+      "error": "ArbError: job name 'arb-aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c-r0000000000000000000000000-s1' is invalid or longer than 64 chars",
+      "id": "err-65",
+      "input": {
+        "project": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c",
+        "run_id": "r0000000000000000000000000",
+        "segment": 1
+      }
+    },
+    {
+      "id": "segment-10",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r001",
+        "segment": 10
+      },
+      "output": "arb-wavefront-3f2a-r001-s10"
+    },
+    {
+      "error": "ArbError: job name 'arb-wavefront-3f2a-r001-s0' is invalid or longer than 64 chars",
+      "id": "err-segment-0",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r001",
+        "segment": 0
+      }
+    },
+    {
+      "id": "quirk-run-dash-accepted",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "r-001",
+        "segment": 1
+      },
+      "output": "arb-wavefront-3f2a-r-001-s1"
+    },
+    {
+      "error": "ArbError: job name 'arb-wavefront-3f2a-R001-s1' is invalid or longer than 64 chars",
+      "id": "err-run-upper",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "R001",
+        "segment": 1
+      }
+    },
+    {
+      "error": "ArbError: job name 'arb-wavefront-3f2a--s1' is invalid or longer than 64 chars",
+      "id": "err-run-empty",
+      "input": {
+        "project": "wavefront-3f2a",
+        "run_id": "",
+        "segment": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid project id 'Proj'; must match ^[a-z0-9][a-z0-9-]{0,30}$",
+      "id": "err-bad-project",
+      "input": {
+        "project": "Proj",
+        "run_id": "r001",
+        "segment": 1
+      }
+    }
+  ],
+  "name": "job_name",
+  "notes": "arb-<project>-<run>-s<segment>, at most 64 chars, must match JOB_NAME_RE (run id: [a-z0-9]+, segment >= 1).",
+  "source": "arboria.slurm.job_name",
+  "version": 1
+}

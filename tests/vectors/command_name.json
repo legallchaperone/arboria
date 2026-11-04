@@ -1,0 +1,85 @@
+{
+  "cases": [
+    {
+      "id": "typical",
+      "input": {
+        "name": "svd"
+      },
+      "output": "svd"
+    },
+    {
+      "id": "underscore",
+      "input": {
+        "name": "loss_curve"
+      },
+      "output": "loss_curve"
+    },
+    {
+      "id": "digits",
+      "input": {
+        "name": "top5"
+      },
+      "output": "top5"
+    },
+    {
+      "id": "41",
+      "input": {
+        "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "error": "ArbError: invalid command name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa': lowercase letters, digits and '_', starting with a letter, at most 41 chars",
+      "id": "err-42",
+      "input": {
+        "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "error": "ArbError: invalid command name '5x': lowercase letters, digits and '_', starting with a letter, at most 41 chars",
+      "id": "err-digit-start",
+      "input": {
+        "name": "5x"
+      }
+    },
+    {
+      "error": "ArbError: invalid command name 'loss-curve': lowercase letters, digits and '_', starting with a letter, at most 41 chars",
+      "id": "err-dash",
+      "input": {
+        "name": "loss-curve"
+      }
+    },
+    {
+      "error": "ArbError: invalid command name 'Svd': lowercase letters, digits and '_', starting with a letter, at most 41 chars",
+      "id": "err-upper",
+      "input": {
+        "name": "Svd"
+      }
+    },
+    {
+      "error": "ArbError: invalid command name '': lowercase letters, digits and '_', starting with a letter, at most 41 chars",
+      "id": "err-empty",
+      "input": {
+        "name": ""
+      }
+    },
+    {
+      "error": "ArbError: invalid command name '_x': lowercase letters, digits and '_', starting with a letter, at most 41 chars",
+      "id": "err-underscore-start",
+      "input": {
+        "name": "_x"
+      }
+    },
+    {
+      "error": "ArbError: invalid command name 5: lowercase letters, digits and '_', starting with a letter, at most 41 chars",
+      "id": "err-int",
+      "input": {
+        "name": 5
+      }
+    }
+  ],
+  "name": "command_name",
+  "notes": "Notebook command names: ^[a-z][a-z0-9_]{0,40}$ (called with check_reserved=False; the reserved set is whatever `arboria.lab` defines and is not part of this vector).",
+  "source": "arboria.commands.validate_name",
+  "version": 1
+}

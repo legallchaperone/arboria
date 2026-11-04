@@ -1,0 +1,129 @@
+{
+  "cases": [
+    {
+      "id": "ghx4",
+      "input": {
+        "text": "CPU=13.888888,Mem=9.01726G,GRES/gpu=1000"
+      },
+      "output": {
+        "cpu": 13.888888,
+        "gpu": 1000.0,
+        "mem": 9.01726
+      }
+    },
+    {
+      "id": "ghx4-interactive",
+      "input": {
+        "text": "CPU=27.777776,Mem=18.03452G,GRES/gpu=2000"
+      },
+      "output": {
+        "cpu": 27.777776,
+        "gpu": 2000.0,
+        "mem": 18.03452
+      }
+    },
+    {
+      "id": "full-tiny",
+      "input": {
+        "text": "CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001"
+      },
+      "output": {
+        "cpu": 1e-08,
+        "gpu": 1e-08,
+        "mem": 1e-07
+      }
+    },
+    {
+      "id": "mem-mb",
+      "input": {
+        "text": "Mem=0.25M"
+      },
+      "output": {
+        "mem": 256.0
+      }
+    },
+    {
+      "id": "mem-no-unit",
+      "input": {
+        "text": "Mem=2"
+      },
+      "output": {
+        "mem": 2048.0
+      }
+    },
+    {
+      "id": "mem-kb",
+      "input": {
+        "text": "Mem=1K"
+      },
+      "output": {
+        "mem": 1048576.0
+      }
+    },
+    {
+      "id": "mem-tb",
+      "input": {
+        "text": "Mem=1024T"
+      },
+      "output": {
+        "mem": 1.0
+      }
+    },
+    {
+      "id": "gpu-plain-key",
+      "input": {
+        "text": "gpu=1000"
+      },
+      "output": {
+        "gpu": 1000.0
+      }
+    },
+    {
+      "id": "lowercase",
+      "input": {
+        "text": "cpu=1,mem=2g"
+      },
+      "output": {
+        "cpu": 1.0
+      }
+    },
+    {
+      "id": "bad-value",
+      "input": {
+        "text": "CPU=abc,GRES/gpu=1000"
+      },
+      "output": {
+        "gpu": 1000.0
+      }
+    },
+    {
+      "id": "empty",
+      "input": {
+        "text": ""
+      },
+      "output": {}
+    },
+    {
+      "id": "leading-dot",
+      "input": {
+        "text": "CPU=.5"
+      },
+      "output": {
+        "cpu": 0.5
+      }
+    },
+    {
+      "id": "other-tres",
+      "input": {
+        "text": "Node=10,GRES/gpu:a100=500,CPU=2"
+      },
+      "output": {
+        "cpu": 2.0
+      }
+    }
+  ],
+  "name": "parse_weights",
+  "notes": "TRESBillingWeights -> {cpu, mem (per GB), gpu}; mem units K/M/''/G/T scale by 1024*1024 / 1024 / 1024 / 1 / 1/1024 (f64).",
+  "source": "arboria.machine.parse_weights",
+  "version": 1
+}

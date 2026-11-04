@@ -1,0 +1,411 @@
+{
+  "cases": [
+    {
+      "id": "lr-float",
+      "input": {
+        "key": "lr",
+        "value": 0.0003
+      },
+      "output": [
+        "lr",
+        "0.0003"
+      ]
+    },
+    {
+      "id": "lr-1e-4",
+      "input": {
+        "key": "optim.lr",
+        "value": 0.0001
+      },
+      "output": [
+        "optim.lr",
+        "0.0001"
+      ]
+    },
+    {
+      "id": "lr-6e-4",
+      "input": {
+        "key": "optim.lr",
+        "value": 0.0006
+      },
+      "output": [
+        "optim.lr",
+        "0.0006"
+      ]
+    },
+    {
+      "id": "lr-1e-5",
+      "input": {
+        "key": "lr",
+        "value": 1e-05
+      },
+      "output": [
+        "lr",
+        "1e-05"
+      ]
+    },
+    {
+      "id": "float-integral",
+      "input": {
+        "key": "scale",
+        "value": 3.0
+      },
+      "output": [
+        "scale",
+        "3.0"
+      ]
+    },
+    {
+      "id": "float-1e16",
+      "input": {
+        "key": "n",
+        "value": 1e+16
+      },
+      "output": [
+        "n",
+        "1e+16"
+      ]
+    },
+    {
+      "id": "neg-zero",
+      "input": {
+        "key": "x",
+        "value": -0.0
+      },
+      "output": [
+        "x",
+        "-0.0"
+      ]
+    },
+    {
+      "id": "0.1+0.2",
+      "input": {
+        "key": "x",
+        "value": 0.30000000000000004
+      },
+      "output": [
+        "x",
+        "0.30000000000000004"
+      ]
+    },
+    {
+      "id": "int",
+      "input": {
+        "key": "trainer.max_steps",
+        "value": 200000
+      },
+      "output": [
+        "trainer.max_steps",
+        "200000"
+      ]
+    },
+    {
+      "id": "big-int",
+      "input": {
+        "key": "seed",
+        "value": 123456789012345678
+      },
+      "output": [
+        "seed",
+        "123456789012345678"
+      ]
+    },
+    {
+      "id": "neg-int",
+      "input": {
+        "key": "offset",
+        "value": -3
+      },
+      "output": [
+        "offset",
+        "-3"
+      ]
+    },
+    {
+      "id": "true",
+      "input": {
+        "key": "use_ema",
+        "value": true
+      },
+      "output": [
+        "use_ema",
+        "true"
+      ]
+    },
+    {
+      "id": "false",
+      "input": {
+        "key": "use_ema",
+        "value": false
+      },
+      "output": [
+        "use_ema",
+        "false"
+      ]
+    },
+    {
+      "id": "null",
+      "input": {
+        "key": "ckpt",
+        "value": null
+      },
+      "output": [
+        "ckpt",
+        "null"
+      ]
+    },
+    {
+      "id": "string",
+      "input": {
+        "key": "model",
+        "value": "dmd"
+      },
+      "output": [
+        "model",
+        "dmd"
+      ]
+    },
+    {
+      "id": "string-number",
+      "input": {
+        "key": "lr",
+        "value": "1e-4"
+      },
+      "output": [
+        "lr",
+        "1e-4"
+      ]
+    },
+    {
+      "id": "empty-value",
+      "input": {
+        "key": "tag",
+        "value": ""
+      },
+      "output": [
+        "tag",
+        ""
+      ]
+    },
+    {
+      "id": "unicode-value",
+      "input": {
+        "key": "name",
+        "value": "学习率 实验"
+      },
+      "output": [
+        "name",
+        "学习率 实验"
+      ]
+    },
+    {
+      "id": "spaces-value",
+      "input": {
+        "key": "msg",
+        "value": "a b  c"
+      },
+      "output": [
+        "msg",
+        "a b  c"
+      ]
+    },
+    {
+      "id": "hydra-plus",
+      "input": {
+        "key": "+trainer.devices",
+        "value": 4
+      },
+      "output": [
+        "+trainer.devices",
+        "4"
+      ]
+    },
+    {
+      "id": "hydra-plus2",
+      "input": {
+        "key": "++trainer.devices",
+        "value": 4
+      },
+      "output": [
+        "++trainer.devices",
+        "4"
+      ]
+    },
+    {
+      "id": "hydra-tilde",
+      "input": {
+        "key": "~callbacks",
+        "value": null
+      },
+      "output": [
+        "~callbacks",
+        "null"
+      ]
+    },
+    {
+      "id": "hydra-group",
+      "input": {
+        "key": "model/encoder",
+        "value": "vit"
+      },
+      "output": [
+        "model/encoder",
+        "vit"
+      ]
+    },
+    {
+      "id": "dash-key",
+      "input": {
+        "key": "batch-size",
+        "value": 64
+      },
+      "output": [
+        "batch-size",
+        "64"
+      ]
+    },
+    {
+      "id": "underscore-start",
+      "input": {
+        "key": "_private",
+        "value": 1
+      },
+      "output": [
+        "_private",
+        "1"
+      ]
+    },
+    {
+      "error": "ArbError: override msg: value must be a single line",
+      "id": "err-newline",
+      "input": {
+        "key": "msg",
+        "value": "a\nb"
+      }
+    },
+    {
+      "error": "ArbError: override msg: value must be a single line",
+      "id": "err-cr",
+      "input": {
+        "key": "msg",
+        "value": "a\rb"
+      }
+    },
+    {
+      "error": "ArbError: override msg: value must be a single line",
+      "id": "err-nul",
+      "input": {
+        "key": "msg",
+        "value": "a\u0000b"
+      }
+    },
+    {
+      "error": "ArbError: override layers: value must be a string or number, got list",
+      "id": "err-list",
+      "input": {
+        "key": "layers",
+        "value": [
+          1,
+          2
+        ]
+      }
+    },
+    {
+      "error": "ArbError: override opt: value must be a string or number, got dict",
+      "id": "err-dict",
+      "input": {
+        "key": "opt",
+        "value": {
+          "lr": 1
+        }
+      }
+    },
+    {
+      "error": "ArbError: invalid override key '1lr': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-digit",
+      "input": {
+        "key": "1lr",
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key '': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-empty",
+      "input": {
+        "key": "",
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key 'a b': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-space",
+      "input": {
+        "key": "a b",
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key 'lr=': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-eq",
+      "input": {
+        "key": "lr=",
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key '+++x': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-triple-plus",
+      "input": {
+        "key": "+++x",
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key '学习率': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-unicode",
+      "input": {
+        "key": "学习率",
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key 5: use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-int",
+      "input": {
+        "key": 5,
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key None: use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-null",
+      "input": {
+        "key": null,
+        "value": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid override key '.lr': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-dot-start",
+      "input": {
+        "key": ".lr",
+        "value": 1
+      }
+    },
+    {
+      "id": "quirk-key-trailing-newline-accepted",
+      "input": {
+        "key": "lr\n",
+        "value": 1
+      },
+      "output": [
+        "lr\n",
+        "1"
+      ]
+    }
+  ],
+  "name": "check_override",
+  "notes": "Output [key, value-string]. Values: bool -> true/false, null -> 'null', int -> decimal, float -> Python repr (1e-05, 1e+16, 3.0), str unchanged. JSON ints in the input are Python ints, JSON floats (with '.' or exponent) are Python floats.",
+  "source": "arboria.slurm.check_override",
+  "version": 1
+}

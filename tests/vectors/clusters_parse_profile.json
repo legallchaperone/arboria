@@ -1,0 +1,999 @@
+{
+  "cases": [
+    {
+      "id": "deltaai-measured",
+      "input": {
+        "name": "deltaai",
+        "source": "/Users/wchen38/.config/arboria/clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "/Users/wchen38/.config/arboria/clusters.toml"
+      }
+    },
+    {
+      "id": "deltaai-uv",
+      "input": {
+        "name": "deltaai-uv",
+        "source": "clusters.toml",
+        "toml": "[deltaai-uv]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = [\"module load cuda\", \"export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache\"]\nenv_activate = [\"source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate\"]\n[deltaai-uv.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai-uv.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai-uv.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/${USER}/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [
+          "source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate"
+        ],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai-uv",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/${USER}/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [
+          "module load cuda",
+          "export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache"
+        ],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "fake",
+      "input": {
+        "name": "fake",
+        "source": "clusters.toml",
+        "toml": "[fake]\nkind = \"fake\"\nroot = \"/tmp/arboria-fake/state\"\narch = \"aarch64\"\naccount = \"acct1\"\ngpus_per_node = 4\ncpus_per_gpu = 16\nmem_per_gpu_gb = 100\ndefault_partition = \"ghx4\"\nmax_segments = 2\n[fake.partitions.ghx4]\nmax_walltime = \"48h\"\n[fake.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2\n[fake.paths]\nruns = \"/tmp/arboria-fake/remote/runs\"\ndata = \"/tmp/arboria-fake/remote/data\"\ncache = \"/tmp/arboria-fake/remote/cache\"\nckpt = \"/tmp/arboria-fake/remote/ckpt\"\nout = \"/tmp/arboria-fake/remote/out\"\n"
+      },
+      "output": {
+        "account": "acct1",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "",
+        "billing_per_su": 0.0,
+        "cpus_per_gpu": 16,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "",
+        "kind": "fake",
+        "max_segments": 2,
+        "mem_per_gpu_gb": 100.0,
+        "name": "fake",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/tmp/arboria-fake/remote/cache",
+          "ckpt": "/tmp/arboria-fake/remote/ckpt",
+          "data": "/tmp/arboria-fake/remote/data",
+          "out": "/tmp/arboria-fake/remote/out",
+          "runs": "/tmp/arboria-fake/remote/runs"
+        },
+        "prelude": [],
+        "root": "/tmp/arboria-fake/state",
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "error": "ArbError: examples/clusters.toml: [deltaai.paths] runs = '/projects/<proj>/$USER/arboria/runs' still has a <placeholder>; fill it in (TO CONFIRM at machine init)",
+      "id": "err-example-unfilled",
+      "input": {
+        "name": "deltaai",
+        "source": "examples/clusters.toml",
+        "toml": "# Arboria cluster profiles. Copy to ~/.config/arboria/clusters.toml\n# (or $ARBORIA_CONFIG_DIR/clusters.toml). One table per machine.\n# `arb machine init <name>` measures these on the cluster and prints (or --write's) the table.\n# <placeholders> are refused until filled in. Numbers below were measured on DeltaAI (2026-11).\n\n[deltaai]\nkind = \"slurm\"            # \"fake\" is allowed too, for tests and dry runs\nhost = \"deltaai\"          # ~/.ssh/config alias with ControlMaster\narch = \"aarch64\"\naccount = \"<from `accounts`>\"\ngpus_per_node = 4\ncpus_per_gpu = 72         # 288 cores / 4 GPUs: 72 CPUs bill as one GPU\nmem_per_gpu_gb = 110.898  # DefMemPerGPU 113560 MB; more bills as more GPUs\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000     # sacct billing=1000 for an hour = 1 SU (0: estimate locally)\nprelude = []              # shell lines, e.g. module loads\nenv_activate = []         # shell lines that activate the env (container or uv/pixi venv)\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0              # billing weights are 2x here (already in sacct billing)\n[deltaai.paths]\nruns = \"/projects/<proj>/$USER/arboria/runs\"\ndata = \"/work/nvme/<proj>/$USER/data\"\ncache = \"/projects/<proj>/$USER/cache\"\nckpt = \"/work/hdd/<proj>/$USER/ckpt\"\nout  = \"/projects/<proj>/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "id": "example-proj-filled",
+      "input": {
+        "name": "deltaai",
+        "source": "examples/clusters.toml",
+        "toml": "# Arboria cluster profiles. Copy to ~/.config/arboria/clusters.toml\n# (or $ARBORIA_CONFIG_DIR/clusters.toml). One table per machine.\n# `arb machine init <name>` measures these on the cluster and prints (or --write's) the table.\n# <placeholders> are refused until filled in. Numbers below were measured on DeltaAI (2026-11).\n\n[deltaai]\nkind = \"slurm\"            # \"fake\" is allowed too, for tests and dry runs\nhost = \"deltaai\"          # ~/.ssh/config alias with ControlMaster\narch = \"aarch64\"\naccount = \"<from `accounts`>\"\ngpus_per_node = 4\ncpus_per_gpu = 72         # 288 cores / 4 GPUs: 72 CPUs bill as one GPU\nmem_per_gpu_gb = 110.898  # DefMemPerGPU 113560 MB; more bills as more GPUs\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000     # sacct billing=1000 for an hour = 1 SU (0: estimate locally)\nprelude = []              # shell lines, e.g. module loads\nenv_activate = []         # shell lines that activate the env (container or uv/pixi venv)\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0              # billing weights are 2x here (already in sacct billing)\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/cache\"\nckpt = \"/work/hdd/bjki/$USER/ckpt\"\nout  = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "<from `accounts`>",
+        "account_set": false,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/cache",
+          "ckpt": "/work/hdd/bjki/$USER/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "examples/clusters.toml"
+      }
+    },
+    {
+      "id": "minimal",
+      "input": {
+        "name": "m",
+        "source": "clusters.toml",
+        "toml": "[m]\nhost = \"h\"\ngpus_per_node = 1\ncpus_per_gpu = 1\nmem_per_gpu_gb = 1\ndefault_partition = \"p\"\n[m.partitions.p]\nmax_walltime = \"1h\"\n[m.paths]\nruns = \"/r\"\ndata = \"/d\"\ncache = \"/c\"\nckpt = \"/k\"\nout = \"/o/\"\n"
+      },
+      "output": {
+        "account": "",
+        "account_set": false,
+        "arch": "",
+        "balance_cmd": "",
+        "billing_per_su": 0.0,
+        "cpus_per_gpu": 1,
+        "default_partition": "p",
+        "env_activate": [],
+        "gpus_per_node": 1,
+        "host": "h",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 1.0,
+        "name": "m",
+        "partition_order": [
+          "p"
+        ],
+        "partitions": {
+          "p": {
+            "charge": 1.0,
+            "max_walltime_s": 3600,
+            "name": "p"
+          }
+        },
+        "paths": {
+          "cache": "/c",
+          "ckpt": "/k",
+          "data": "/d",
+          "out": "/o",
+          "runs": "/r"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "account-padded",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"  bjki-dtai-gh \"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "account-empty",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "",
+        "account_set": false,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "partition-clock-time",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"2-00:00:00\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "charge-int",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "charge-default",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "billing-float",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000.5\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.5,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "id": "path-trailing-slash",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out///\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] charge_cmd is gone: set billing_per_su (sacct billing units that cost one SU per hour; 1000 on DeltaAI) instead",
+      "id": "err-charge-cmd",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\ncharge_cmd = \"jobcharge\"\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai]: unknown key(s) qos, zz",
+      "id": "err-unknown-keys",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nqos = \"x\"\nzz = 1\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] kind must be one of: slurm, fake",
+      "id": "err-kind",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"pbs\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] host must be an ~/.ssh/config alias (letters, digits, . _ -)",
+      "id": "err-host-missing",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] host must be an ~/.ssh/config alias (letters, digits, . _ -)",
+      "id": "err-host-spaces",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"delta ai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "id": "quirk-host-trailing-newline-accepted",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\\n\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      },
+      "output": {
+        "account": "bjki-dtai-gh",
+        "account_set": true,
+        "arch": "aarch64",
+        "balance_cmd": "accounts",
+        "billing_per_su": 1000.0,
+        "cpus_per_gpu": 72,
+        "default_partition": "ghx4",
+        "env_activate": [],
+        "gpus_per_node": 4,
+        "host": "deltaai\n",
+        "kind": "slurm",
+        "max_segments": 4,
+        "mem_per_gpu_gb": 110.898,
+        "name": "deltaai",
+        "partition_order": [
+          "ghx4",
+          "ghx4-interactive"
+        ],
+        "partitions": {
+          "ghx4": {
+            "charge": 1.0,
+            "max_walltime_s": 172800,
+            "name": "ghx4"
+          },
+          "ghx4-interactive": {
+            "charge": 2.0,
+            "max_walltime_s": 7200,
+            "name": "ghx4-interactive"
+          }
+        },
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "prelude": [],
+        "root": null,
+        "source": "clusters.toml"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [fake] root (local state dir) is required for kind = \"fake\"",
+      "id": "err-fake-no-root",
+      "input": {
+        "name": "fake",
+        "source": "clusters.toml",
+        "toml": "[fake]\nkind = \"fake\"\narch = \"aarch64\"\naccount = \"acct1\"\ngpus_per_node = 4\ncpus_per_gpu = 16\nmem_per_gpu_gb = 100\ndefault_partition = \"ghx4\"\nmax_segments = 2\n[fake.partitions.ghx4]\nmax_walltime = \"48h\"\n[fake.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2\n[fake.paths]\nruns = \"/tmp/arboria-fake/remote/runs\"\ndata = \"/tmp/arboria-fake/remote/data\"\ncache = \"/tmp/arboria-fake/remote/cache\"\nckpt = \"/tmp/arboria-fake/remote/ckpt\"\nout = \"/tmp/arboria-fake/remote/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] root is only for kind = \"fake\"",
+      "id": "err-root-on-slurm",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\nroot = \"/x\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] account must be a string",
+      "id": "err-account-int",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = 5\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] account must be a single word",
+      "id": "err-account-two-words",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki dtai\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] gpus_per_node must be an integer >= 1",
+      "id": "err-gpus-zero",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 0\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] gpus_per_node must be an integer >= 1",
+      "id": "err-gpus-bool",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = true\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] cpus_per_gpu must be an integer >= 1 (TO CONFIRM at machine init)",
+      "id": "err-cpus-missing",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] cpus_per_gpu must be an integer >= 1 (TO CONFIRM at machine init)",
+      "id": "err-cpus-float",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72.0\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] mem_per_gpu_gb must be a number > 0 (TO CONFIRM at machine init)",
+      "id": "err-mem-zero",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 0\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] mem_per_gpu_gb must be a number > 0 (TO CONFIRM at machine init)",
+      "id": "err-mem-string",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = \"110\"\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] max_segments must be an integer >= 1",
+      "id": "err-max-segments-0",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 0\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] billing_per_su must be a number >= 0 (0 = estimate locally)",
+      "id": "err-billing-negative",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = -1\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] arch must be a string",
+      "id": "err-arch-int",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = 64\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [m]: at least one [m.partitions.<name>] table is required",
+      "id": "err-no-partitions",
+      "input": {
+        "name": "m",
+        "source": "clusters.toml",
+        "toml": "[m]\nhost = \"h\"\ngpus_per_node = 1\ncpus_per_gpu = 1\nmem_per_gpu_gb = 1\n[m.paths]\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.partitions.ghx4]: unknown key(s) qos",
+      "id": "err-partition-unknown-key",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\nqos = 1\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.partitions.ghx4] max_walltime: invalid walltime '2 days'; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-partition-walltime",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"2 days\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.partitions.ghx4] max_walltime: invalid walltime ''; use e.g. 90m, 12h, 1d6h or HH:MM:SS",
+      "id": "err-partition-walltime-missing",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.partitions.ghx4-interactive] charge must be a number > 0",
+      "id": "err-charge-zero",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.partitions.ghx4.int]: invalid partition",
+      "id": "err-partition-name",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4.int\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] default_partition 'gpu' is not one of the partitions",
+      "id": "err-default-partition",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"gpu\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai]: a [deltaai.paths] table is required",
+      "id": "err-paths-missing",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] unknown key(s) tmp",
+      "id": "err-paths-unknown",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\ntmp = \"/tmp\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] ckpt is required",
+      "id": "err-path-role-missing",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = 'projects/bjki/$USER/arboria/runs' must be an absolute path",
+      "id": "err-path-relative",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/projects/../bjki/$USER/arboria/runs': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-path-dotdot",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/../bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] data = '/work/nvme/b jki/$USER/data': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-path-space",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/b jki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] cache = '/projects/$HOME/arboria/cache': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-path-other-var",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/$HOME/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai.paths] out = '/': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-path-root",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] prelude must be a list of strings (shell lines)",
+      "id": "err-prelude-string",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = \"module load cuda\"\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] prelude: put one shell line per list item",
+      "id": "err-prelude-newline",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = [\"a\\nb\"]\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [bad name]: invalid machine name",
+      "id": "err-bad-machine-name",
+      "input": {
+        "name": "bad name",
+        "source": "clusters.toml",
+        "toml": "['bad name']\nkind = \"slurm\"\n"
+      }
+    },
+    {
+      "error": "ArbError: clusters.toml: [deltaai] must be a table",
+      "id": "err-not-a-table",
+      "input": {
+        "name": "deltaai",
+        "source": "clusters.toml",
+        "toml": "deltaai = \"x\"\n"
+      }
+    }
+  ],
+  "name": "clusters_parse_profile",
+  "notes": "input.toml is clusters.toml text; the case parses it (tomllib) and validates table input.name with parse_profile(name, table, source). Output is the normalized Profile: partitions keyed by name plus partition_order (TOML order), mem_per_gpu_gb/billing_per_su/charge as floats, account stripped, account_set = non-empty and no '<' / '>'. Error messages name keys in TOML order where it matters (first bad partition wins).",
+  "source": "arboria.clusters.parse_profile",
+  "version": 1
+}

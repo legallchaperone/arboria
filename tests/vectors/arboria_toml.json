@@ -1,0 +1,552 @@
+{
+  "cases": [
+    {
+      "id": "no-file",
+      "input": {
+        "toml": null
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "empty",
+      "input": {
+        "toml": ""
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "minimal-init",
+      "input": {
+        "toml": "default_machine = \"\"\n\n[project]\nid = \"wavefront-3f2a\"\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": "wavefront-3f2a",
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "full",
+      "input": {
+        "toml": "default_machine = \"deltaai\"\n\n[project]\n# 项目 id\nid = \"wavefront-3f2a\"\n\n[budget]\ntotal_su = 200\n\n[watch]\nobservation_minutes = 15\nfail_patterns = [\"(?i)loss[^\\\\n]{0,40}nan\", \"Traceback\"]\n\n[wandb]\nentity = \"cwx-lab\"\nproject = \"wavefront\"\n\n[run]\ncommand = \"uv run python train.py --config configs/base.yaml\"\noverride_style = \"argparse\"\n\n[claude]\npush = false\n"
+      },
+      "output": {
+        "claude": {
+          "push": false
+        },
+        "default_machine": "deltaai",
+        "project_id": "wavefront-3f2a",
+        "run": {
+          "command": [
+            "uv",
+            "run",
+            "python",
+            "train.py",
+            "--config",
+            "configs/base.yaml"
+          ],
+          "override_style": "argparse"
+        },
+        "total_su": 200.0,
+        "wandb": {
+          "configured": true,
+          "entity": "cwx-lab",
+          "project": "wavefront",
+          "run_url_r001": "https://wandb.ai/cwx-lab/wavefront/runs/wavefront-3f2a-r001"
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)loss[^\\n]{0,40}nan",
+            "Traceback"
+          ],
+          "observation_minutes": 15
+        }
+      }
+    },
+    {
+      "id": "budget-float",
+      "input": {
+        "toml": "[budget]\ntotal_su = 150.5\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 150.5,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "machine-stripped",
+      "input": {
+        "toml": "default_machine = \"  deltaai  \"\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "deltaai",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "project-table-without-id",
+      "input": {
+        "toml": "[project]\nname = \"x\"\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "wandb-partial",
+      "input": {
+        "toml": "[wandb]\nentity = \"me\"\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "me",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "wandb-stripped",
+      "input": {
+        "toml": "[wandb]\nentity = \" me \"\nproject = \" p \"\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": true,
+          "entity": "me",
+          "project": "p",
+          "run_url_r001": "https://wandb.ai/me/p/runs/p-r001"
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "run-quoted",
+      "input": {
+        "toml": "[run]\ncommand = \"python 'my train.py' --tag \\\"a b\\\"\"\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [
+            "python",
+            "my train.py",
+            "--tag",
+            "a b"
+          ],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "run-tyro",
+      "input": {
+        "toml": "[run]\ncommand = \"python train.py\"\noverride_style = \"tyro\"\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [
+            "python",
+            "train.py"
+          ],
+          "override_style": "tyro"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [
+            "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+            "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+            "CUDA out of memory",
+            "torch\\.OutOfMemoryError"
+          ],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "id": "watch-empty-patterns",
+      "input": {
+        "toml": "[watch]\nfail_patterns = []\n"
+      },
+      "output": {
+        "claude": {
+          "push": true
+        },
+        "default_machine": "",
+        "project_id": null,
+        "run": {
+          "command": [],
+          "override_style": "hydra"
+        },
+        "total_su": 0.0,
+        "wandb": {
+          "configured": false,
+          "entity": "",
+          "project": "",
+          "run_url_r001": null
+        },
+        "watch": {
+          "fail_patterns": [],
+          "observation_minutes": 10
+        }
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: default_machine must be a string",
+      "id": "err-machine-int",
+      "input": {
+        "toml": "default_machine = 3\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [budget] must be a table",
+      "id": "err-budget-not-table",
+      "input": {
+        "toml": "budget = 5\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [budget] total_su must be a number >= 0",
+      "id": "err-budget-negative",
+      "input": {
+        "toml": "[budget]\ntotal_su = -1\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [budget] total_su must be a number >= 0",
+      "id": "err-budget-bool",
+      "input": {
+        "toml": "[budget]\ntotal_su = true\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [budget] total_su must be a number >= 0",
+      "id": "err-budget-string",
+      "input": {
+        "toml": "[budget]\ntotal_su = \"100\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [project] must be a table",
+      "id": "err-project-not-table",
+      "input": {
+        "toml": "project = \"x\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [project] id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 'WaveFront'",
+      "id": "err-project-id-upper",
+      "input": {
+        "toml": "[project]\nid = \"WaveFront\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [project] id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 5",
+      "id": "err-project-id-int",
+      "input": {
+        "toml": "[project]\nid = 5\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [watch] must be a table",
+      "id": "err-watch-not-table",
+      "input": {
+        "toml": "watch = 1\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [watch] observation_minutes must be an integer >= 1",
+      "id": "err-watch-minutes-0",
+      "input": {
+        "toml": "[watch]\nobservation_minutes = 0\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [watch] observation_minutes must be an integer >= 1",
+      "id": "err-watch-minutes-float",
+      "input": {
+        "toml": "[watch]\nobservation_minutes = 1.5\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [watch] fail_patterns must be a list of regular expressions",
+      "id": "err-watch-patterns-string",
+      "input": {
+        "toml": "[watch]\nfail_patterns = \"nan\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [watch] fail_patterns[1] must be a non-empty string",
+      "id": "err-watch-pattern-empty",
+      "input": {
+        "toml": "[watch]\nfail_patterns = [\"ok\", \"\"]\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [wandb] entity must be a wandb name (letters, digits, '.', '_', '-'); got 'my team'",
+      "id": "err-wandb-bad-name",
+      "input": {
+        "toml": "[wandb]\nentity = \"my team\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [wandb] project must be a wandb name (letters, digits, '.', '_', '-'); got 1",
+      "id": "err-wandb-int",
+      "input": {
+        "toml": "[wandb]\nproject = 1\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [run] command must be a string, e.g. \"python train.py\"",
+      "id": "err-run-command-list",
+      "input": {
+        "toml": "[run]\ncommand = [\"python\", \"train.py\"]\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [run] command \"python 'train.py\" cannot be split into arguments: No closing quotation",
+      "id": "err-run-unbalanced-quote",
+      "input": {
+        "toml": "[run]\ncommand = \"python 'train.py\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [run] override_style must be one of: hydra, argparse, tyro (hydra → k=v, argparse/tyro → --k v); got 'click'",
+      "id": "err-run-style",
+      "input": {
+        "toml": "[run]\noverride_style = \"click\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [claude] push must be true or false",
+      "id": "err-claude-push-string",
+      "input": {
+        "toml": "[claude]\npush = \"yes\"\n"
+      }
+    },
+    {
+      "error": "ArbError: /repo/arboria.toml: [run] must be a table",
+      "id": "err-run-not-table",
+      "input": {
+        "toml": "run = 1\n"
+      }
+    }
+  ],
+  "name": "arboria_toml",
+  "notes": "input.toml is the text of arboria.toml (null = no file); the file is shown as /repo/arboria.toml in messages. Output is the normalized ProjectConfig: fail_patterns as pattern strings (compiled with Python `re`), run.command split with shlex.split, wandb.run_url_r001 = run_url('<project_id or p>-r001'). Invalid-TOML and invalid-regex cases are left out (their messages come from tomllib / re).",
+  "source": "arboria.config.project_config",
+  "version": 1
+}

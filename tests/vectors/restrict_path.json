@@ -1,0 +1,808 @@
+{
+  "cases": [
+    {
+      "id": "runs-root",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a"
+    },
+    {
+      "id": "runs-run",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001"
+    },
+    {
+      "id": "log",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001/logs/s1.4523101.out",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001/logs/s1.4523101.out"
+    },
+    {
+      "id": "out-run",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/out/wavefront-3f2a/r001",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      },
+      "output": "/projects/bjki/$USER/arboria/out/wavefront-3f2a/r001"
+    },
+    {
+      "id": "trailing-slash",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001/",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001"
+    },
+    {
+      "error": "ArbError: remote path '/projects/bjki/$USER/arboria/runs/wavefront-3f2a/../x' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-dotdot",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/../x",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: remote path '/projects/bjki/$USER/arboria/runs/wavefront-3f2a/./r001' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-dot",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/./r001",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "id": "double-slash-kept",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a//r001",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a//r001"
+    },
+    {
+      "error": "ArbError: remote path '/projects/bjki/$USER/arboria/runs/other-1a2b/r001' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-other-project",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/other-1a2b/r001",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: remote path '/projects/bjki/$USER/arboria/runs/wavefront-3f2ax/r001' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-prefix-trick",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2ax/r001",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: remote path '/projects/bjki/$USER/arboria/runs' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-runs-parent",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: remote path '/work/hdd/bjki/$USER/arboria/ckpt/wavefront-3f2a' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-ckpt",
+      "input": {
+        "path": "/work/hdd/bjki/$USER/arboria/ckpt/wavefront-3f2a",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: remote path '/' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-root",
+      "input": {
+        "path": "/",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: remote path '/' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-empty",
+      "input": {
+        "path": "",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: remote path '/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r 001' is outside project wavefront-3f2a's runs/ and out/ dirs on this machine; refused",
+      "id": "err-space",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r 001",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "wavefront-3f2a"
+      }
+    },
+    {
+      "error": "ArbError: invalid project id 'Bad'; must match ^[a-z0-9][a-z0-9-]{0,30}$",
+      "id": "err-bad-project",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a",
+        "profile": {
+          "account": "bjki-dtai-gh",
+          "account_set": true,
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000.0,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "name": "deltaai",
+          "partition_order": [
+            "ghx4",
+            "ghx4-interactive"
+          ],
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime_s": 172800,
+              "name": "ghx4"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime_s": 7200,
+              "name": "ghx4-interactive"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [],
+          "root": null,
+          "source": "clusters.toml"
+        },
+        "project": "Bad"
+      }
+    }
+  ],
+  "name": "restrict_path",
+  "notes": "Remote paths the backend may read: <runs>/<project>[/...] or <out>/<project>[/...], segments [A-Za-z0-9._-]+ and not . or ..; trailing '/' removed. Profile: real DeltaAI; input.project the backend's project.",
+  "source": "arboria.backends.base.restrict_path",
+  "version": 1
+}

@@ -1,0 +1,106 @@
+{
+  "cases": [
+    {
+      "id": "wavefront",
+      "input": {
+        "main": "/Users/wchen38/code/WaveFront"
+      },
+      "output": "wavefront-f27b"
+    },
+    {
+      "id": "arboria",
+      "input": {
+        "main": "/Users/wchen38/arboria"
+      },
+      "output": "arboria-937f"
+    },
+    {
+      "id": "linux-home",
+      "input": {
+        "main": "/home/wchen38/src/my_repo"
+      },
+      "output": "my-repo-383b"
+    },
+    {
+      "id": "spaces-punct",
+      "input": {
+        "main": "/Users/me/My Repo! (v2)"
+      },
+      "output": "my-repo-v2-a14f"
+    },
+    {
+      "id": "dashes-collapse",
+      "input": {
+        "main": "/x/--a--b--"
+      },
+      "output": "a-b-10d0"
+    },
+    {
+      "id": "long-name",
+      "input": {
+        "main": "/x/abcdefghijabcdefghijabcdefghijabcdefghij"
+      },
+      "output": "abcdefghijabcdefghijabcdef-19a5"
+    },
+    {
+      "id": "cut-at-dash",
+      "input": {
+        "main": "/x/aaaaaaaaaaaaaaaaaaaaaaaaa-bcd"
+      },
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaa-2148"
+    },
+    {
+      "id": "chinese",
+      "input": {
+        "main": "/Users/me/研究项目"
+      },
+      "output": "proj-2e11"
+    },
+    {
+      "id": "mixed-unicode",
+      "input": {
+        "main": "/Users/me/实验-wave2"
+      },
+      "output": "wave2-dab0"
+    },
+    {
+      "id": "kelvin-sign",
+      "input": {
+        "main": "/x/Kelvin"
+      },
+      "output": "kelvin-0dae"
+    },
+    {
+      "id": "dotted",
+      "input": {
+        "main": "/x/.hidden.repo"
+      },
+      "output": "hidden-repo-596d"
+    },
+    {
+      "id": "root-child",
+      "input": {
+        "main": "/repo"
+      },
+      "output": "repo-816f"
+    },
+    {
+      "id": "digits",
+      "input": {
+        "main": "/x/2026"
+      },
+      "output": "2026-8180"
+    },
+    {
+      "id": "worktree-like",
+      "input": {
+        "main": "/Users/wchen38/code/WaveFront-dmd-distill"
+      },
+      "output": "wavefront-dmd-distill-4454"
+    }
+  ],
+  "name": "derive_project_id",
+  "notes": "input.main is the main worktree path *after* Path.resolve() (absolute, symlinks resolved). slug = re.sub('[^a-z0-9]+', '-', name.lower()).strip('-')[:26].rstrip('-') (Python str.lower(), Unicode), or 'proj' if empty; then '-' + first 4 hex chars of sha256(str(main) as UTF-8).",
+  "source": "arboria.config.derive_project_id",
+  "version": 1
+}

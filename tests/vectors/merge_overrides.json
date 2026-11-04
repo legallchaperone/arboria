@@ -1,0 +1,268 @@
+{
+  "cases": [
+    {
+      "id": "both-empty",
+      "input": {
+        "base": [],
+        "new": []
+      },
+      "output": []
+    },
+    {
+      "id": "base-only",
+      "input": {
+        "base": [
+          [
+            "lr",
+            "0.1"
+          ]
+        ],
+        "new": []
+      },
+      "output": [
+        [
+          "lr",
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "id": "new-only",
+      "input": {
+        "base": [],
+        "new": [
+          [
+            "lr",
+            "0.1"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "lr",
+          "0.1"
+        ]
+      ]
+    },
+    {
+      "id": "replace",
+      "input": {
+        "base": [
+          [
+            "lr",
+            "0.1"
+          ],
+          [
+            "bs",
+            "64"
+          ]
+        ],
+        "new": [
+          [
+            "lr",
+            "0.2"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "lr",
+          "0.2"
+        ],
+        [
+          "bs",
+          "64"
+        ]
+      ]
+    },
+    {
+      "id": "append",
+      "input": {
+        "base": [
+          [
+            "lr",
+            "0.1"
+          ]
+        ],
+        "new": [
+          [
+            "bs",
+            "64"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "lr",
+          "0.1"
+        ],
+        [
+          "bs",
+          "64"
+        ]
+      ]
+    },
+    {
+      "id": "replace-and-append",
+      "input": {
+        "base": [
+          [
+            "a",
+            "1"
+          ],
+          [
+            "b",
+            "2"
+          ],
+          [
+            "c",
+            "3"
+          ]
+        ],
+        "new": [
+          [
+            "c",
+            "30"
+          ],
+          [
+            "d",
+            "4"
+          ],
+          [
+            "a",
+            "10"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "a",
+          "10"
+        ],
+        [
+          "b",
+          "2"
+        ],
+        [
+          "c",
+          "30"
+        ],
+        [
+          "d",
+          "4"
+        ]
+      ]
+    },
+    {
+      "id": "new-duplicates",
+      "input": {
+        "base": [
+          [
+            "a",
+            "1"
+          ]
+        ],
+        "new": [
+          [
+            "a",
+            "2"
+          ],
+          [
+            "a",
+            "3"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "a",
+          "3"
+        ]
+      ]
+    },
+    {
+      "id": "base-duplicates",
+      "input": {
+        "base": [
+          [
+            "a",
+            "1"
+          ],
+          [
+            "a",
+            "2"
+          ]
+        ],
+        "new": [
+          [
+            "a",
+            "9"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "a",
+          "9"
+        ],
+        [
+          "a",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "new-duplicate-new-key",
+      "input": {
+        "base": [],
+        "new": [
+          [
+            "x",
+            "1"
+          ],
+          [
+            "x",
+            "2"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "x",
+          "2"
+        ]
+      ]
+    },
+    {
+      "id": "prefix-keys-distinct",
+      "input": {
+        "base": [
+          [
+            "trainer.devices",
+            "4"
+          ]
+        ],
+        "new": [
+          [
+            "+trainer.devices",
+            "8"
+          ]
+        ]
+      },
+      "output": [
+        [
+          "trainer.devices",
+          "4"
+        ],
+        [
+          "+trainer.devices",
+          "8"
+        ]
+      ]
+    }
+  ],
+  "name": "merge_overrides",
+  "notes": "Pairs as [key, value] lists. A key in `new` replaces the first equal key of `base` in place (later duplicates in base are kept); unseen keys are appended in order.",
+  "source": "arboria.slurm.merge_overrides",
+  "version": 1
+}

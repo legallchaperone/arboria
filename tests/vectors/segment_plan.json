@@ -1,0 +1,187 @@
+{
+  "cases": [
+    {
+      "id": "1h-of-48h",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 3600
+      },
+      "output": [
+        3600
+      ]
+    },
+    {
+      "id": "48h-exact",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 172800
+      },
+      "output": [
+        172800
+      ]
+    },
+    {
+      "id": "48h+1s",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 172801
+      },
+      "output": [
+        172800,
+        1
+      ]
+    },
+    {
+      "id": "72h",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 259200
+      },
+      "output": [
+        172800,
+        86400
+      ]
+    },
+    {
+      "id": "96h-exact-2",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 345600
+      },
+      "output": [
+        172800,
+        172800
+      ]
+    },
+    {
+      "id": "7d",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 604800
+      },
+      "output": [
+        172800,
+        172800,
+        172800,
+        86400
+      ]
+    },
+    {
+      "id": "8d-exact-4",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 691200
+      },
+      "output": [
+        172800,
+        172800,
+        172800,
+        172800
+      ]
+    },
+    {
+      "error": "ArbError: walltime 8d1s needs 5 segments of at most 2d (partition limit), more than max_segments = 4; shorten the run or raise max_segments in clusters.toml",
+      "id": "err-8d+1s",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 4,
+        "total_s": 691201
+      }
+    },
+    {
+      "id": "interactive-3h",
+      "input": {
+        "max_s": 7200,
+        "max_segments": 4,
+        "total_s": 10800
+      },
+      "output": [
+        7200,
+        3600
+      ]
+    },
+    {
+      "error": "ArbError: walltime 9h needs 5 segments of at most 2h (partition limit), more than max_segments = 4; shorten the run or raise max_segments in clusters.toml",
+      "id": "err-interactive-9h",
+      "input": {
+        "max_s": 7200,
+        "max_segments": 4,
+        "total_s": 32400
+      }
+    },
+    {
+      "id": "max-segments-1",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 1,
+        "total_s": 169200
+      },
+      "output": [
+        169200
+      ]
+    },
+    {
+      "error": "ArbError: walltime 2d1h needs 2 segments of at most 2d (partition limit), more than max_segments = 1; shorten the run or raise max_segments in clusters.toml",
+      "id": "err-max-segments-1",
+      "input": {
+        "max_s": 172800,
+        "max_segments": 1,
+        "total_s": 176400
+      }
+    },
+    {
+      "id": "60s",
+      "input": {
+        "max_s": 7200,
+        "max_segments": 4,
+        "total_s": 60
+      },
+      "output": [
+        60
+      ]
+    },
+    {
+      "id": "odd-max",
+      "input": {
+        "max_s": 333,
+        "max_segments": 4,
+        "total_s": 1000
+      },
+      "output": [
+        333,
+        333,
+        333,
+        1
+      ]
+    },
+    {
+      "error": "ArbError: walltime 22m13s needs 5 segments of at most 5m33s (partition limit), more than max_segments = 4; shorten the run or raise max_segments in clusters.toml",
+      "id": "err-odd-max",
+      "input": {
+        "max_s": 333,
+        "max_segments": 4,
+        "total_s": 1333
+      }
+    },
+    {
+      "error": "ArbError: walltime 9h1m1s needs 7 segments of at most 1h30m (partition limit), more than max_segments = 6; shorten the run or raise max_segments in clusters.toml",
+      "id": "err-message-units",
+      "input": {
+        "max_s": 5400,
+        "max_segments": 6,
+        "total_s": 32461
+      }
+    }
+  ],
+  "name": "segment_plan",
+  "notes": "n = max(1, ceil(total_s / max_s)) (true division); all segments are max_s except the last.",
+  "source": "arboria.slurm.segment_plan",
+  "version": 1
+}

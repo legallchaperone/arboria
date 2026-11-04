@@ -1,0 +1,153 @@
+{
+  "cases": [
+    {
+      "id": "simple",
+      "input": {
+        "text": "lr=0.1"
+      },
+      "output": [
+        "lr",
+        "0.1"
+      ]
+    },
+    {
+      "id": "dotted",
+      "input": {
+        "text": "optim.lr=3e-4"
+      },
+      "output": [
+        "optim.lr",
+        "3e-4"
+      ]
+    },
+    {
+      "id": "value-with-eq",
+      "input": {
+        "text": "expr=a=b"
+      },
+      "output": [
+        "expr",
+        "a=b"
+      ]
+    },
+    {
+      "id": "empty-value",
+      "input": {
+        "text": "tag="
+      },
+      "output": [
+        "tag",
+        ""
+      ]
+    },
+    {
+      "id": "key-spaces",
+      "input": {
+        "text": "  lr  =0.1"
+      },
+      "output": [
+        "lr",
+        "0.1"
+      ]
+    },
+    {
+      "id": "value-spaces",
+      "input": {
+        "text": "lr= 0.1 "
+      },
+      "output": [
+        "lr",
+        " 0.1 "
+      ]
+    },
+    {
+      "id": "hydra-plus",
+      "input": {
+        "text": "+trainer.devices=4"
+      },
+      "output": [
+        "+trainer.devices",
+        "4"
+      ]
+    },
+    {
+      "id": "hydra-tilde",
+      "input": {
+        "text": "~callbacks="
+      },
+      "output": [
+        "~callbacks",
+        ""
+      ]
+    },
+    {
+      "id": "unicode-value",
+      "input": {
+        "text": "name=实验一"
+      },
+      "output": [
+        "name",
+        "实验一"
+      ]
+    },
+    {
+      "id": "key-ideographic-space",
+      "input": {
+        "text": "　lr=1"
+      },
+      "output": [
+        "lr",
+        "1"
+      ]
+    },
+    {
+      "id": "key-unit-separator",
+      "input": {
+        "text": "\u001flr=1"
+      },
+      "output": [
+        "lr",
+        "1"
+      ]
+    },
+    {
+      "error": "ArbError: invalid --set 'lr'; use --set key=value",
+      "id": "err-no-eq",
+      "input": {
+        "text": "lr"
+      }
+    },
+    {
+      "error": "ArbError: invalid override key '': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-empty-key",
+      "input": {
+        "text": "=5"
+      }
+    },
+    {
+      "error": "ArbError: invalid --set ''; use --set key=value",
+      "id": "err-empty",
+      "input": {
+        "text": ""
+      }
+    },
+    {
+      "error": "ArbError: override msg: value must be a single line",
+      "id": "err-newline-value",
+      "input": {
+        "text": "msg=a\nb"
+      }
+    },
+    {
+      "error": "ArbError: invalid override key 'a b': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-bad-key",
+      "input": {
+        "text": "a b=1"
+      }
+    }
+  ],
+  "name": "parse_override",
+  "notes": "`--set k=v`: split at the first '=', key stripped (Python str.strip(), Unicode whitespace incl. U+001C..U+001F), value kept verbatim. Output [key, value].",
+  "source": "arboria.slurm.parse_override",
+  "version": 1
+}

@@ -1,0 +1,141 @@
+{
+  "cases": [
+    {
+      "id": "0",
+      "input": {
+        "seconds": 0
+      },
+      "output": "00:00:00"
+    },
+    {
+      "id": "1",
+      "input": {
+        "seconds": 1
+      },
+      "output": "00:00:01"
+    },
+    {
+      "id": "59",
+      "input": {
+        "seconds": 59
+      },
+      "output": "00:00:59"
+    },
+    {
+      "id": "60",
+      "input": {
+        "seconds": 60
+      },
+      "output": "00:01:00"
+    },
+    {
+      "id": "61",
+      "input": {
+        "seconds": 61
+      },
+      "output": "00:01:01"
+    },
+    {
+      "id": "3599",
+      "input": {
+        "seconds": 3599
+      },
+      "output": "00:59:59"
+    },
+    {
+      "id": "3600",
+      "input": {
+        "seconds": 3600
+      },
+      "output": "01:00:00"
+    },
+    {
+      "id": "3661",
+      "input": {
+        "seconds": 3661
+      },
+      "output": "01:01:01"
+    },
+    {
+      "id": "7200",
+      "input": {
+        "seconds": 7200
+      },
+      "output": "02:00:00"
+    },
+    {
+      "id": "43200",
+      "input": {
+        "seconds": 43200
+      },
+      "output": "12:00:00"
+    },
+    {
+      "id": "86399",
+      "input": {
+        "seconds": 86399
+      },
+      "output": "23:59:59"
+    },
+    {
+      "id": "86400",
+      "input": {
+        "seconds": 86400
+      },
+      "output": "24:00:00"
+    },
+    {
+      "id": "86401",
+      "input": {
+        "seconds": 86401
+      },
+      "output": "24:00:01"
+    },
+    {
+      "id": "90000",
+      "input": {
+        "seconds": 90000
+      },
+      "output": "25:00:00"
+    },
+    {
+      "id": "172800",
+      "input": {
+        "seconds": 172800
+      },
+      "output": "48:00:00"
+    },
+    {
+      "id": "172801",
+      "input": {
+        "seconds": 172801
+      },
+      "output": "48:00:01"
+    },
+    {
+      "id": "360000",
+      "input": {
+        "seconds": 360000
+      },
+      "output": "100:00:00"
+    },
+    {
+      "id": "604800",
+      "input": {
+        "seconds": 604800
+      },
+      "output": "168:00:00"
+    },
+    {
+      "id": "3600000",
+      "input": {
+        "seconds": 3600000
+      },
+      "output": "1000:00:00"
+    }
+  ],
+  "name": "slurm_time",
+  "notes": "`--time` value HH:MM:SS; hours are not wrapped at 24 and may have more than two digits. Inputs are >= 0 (negatives are never passed).",
+  "source": "arboria.slurm.slurm_time",
+  "version": 1
+}

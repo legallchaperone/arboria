@@ -1,0 +1,191 @@
+{
+  "cases": [
+    {
+      "id": "simple",
+      "input": {
+        "text": "python train.py"
+      },
+      "output": [
+        "python",
+        "train.py"
+      ]
+    },
+    {
+      "id": "extra-space",
+      "input": {
+        "text": "  python   train.py  "
+      },
+      "output": [
+        "python",
+        "train.py"
+      ]
+    },
+    {
+      "id": "single-quotes",
+      "input": {
+        "text": "python 'my train.py'"
+      },
+      "output": [
+        "python",
+        "my train.py"
+      ]
+    },
+    {
+      "id": "double-quotes",
+      "input": {
+        "text": "a \"b c\" d"
+      },
+      "output": [
+        "a",
+        "b c",
+        "d"
+      ]
+    },
+    {
+      "id": "escaped-space",
+      "input": {
+        "text": "a\\ b"
+      },
+      "output": [
+        "a b"
+      ]
+    },
+    {
+      "id": "escaped-quote-in-double",
+      "input": {
+        "text": "a \"b\\\"c\""
+      },
+      "output": [
+        "a",
+        "b\"c"
+      ]
+    },
+    {
+      "id": "backslash-in-single",
+      "input": {
+        "text": "'a\\b'"
+      },
+      "output": [
+        "a\\b"
+      ]
+    },
+    {
+      "id": "backslash-in-double",
+      "input": {
+        "text": "\"a\\b\""
+      },
+      "output": [
+        "a\\b"
+      ]
+    },
+    {
+      "id": "backslash-dollar-in-double",
+      "input": {
+        "text": "\"a\\$b\""
+      },
+      "output": [
+        "a\\$b"
+      ]
+    },
+    {
+      "id": "adjacent-quotes",
+      "input": {
+        "text": "a'b'\"c\""
+      },
+      "output": [
+        "abc"
+      ]
+    },
+    {
+      "id": "empty-quoted",
+      "input": {
+        "text": "\"\""
+      },
+      "output": [
+        ""
+      ]
+    },
+    {
+      "id": "empty",
+      "input": {
+        "text": ""
+      },
+      "output": []
+    },
+    {
+      "id": "blank",
+      "input": {
+        "text": " \t\n "
+      },
+      "output": []
+    },
+    {
+      "id": "hash-literal",
+      "input": {
+        "text": "a #b"
+      },
+      "output": [
+        "a",
+        "#b"
+      ]
+    },
+    {
+      "id": "unicode",
+      "input": {
+        "text": "python 训练.py --name 实验"
+      },
+      "output": [
+        "python",
+        "训练.py",
+        "--name",
+        "实验"
+      ]
+    },
+    {
+      "id": "tabs-newlines",
+      "input": {
+        "text": "a\tb\nc"
+      },
+      "output": [
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    {
+      "id": "equals",
+      "input": {
+        "text": "--cfg=base.yaml x=1"
+      },
+      "output": [
+        "--cfg=base.yaml",
+        "x=1"
+      ]
+    },
+    {
+      "error": "ValueError: No closing quotation",
+      "id": "err-unclosed-single",
+      "input": {
+        "text": "python 'train.py"
+      }
+    },
+    {
+      "error": "ValueError: No closing quotation",
+      "id": "err-unclosed-double",
+      "input": {
+        "text": "a \"b"
+      }
+    },
+    {
+      "error": "ValueError: No escaped character",
+      "id": "err-trailing-backslash",
+      "input": {
+        "text": "a\\"
+      }
+    }
+  ],
+  "name": "shell_split",
+  "notes": "Python's shlex.split(text) (POSIX mode, no comments), which config uses for arboria.toml [run] command. Errors are ValueError with shlex's own message; config wraps them (see arboria_toml err-run-unbalanced-quote).",
+  "source": "shlex.split",
+  "version": 1
+}

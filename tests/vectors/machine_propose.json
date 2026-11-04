@@ -1,0 +1,574 @@
+{
+  "cases": [
+    {
+      "id": "deltaai",
+      "input": {
+        "account": null,
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "measured by arb machine init",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "# measured by arb machine init\n[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "accounts",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "bjki-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": []
+        },
+        "warnings": []
+      }
+    },
+    {
+      "id": "deltaai-account-given",
+      "input": {
+        "account": "bjki-dtai-gh",
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "accounts",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "bjki-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": []
+        },
+        "warnings": []
+      }
+    },
+    {
+      "id": "deltaai-existing-kept",
+      "input": {
+        "account": null,
+        "existing": {
+          "account": "bjki-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [
+            "source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate"
+          ],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/${USER}/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [
+            "module load cuda",
+            "export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache"
+          ]
+        },
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = [\"module load cuda\", \"export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache\"]\nenv_activate = [\"source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate\"]\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/${USER}/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "accounts",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "bjki-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [
+            "source /work/hdd/bjki/$USER/venvs/WaveFront-gh/bin/activate"
+          ],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/${USER}/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": [
+            "module load cuda",
+            "export UV_CACHE_DIR=/work/hdd/bjki/$USER/uv-cache"
+          ]
+        },
+        "warnings": []
+      }
+    },
+    {
+      "id": "two-accounts-unset",
+      "input": {
+        "account": null,
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\nbdxx-dtai-gh                                50               100  other project\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ],
+          [
+            "bdxx-dtai-gh",
+            "50"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"<from `accounts`>\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "accounts",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "<from `accounts`>",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": []
+        },
+        "warnings": [
+          "several accounts (bjki-dtai-gh, bdxx-dtai-gh): pass --account"
+        ]
+      }
+    },
+    {
+      "id": "two-accounts-chosen",
+      "input": {
+        "account": "bdxx-dtai-gh",
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\nbdxx-dtai-gh                                50               100  other project\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ],
+          [
+            "bdxx-dtai-gh",
+            "50"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bdxx-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "accounts",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "bdxx-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": []
+        },
+        "warnings": []
+      }
+    },
+    {
+      "id": "no-max-tres",
+      "input": {
+        "account": null,
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = \n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "accounts",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "bjki-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": []
+        },
+        "warnings": [
+          "PriorityFlags lacks MAX_TRES: arb's billed-GPU rule (max of GPU, CPU and memory shares) may not match this cluster"
+        ]
+      }
+    },
+    {
+      "id": "no-accounts-tool",
+      "input": {
+        "account": null,
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "bjki-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": []
+        },
+        "warnings": [
+          "no `accounts` command: balance_cmd left empty"
+        ]
+      }
+    },
+    {
+      "id": "quoted-name",
+      "input": {
+        "account": null,
+        "existing": null,
+        "host": "deltaai",
+        "name": "delta.ai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      },
+      "output": {
+        "accounts": [
+          [
+            "bjki-dtai-gh",
+            "199"
+          ]
+        ],
+        "other_partitions": [],
+        "toml": "[\"delta.ai\"]\nkind = \"slurm\"\nhost = \"deltaai\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[\"delta.ai\".partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[\"delta.ai\".partitions.ghx4-interactive]\nmax_walltime = \"2h\"\ncharge = 2.0\n[\"delta.ai\".paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n",
+        "tools": [
+          "sbatch",
+          "sacct",
+          "accounts",
+          "jobcharge",
+          "apptainer"
+        ],
+        "values": {
+          "account": "bjki-dtai-gh",
+          "arch": "aarch64",
+          "balance_cmd": "accounts",
+          "billing_per_su": 1000,
+          "cpus_per_gpu": 72,
+          "default_partition": "ghx4",
+          "env_activate": [],
+          "gpus_per_node": 4,
+          "host": "deltaai",
+          "kind": "slurm",
+          "max_segments": 4,
+          "mem_per_gpu_gb": 110.898,
+          "partitions": {
+            "ghx4": {
+              "charge": 1.0,
+              "max_walltime": "48h"
+            },
+            "ghx4-interactive": {
+              "charge": 2.0,
+              "max_walltime": "2h"
+            }
+          },
+          "paths": {
+            "cache": "/projects/bjki/$USER/arboria/cache",
+            "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+            "data": "/work/nvme/bjki/$USER/data",
+            "out": "/projects/bjki/$USER/arboria/out",
+            "runs": "/projects/bjki/$USER/arboria/runs"
+          },
+          "prelude": []
+        },
+        "warnings": []
+      }
+    },
+    {
+      "error": "ArbError: --account bbka-dtai-gh: not one of your accounts (bjki-dtai-gh)",
+      "id": "err-account-not-mine",
+      "input": {
+        "account": "bbka-dtai-gh",
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nwchen38\n@@arch\naarch64\n@@accounts\nProject Summary for User 'wchen38':\n\nAccount                        Balance(Hours)   Deposited(Hours)  Project\n----------------------------  ----------------  ----------------  ----------------------\nbjki-dtai-gh                               199               200  representation lear...\n@@partitions\nPartitionName=full AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=N/A DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=1-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,gres/gpu=608 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=test AllowGroups=ALL AllowAccounts=bbka-dtai-gh AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_test DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-002] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=576 TotalNodes=2 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=576,mem=976000M,node=2,gres/gpu=8 TRESBillingWeights=CPU=0.00000001,Mem=0.0000001G,GRES/gpu=0.00000001\nPartitionName=ghx4 AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=YES QoS=qos_ghx4 DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=UNLIMITED MaxTime=2-00:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-150] PriorityJobFactor=100 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43200 TotalNodes=150 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43200,mem=73200000M,node=150,billing=644593,gres/gpu=600 TRESBillingWeights=CPU=13.888888,Mem=9.01726G,GRES/gpu=1000\nPartitionName=ghx4-interactive AllowGroups=ALL AllowAccounts=ALL AllowQos=ALL AllocNodes=ALL Default=NO QoS=qos_ghx4int DefaultTime=00:30:00 DisableRootJobs=YES ExclusiveUser=NO ExclusiveTopo=NO GraceTime=0 Hidden=NO MaxNodes=2 MaxTime=02:00:00 MinNodes=0 LLN=NO MaxCPUsPerNode=UNLIMITED MaxCPUsPerSocket=UNLIMITED Nodes=gh[001-152] PriorityJobFactor=10000 PriorityTier=100 RootOnly=NO ReqResv=NO OverSubscribe=NO OverTimeLimit=NONE PreemptMode=OFF State=UP TotalCPUs=43776 TotalNodes=152 SelectTypeParameters=NONE JobDefaults=DefMemPerGPU=113560 DefMemPerNode=UNLIMITED MaxMemPerNode=UNLIMITED TRES=cpu=43776,mem=72437.50G,node=152,billing=1306375,gres/gpu=608 TRESBillingWeights=CPU=27.777776,Mem=18.03452G,GRES/gpu=2000\n@@node\nNodeName=gh001 Arch=aarch64 CoresPerSocket=72  CPUAlloc=0 CPUEfctv=288 CPUTot=288 CPULoad=0.00 AvailableFeatures=work,projects,taiga,perf,nvperf,xpmem ActiveFeatures=work,projects,taiga,perf,nvperf,xpmem Gres=gpu:nvidia_gh200_120gb:4(S:0-3) NodeAddr=gh001 NodeHostName=gh001 Version=25.11.8 OS=Linux 6.4.0-150600.23.53-64kb #1 SMP PREEMPT_DYNAMIC Wed Jun  4 05:37:40 UTC 2025 (2d991ff)  RealMemory=488000 AllocMem=0 FreeMem=462728 Sockets=4 Boards=1 MemSpecLimit=33760 State=IDLE+RESERVED ThreadsPerCore=1 TmpDisk=0 Weight=1 Owner=N/A MCS_label=N/A Partitions=full,test,ghx4,ghx4-interactive  BootTime=2026-11-02T14:59:13 SlurmdStartTime=2026-11-02T15:06:20 LastBusyTime=2026-11-02T15:06:22 ResumeAfterTime=None CfgTRES=cpu=288,mem=488000M,billing=8594,gres/gpu=4 AllocTRES= CurrentWatts=0 AveWatts=0 ReservationName=ncsa_test\n@@flags\nPriorityFlags           = MAX_TRES\n@@quota\nQuota usage for user wchen38:\n-----------------------------------------------------------------------------------------------\n|        Directory Path        |  User   |  User   |  User   |   User   |   User   |   User   |\n|                              |  Block  |  Soft   |  Hard   |   File   |   Soft   |   Hard   |\n|                              |  Used   |  Quota  |  Limit  |   Used   |   Quota  |   Limit  |\n-----------------------------------------------------------------------------------------------\n| /u/wchen38                   | 8K      | 102400M | 103G    | 27       | 750k     | 760k     |\n-----------------------------------------------------------------------------------------------\n\nQuota usage for allocations user wchen38 is a member of:\n--------------------------------------------------------------------------------------------------------------\n|        Directory Path        | Allocation | Allocation | Allocation | Allocation | Allocation | Allocation |\n|                              |   Block    |    Soft    |    Hard    |    File    |    Soft    |    Hard    |\n|                              |   Used     |    Quota   |    Limit   |    Used    |    Quota   |    Limit   |\n--------------------------------------------------------------------------------------------------------------\n| /projects/bjki               | 16k        | 1000G      | 1.074T     | 4          | 1700000    | 1870000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/nvme/bjki              | 16.11G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n| /work/hdd/bjki               | 524.5G     | 1000G      | 1.074T     | 686426     | 3400000    | 3740000    |\n--------------------------------------------------------------------------------------------------------------\n@@tools\n/usr/bin/sbatch\n/usr/bin/sacct\n/sw/user/scripts/accounts\n/sw/user/scripts/jobcharge\n/usr/bin/apptainer\n@@end\n"
+      }
+    },
+    {
+      "error": "ArbError: `scontrol show partition` printed no partitions; is this a Slurm login node?",
+      "id": "err-no-partitions",
+      "input": {
+        "account": null,
+        "existing": null,
+        "host": "deltaai",
+        "name": "deltaai",
+        "note": "",
+        "probe": "@@user\nme\n@@partitions\n@@end\n"
+      }
+    }
+  ],
+  "name": "machine_propose",
+  "notes": "input.probe is the raw output of machine.PROBE_SCRIPT (the DeltaAI case is tests/fixtures/deltaai_probe.txt); the case runs propose(name, host, split_sections(probe), account=..., existing=...). Output {values, warnings, other_partitions, accounts, tools, toml}; toml = render_profile(name, values, note) (values in propose's key order; floats written with Python repr).",
+  "source": "arboria.machine.propose",
+  "version": 1
+}

@@ -1,0 +1,250 @@
+{
+  "cases": [
+    {
+      "id": "1gpu-default",
+      "input": {
+        "cpus": 72,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 110,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 1
+    },
+    {
+      "id": "4gpu-default",
+      "input": {
+        "cpus": 288,
+        "cpus_per_gpu": 72,
+        "gpus": 4,
+        "mem_gb": 443,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 4
+    },
+    {
+      "id": "mem-110.898-exact",
+      "input": {
+        "cpus": 72,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 110.898,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 1
+    },
+    {
+      "id": "mem-111",
+      "input": {
+        "cpus": 72,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 111,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 2
+    },
+    {
+      "id": "mem-221",
+      "input": {
+        "cpus": 144,
+        "cpus_per_gpu": 72,
+        "gpus": 2,
+        "mem_gb": 221,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 2
+    },
+    {
+      "id": "mem-222",
+      "input": {
+        "cpus": 144,
+        "cpus_per_gpu": 72,
+        "gpus": 2,
+        "mem_gb": 222,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 3
+    },
+    {
+      "id": "mem-443",
+      "input": {
+        "cpus": 1,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 443,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 4
+    },
+    {
+      "id": "mem-444",
+      "input": {
+        "cpus": 1,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 444,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 5
+    },
+    {
+      "id": "mem-332",
+      "input": {
+        "cpus": 216,
+        "cpus_per_gpu": 72,
+        "gpus": 3,
+        "mem_gb": 332,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 3
+    },
+    {
+      "id": "mem-333",
+      "input": {
+        "cpus": 216,
+        "cpus_per_gpu": 72,
+        "gpus": 3,
+        "mem_gb": 333,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 4
+    },
+    {
+      "id": "cpus-73",
+      "input": {
+        "cpus": 73,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 1,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 2
+    },
+    {
+      "id": "cpus-144",
+      "input": {
+        "cpus": 144,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 1,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 2
+    },
+    {
+      "id": "cpus-145",
+      "input": {
+        "cpus": 145,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 1,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 3
+    },
+    {
+      "id": "cpus-288",
+      "input": {
+        "cpus": 288,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 1,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 4
+    },
+    {
+      "id": "tiny",
+      "input": {
+        "cpus": 1,
+        "cpus_per_gpu": 72,
+        "gpus": 1,
+        "mem_gb": 1,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 1
+    },
+    {
+      "id": "gpus-dominate",
+      "input": {
+        "cpus": 4,
+        "cpus_per_gpu": 72,
+        "gpus": 4,
+        "mem_gb": 8,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 4
+    },
+    {
+      "id": "int-mem-100",
+      "input": {
+        "cpus": 16,
+        "cpus_per_gpu": 16,
+        "gpus": 1,
+        "mem_gb": 100,
+        "mem_per_gpu_gb": 100.0
+      },
+      "output": 1
+    },
+    {
+      "id": "int-mem-201",
+      "input": {
+        "cpus": 16,
+        "cpus_per_gpu": 16,
+        "gpus": 2,
+        "mem_gb": 201,
+        "mem_per_gpu_gb": 100.0
+      },
+      "output": 3
+    },
+    {
+      "id": "eps-just-over",
+      "input": {
+        "cpus": 16,
+        "cpus_per_gpu": 16,
+        "gpus": 1,
+        "mem_gb": 100.0000001,
+        "mem_per_gpu_gb": 100.0
+      },
+      "output": 1
+    },
+    {
+      "id": "eps-absorbed",
+      "input": {
+        "cpus": 16,
+        "cpus_per_gpu": 16,
+        "gpus": 1,
+        "mem_gb": 100.0000000001,
+        "mem_per_gpu_gb": 100.0
+      },
+      "output": 1
+    },
+    {
+      "id": "float-ratio",
+      "input": {
+        "cpus": 1,
+        "cpus_per_gpu": 1,
+        "gpus": 3,
+        "mem_gb": 0.3,
+        "mem_per_gpu_gb": 0.1
+      },
+      "output": 3
+    },
+    {
+      "id": "all-zero-shares",
+      "input": {
+        "cpus": 0,
+        "cpus_per_gpu": 72,
+        "gpus": 2,
+        "mem_gb": 0,
+        "mem_per_gpu_gb": 110.898
+      },
+      "output": 2
+    }
+  ],
+  "name": "billed_gpus",
+  "notes": "max(gpus, ceil(mem_gb / mem_per_gpu_gb - 1e-9), ceil(cpus / cpus_per_gpu - 1e-9)) in f64 (DeltaAI PriorityFlags=MAX_TRES). Real DeltaAI: mem_per_gpu_gb = 110.898, cpus_per_gpu = 72.",
+  "source": "arboria.slurm.billed_gpus",
+  "version": 1
+}

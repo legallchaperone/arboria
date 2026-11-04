@@ -1,0 +1,78 @@
+{
+  "cases": [
+    {
+      "id": "plain",
+      "input": {
+        "path": "/projects/bjki/$USER/arboria/runs"
+      },
+      "output": "\"/projects/bjki/$USER/arboria/runs\""
+    },
+    {
+      "id": "braced",
+      "input": {
+        "path": "/a/${USER}/b"
+      },
+      "output": "\"/a/${USER}/b\""
+    },
+    {
+      "id": "spaces",
+      "input": {
+        "path": "/a b/c"
+      },
+      "output": "\"/a b/c\""
+    },
+    {
+      "id": "single-quote",
+      "input": {
+        "path": "/a'b"
+      },
+      "output": "\"/a'b\""
+    },
+    {
+      "id": "empty",
+      "input": {
+        "path": ""
+      },
+      "output": "\"\""
+    },
+    {
+      "error": "ArbError: unsafe remote path '/a\"b'",
+      "id": "err-double-quote",
+      "input": {
+        "path": "/a\"b"
+      }
+    },
+    {
+      "error": "ArbError: unsafe remote path '/a\\\\b'",
+      "id": "err-backslash",
+      "input": {
+        "path": "/a\\b"
+      }
+    },
+    {
+      "error": "ArbError: unsafe remote path '/a`id`'",
+      "id": "err-backtick",
+      "input": {
+        "path": "/a`id`"
+      }
+    },
+    {
+      "error": "ArbError: unsafe remote path '/a/$(id)'",
+      "id": "err-command-subst",
+      "input": {
+        "path": "/a/$(id)"
+      }
+    },
+    {
+      "id": "dollar-paren-apart",
+      "input": {
+        "path": "/a/$ (x)"
+      },
+      "output": "\"/a/$ (x)\""
+    }
+  ],
+  "name": "dq",
+  "notes": "Double-quote a validated remote path (so $USER still expands); refuses \" \\ ` and $(.",
+  "source": "arboria.slurm.dq",
+  "version": 1
+}

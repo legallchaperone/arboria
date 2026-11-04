@@ -1,0 +1,128 @@
+{
+  "cases": [
+    {
+      "id": "ok",
+      "input": {
+        "job_ids": [
+          "1",
+          "4523101"
+        ]
+      },
+      "output": [
+        "1",
+        "4523101"
+      ]
+    },
+    {
+      "id": "array",
+      "input": {
+        "job_ids": [
+          "40_1"
+        ]
+      },
+      "output": [
+        "40_1"
+      ]
+    },
+    {
+      "id": "empty",
+      "input": {
+        "job_ids": []
+      },
+      "output": []
+    },
+    {
+      "error": "BackendError: invalid Slurm job id(s): 12a",
+      "id": "err-letters",
+      "input": {
+        "job_ids": [
+          "12a"
+        ]
+      }
+    },
+    {
+      "error": "BackendError: invalid Slurm job id(s): x, 2;3",
+      "id": "err-two-bad",
+      "input": {
+        "job_ids": [
+          "1",
+          "x",
+          "2;3"
+        ]
+      }
+    },
+    {
+      "error": "BackendError: invalid Slurm job id(s): ",
+      "id": "err-empty-id",
+      "input": {
+        "job_ids": [
+          ""
+        ]
+      }
+    },
+    {
+      "error": "BackendError: invalid Slurm job id(s): 12.batch",
+      "id": "err-dot-step",
+      "input": {
+        "job_ids": [
+          "12.batch"
+        ]
+      }
+    },
+    {
+      "error": "BackendError: invalid Slurm job id(s): 12+0",
+      "id": "err-plus-het",
+      "input": {
+        "job_ids": [
+          "12+0"
+        ]
+      }
+    },
+    {
+      "id": "ints-stringified",
+      "input": {
+        "job_ids": [
+          4523101,
+          7
+        ]
+      },
+      "output": [
+        "4523101",
+        "7"
+      ]
+    },
+    {
+      "error": "BackendError: invalid Slurm job id(s): -1",
+      "id": "err-negative",
+      "input": {
+        "job_ids": [
+          "-1"
+        ]
+      }
+    },
+    {
+      "error": "BackendError: invalid Slurm job id(s):  1",
+      "id": "err-leading-space",
+      "input": {
+        "job_ids": [
+          " 1"
+        ]
+      }
+    },
+    {
+      "id": "quirk-trailing-newline-accepted",
+      "input": {
+        "job_ids": [
+          "4523101\n"
+        ]
+      },
+      "output": [
+        "4523101\n"
+      ]
+    }
+  ],
+  "name": "check_job_ids",
+  "notes": "Slurm job ids ^[0-9]+(?:_[0-9]+)?$; all bad ones are listed in the error.",
+  "source": "arboria.backends.base.check_job_ids",
+  "version": 1
+}

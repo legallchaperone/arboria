@@ -1,0 +1,184 @@
+{
+  "cases": [
+    {
+      "id": "deltaai",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "wavefront-3f2a",
+        "run_id": "r001",
+        "segment": 1
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001/sbatch/s1.sh"
+    },
+    {
+      "id": "deltaai-segment-3",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "wavefront-3f2a",
+        "run_id": "r042",
+        "segment": 3
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r042/sbatch/s3.sh"
+    },
+    {
+      "id": "braced-user",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/${USER}/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "wavefront-3f2a",
+        "run_id": "r001",
+        "segment": 2
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001/sbatch/s2.sh"
+    },
+    {
+      "id": "project-31",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c",
+        "run_id": "r1000",
+        "segment": 1
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/aaaaaaaaaaaaaaaaaaaaaaaaaa-0b1c/r1000/sbatch/s1.sh"
+    },
+    {
+      "id": "fake",
+      "input": {
+        "paths": {
+          "cache": "/tmp/arboria-fake/remote/cache",
+          "ckpt": "/tmp/arboria-fake/remote/ckpt",
+          "data": "/tmp/arboria-fake/remote/data",
+          "out": "/tmp/arboria-fake/remote/out",
+          "runs": "/tmp/arboria-fake/remote/runs"
+        },
+        "project": "wavefront-3f2a",
+        "run_id": "r007",
+        "segment": 1
+      },
+      "output": "/tmp/arboria-fake/remote/runs/wavefront-3f2a/r007/sbatch/s1.sh"
+    },
+    {
+      "id": "array-job-id",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "wavefront-3f2a",
+        "run_id": "r001",
+        "segment": 1
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r001/sbatch/s1.sh"
+    },
+    {
+      "id": "segment-12",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "wavefront-3f2a",
+        "run_id": "r042",
+        "segment": 12
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/r042/sbatch/s12.sh"
+    },
+    {
+      "id": "project-1-char",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "a",
+        "run_id": "r001",
+        "segment": 1
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/a/r001/sbatch/s1.sh"
+    },
+    {
+      "id": "run-id-not-validated",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "wavefront-3f2a",
+        "run_id": "R-1/x",
+        "segment": 1
+      },
+      "output": "/projects/bjki/$USER/arboria/runs/wavefront-3f2a/R-1/x/sbatch/s1.sh"
+    },
+    {
+      "error": "ArbError: invalid project id 'Bad_Project'; must match ^[a-z0-9][a-z0-9-]{0,30}$",
+      "id": "err-bad-project",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": "Bad_Project",
+        "run_id": "r001",
+        "segment": 1
+      }
+    },
+    {
+      "error": "ArbError: invalid project id None; must match ^[a-z0-9][a-z0-9-]{0,30}$",
+      "id": "err-project-null",
+      "input": {
+        "paths": {
+          "cache": "/projects/bjki/$USER/arboria/cache",
+          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
+          "data": "/work/nvme/bjki/$USER/data",
+          "out": "/projects/bjki/$USER/arboria/out",
+          "runs": "/projects/bjki/$USER/arboria/runs"
+        },
+        "project": null,
+        "run_id": "r001",
+        "segment": 1
+      }
+    }
+  ],
+  "name": "script_path",
+  "notes": "input.paths is a profile's [paths] table (validated, no trailing '/'). The run id is not validated (arb only passes ids it made); the project id is. <run_dir>/sbatch/s<k>.sh.",
+  "source": "arboria.slurm.script_path",
+  "version": 1
+}

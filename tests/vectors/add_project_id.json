@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "id": "empty",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": ""
+      },
+      "output": "[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\n"
+    },
+    {
+      "id": "no-newline",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "default_machine = \"deltaai\""
+      },
+      "output": "default_machine = \"deltaai\"\n\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\n"
+    },
+    {
+      "id": "one-newline",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "default_machine = \"deltaai\"\n"
+      },
+      "output": "default_machine = \"deltaai\"\n\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\n"
+    },
+    {
+      "id": "blank-line-end",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "default_machine = \"deltaai\"\n\n"
+      },
+      "output": "default_machine = \"deltaai\"\n\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\n"
+    },
+    {
+      "id": "existing-header",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "[project]\nname = \"x\"\n"
+      },
+      "output": "[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\nname = \"x\"\n"
+    },
+    {
+      "id": "header-with-comment",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "[ project ]  # ours\n[budget]\ntotal_su = 1\n"
+      },
+      "output": "[ project ]  # ours\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\n[budget]\ntotal_su = 1\n"
+    },
+    {
+      "id": "header-later",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "default_machine = \"d\"\n\n[project]\n\n[run]\ncommand = \"x\"\n"
+      },
+      "output": "default_machine = \"d\"\n\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\n\n[run]\ncommand = \"x\"\n"
+    },
+    {
+      "error": "ArbError: could not add [project] id to arboria.toml automatically; add\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\nby hand",
+      "id": "err-two-headers",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "[project]\n[project]\n"
+      }
+    },
+    {
+      "error": "ArbError: could not add [project] id to arboria.toml automatically; add\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\nby hand",
+      "id": "err-id-already",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "[project]\nid = \"old-1234\"\n"
+      }
+    },
+    {
+      "error": "ArbError: could not add [project] id to arboria.toml automatically; add\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\nby hand",
+      "id": "err-dotted-key",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "project.id = \"x\"\n"
+      }
+    },
+    {
+      "id": "crlf",
+      "input": {
+        "project_id": "wavefront-3f2a",
+        "text": "default_machine = \"deltaai\"\r\n"
+      },
+      "output": "default_machine = \"deltaai\"\r\n\n[project]\n# 项目 id：作业名和集群上的目录都带上它，几个仓库共用一个机器配置也不会互相覆盖。由 arb init 生成；已有 run 提交后不要改。\nid = \"wavefront-3f2a\"\n"
+    },
+    {
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 'Bad'",
+      "id": "err-bad-id",
+      "input": {
+        "project_id": "Bad",
+        "text": ""
+      }
+    }
+  ],
+  "name": "add_project_id",
+  "notes": "`arb init`: arboria.toml text with [project] id added, every existing byte kept. The comment line is config.PROJECT_COMMENT.",
+  "source": "arboria.config.add_project_id",
+  "version": 1
+}

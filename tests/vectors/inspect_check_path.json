@@ -1,0 +1,113 @@
+{
+  "cases": [
+    {
+      "id": "plain",
+      "input": {
+        "path": "src/train.py"
+      },
+      "output": "src/train.py"
+    },
+    {
+      "id": "top",
+      "input": {
+        "path": "train.py"
+      },
+      "output": "train.py"
+    },
+    {
+      "id": "dotfile",
+      "input": {
+        "path": ".github/x.yml"
+      },
+      "output": ".github/x.yml"
+    },
+    {
+      "id": "unicode",
+      "input": {
+        "path": "笔记/说明.md"
+      },
+      "output": "笔记/说明.md"
+    },
+    {
+      "id": "300",
+      "input": {
+        "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "output": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "error": "ArbError: path must be a repo-relative file path, got 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'",
+      "id": "err-301",
+      "input": {
+        "path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "error": "ArbError: path '/etc/passwd': use a plain repo-relative path like src/train.py (no leading /, no . or ..)",
+      "id": "err-abs",
+      "input": {
+        "path": "/etc/passwd"
+      }
+    },
+    {
+      "error": "ArbError: path 'src/../x': use a plain repo-relative path like src/train.py (no leading /, no . or ..)",
+      "id": "err-dotdot",
+      "input": {
+        "path": "src/../x"
+      }
+    },
+    {
+      "error": "ArbError: path './x': use a plain repo-relative path like src/train.py (no leading /, no . or ..)",
+      "id": "err-dot",
+      "input": {
+        "path": "./x"
+      }
+    },
+    {
+      "error": "ArbError: path 'a//b': use a plain repo-relative path like src/train.py (no leading /, no . or ..)",
+      "id": "err-double-slash",
+      "input": {
+        "path": "a//b"
+      }
+    },
+    {
+      "error": "ArbError: path 'src/': use a plain repo-relative path like src/train.py (no leading /, no . or ..)",
+      "id": "err-trailing-slash",
+      "input": {
+        "path": "src/"
+      }
+    },
+    {
+      "error": "ArbError: path 'src\\\\x.py': use a plain repo-relative path like src/train.py (no leading /, no . or ..)",
+      "id": "err-backslash",
+      "input": {
+        "path": "src\\x.py"
+      }
+    },
+    {
+      "error": "ArbError: path must be a repo-relative file path, got ''",
+      "id": "err-empty",
+      "input": {
+        "path": ""
+      }
+    },
+    {
+      "error": "ArbError: path must be a repo-relative file path, got 3",
+      "id": "err-int",
+      "input": {
+        "path": 3
+      }
+    },
+    {
+      "error": "ArbError: path must be a repo-relative file path, got None",
+      "id": "err-null",
+      "input": {
+        "path": null
+      }
+    }
+  ],
+  "name": "inspect_check_path",
+  "notes": "A span's file path: repo-relative, POSIX, 1..300 chars, no leading '/', no '\\\\', no empty / . / .. segment.",
+  "source": "arboria.inspection.check_path",
+  "version": 1
+}

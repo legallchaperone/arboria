@@ -1,0 +1,711 @@
+{
+  "cases": [
+    {
+      "id": "explicit",
+      "input": {
+        "config_command": "",
+        "explicit": [
+          "python",
+          "train.py"
+        ],
+        "override_style": "hydra",
+        "overrides": [],
+        "parent_request": null
+      },
+      "output": {
+        "base": [
+          "python",
+          "train.py"
+        ],
+        "command": [
+          "python",
+          "train.py"
+        ],
+        "overrides": [],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "train.py"
+          ],
+          "command_source": "explicit",
+          "override_style": "hydra",
+          "overrides": []
+        },
+        "source": "explicit",
+        "style": "hydra"
+      }
+    },
+    {
+      "id": "explicit-with-set",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": [
+          "python",
+          "x.py"
+        ],
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "lr",
+            0.1
+          ]
+        ],
+        "parent_request": null
+      },
+      "output": {
+        "base": [
+          "python",
+          "x.py"
+        ],
+        "command": [
+          "python",
+          "x.py",
+          "lr=0.1"
+        ],
+        "overrides": [
+          [
+            "lr",
+            "0.1"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "x.py"
+          ],
+          "command_source": "explicit",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "lr",
+              "0.1"
+            ]
+          ]
+        },
+        "source": "explicit",
+        "style": "hydra"
+      }
+    },
+    {
+      "id": "config",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [],
+        "parent_request": null
+      },
+      "output": {
+        "base": [
+          "python",
+          "train.py"
+        ],
+        "command": [
+          "python",
+          "train.py"
+        ],
+        "overrides": [],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "train.py"
+          ],
+          "command_source": "config",
+          "override_style": "hydra",
+          "overrides": []
+        },
+        "source": "config",
+        "style": "hydra"
+      }
+    },
+    {
+      "id": "config-hydra-set",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "optim.lr",
+            0.0003
+          ],
+          [
+            "use_ema",
+            true
+          ]
+        ],
+        "parent_request": null
+      },
+      "output": {
+        "base": [
+          "python",
+          "train.py"
+        ],
+        "command": [
+          "python",
+          "train.py",
+          "optim.lr=0.0003",
+          "use_ema=true"
+        ],
+        "overrides": [
+          [
+            "optim.lr",
+            "0.0003"
+          ],
+          [
+            "use_ema",
+            "true"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "train.py"
+          ],
+          "command_source": "config",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "optim.lr",
+              "0.0003"
+            ],
+            [
+              "use_ema",
+              "true"
+            ]
+          ]
+        },
+        "source": "config",
+        "style": "hydra"
+      }
+    },
+    {
+      "id": "config-argparse-set",
+      "input": {
+        "config_command": "python train.py --cfg base.yaml",
+        "explicit": null,
+        "override_style": "argparse",
+        "overrides": [
+          [
+            "lr",
+            0.0001
+          ],
+          [
+            "batch-size",
+            64
+          ]
+        ],
+        "parent_request": null
+      },
+      "output": {
+        "base": [
+          "python",
+          "train.py",
+          "--cfg",
+          "base.yaml"
+        ],
+        "command": [
+          "python",
+          "train.py",
+          "--cfg",
+          "base.yaml",
+          "--lr",
+          "0.0001",
+          "--batch-size",
+          "64"
+        ],
+        "overrides": [
+          [
+            "lr",
+            "0.0001"
+          ],
+          [
+            "batch-size",
+            "64"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "train.py",
+            "--cfg",
+            "base.yaml"
+          ],
+          "command_source": "config",
+          "override_style": "argparse",
+          "overrides": [
+            [
+              "lr",
+              "0.0001"
+            ],
+            [
+              "batch-size",
+              "64"
+            ]
+          ]
+        },
+        "source": "config",
+        "style": "argparse"
+      }
+    },
+    {
+      "id": "config-tyro-set",
+      "input": {
+        "config_command": "uv run train.py",
+        "explicit": null,
+        "override_style": "tyro",
+        "overrides": [
+          [
+            "seed",
+            0
+          ]
+        ],
+        "parent_request": null
+      },
+      "output": {
+        "base": [
+          "uv",
+          "run",
+          "train.py"
+        ],
+        "command": [
+          "uv",
+          "run",
+          "train.py",
+          "--seed",
+          "0"
+        ],
+        "overrides": [
+          [
+            "seed",
+            "0"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "uv",
+            "run",
+            "train.py"
+          ],
+          "command_source": "config",
+          "override_style": "tyro",
+          "overrides": [
+            [
+              "seed",
+              "0"
+            ]
+          ]
+        },
+        "source": "config",
+        "style": "tyro"
+      }
+    },
+    {
+      "id": "config-quoted",
+      "input": {
+        "config_command": "python 'my train.py' --name \"a b\"",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [],
+        "parent_request": null
+      },
+      "output": {
+        "base": [
+          "python",
+          "my train.py",
+          "--name",
+          "a b"
+        ],
+        "command": [
+          "python",
+          "my train.py",
+          "--name",
+          "a b"
+        ],
+        "overrides": [],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "my train.py",
+            "--name",
+            "a b"
+          ],
+          "command_source": "config",
+          "override_style": "hydra",
+          "overrides": []
+        },
+        "source": "config",
+        "style": "hydra"
+      }
+    },
+    {
+      "id": "from-config-parent",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "lr",
+            0.2
+          ],
+          [
+            "bs",
+            32
+          ]
+        ],
+        "parent_request": {
+          "base_command": [
+            "python",
+            "train.py"
+          ],
+          "command": [
+            "python",
+            "train.py",
+            "lr=0.1"
+          ],
+          "command_source": "config",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "lr",
+              "0.1"
+            ]
+          ]
+        }
+      },
+      "output": {
+        "base": [
+          "python",
+          "train.py"
+        ],
+        "command": [
+          "python",
+          "train.py",
+          "lr=0.2",
+          "bs=32"
+        ],
+        "overrides": [
+          [
+            "lr",
+            "0.2"
+          ],
+          [
+            "bs",
+            "32"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "train.py"
+          ],
+          "command_source": "config",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "lr",
+              "0.2"
+            ],
+            [
+              "bs",
+              "32"
+            ]
+          ]
+        },
+        "source": "config",
+        "style": "hydra"
+      }
+    },
+    {
+      "id": "from-explicit-parent",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "lr",
+            0.2
+          ]
+        ],
+        "parent_request": {
+          "base_command": [
+            "python",
+            "run.py"
+          ],
+          "command": [
+            "python",
+            "run.py",
+            "--lr",
+            "0.1"
+          ],
+          "command_source": "explicit",
+          "override_style": "argparse",
+          "overrides": [
+            [
+              "lr",
+              "0.1"
+            ]
+          ]
+        }
+      },
+      "output": {
+        "base": [
+          "python",
+          "run.py"
+        ],
+        "command": [
+          "python",
+          "run.py",
+          "--lr",
+          "0.2"
+        ],
+        "overrides": [
+          [
+            "lr",
+            "0.2"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "run.py"
+          ],
+          "command_source": "explicit",
+          "override_style": "argparse",
+          "overrides": [
+            [
+              "lr",
+              "0.2"
+            ]
+          ]
+        },
+        "source": "explicit",
+        "style": "argparse"
+      }
+    },
+    {
+      "id": "from-v3-parent",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "epochs",
+            5
+          ]
+        ],
+        "parent_request": {
+          "command": [
+            "python",
+            "old.py",
+            "--epochs",
+            "3"
+          ]
+        }
+      },
+      "output": {
+        "base": [
+          "python",
+          "old.py",
+          "--epochs",
+          "3"
+        ],
+        "command": [
+          "python",
+          "old.py",
+          "--epochs",
+          "3",
+          "epochs=5"
+        ],
+        "overrides": [
+          [
+            "epochs",
+            "5"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "old.py",
+            "--epochs",
+            "3"
+          ],
+          "command_source": "explicit",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "epochs",
+              "5"
+            ]
+          ]
+        },
+        "source": "explicit",
+        "style": "hydra"
+      }
+    },
+    {
+      "id": "from-parent-explicit-wins",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": [
+          "python",
+          "new.py"
+        ],
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "lr",
+            1
+          ]
+        ],
+        "parent_request": {
+          "base_command": [
+            "python",
+            "train.py"
+          ],
+          "command": [
+            "python",
+            "train.py",
+            "lr=0.1"
+          ],
+          "command_source": "config",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "lr",
+              "0.1"
+            ]
+          ]
+        }
+      },
+      "output": {
+        "base": [
+          "python",
+          "new.py"
+        ],
+        "command": [
+          "python",
+          "new.py",
+          "lr=1"
+        ],
+        "overrides": [
+          [
+            "lr",
+            "1"
+          ]
+        ],
+        "request_extra": {
+          "base_command": [
+            "python",
+            "new.py"
+          ],
+          "command_source": "explicit",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "lr",
+              "1"
+            ]
+          ]
+        },
+        "source": "explicit",
+        "style": "hydra"
+      }
+    },
+    {
+      "error": "ArbError: no command: put it after `--` (arb submit ... -- python train.py) or set [run] command in arboria.toml",
+      "id": "err-no-command",
+      "input": {
+        "config_command": "",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [],
+        "parent_request": null
+      }
+    },
+    {
+      "error": "ArbError: no command: put it after `--` (arb submit ... -- python train.py) or set [run] command in arboria.toml",
+      "id": "err-no-command-with-set",
+      "input": {
+        "config_command": "",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "lr",
+            1
+          ]
+        ],
+        "parent_request": null
+      }
+    },
+    {
+      "error": "ArbError: invalid override key 'a b': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-bad-override",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [
+          [
+            "a b",
+            1
+          ]
+        ],
+        "parent_request": null
+      }
+    },
+    {
+      "error": "ArbError: override key '+x': + / ~ prefixes are hydra syntax, not argparse",
+      "id": "err-prefix-argparse",
+      "input": {
+        "config_command": "python train.py",
+        "explicit": null,
+        "override_style": "argparse",
+        "overrides": [
+          [
+            "+x",
+            1
+          ]
+        ],
+        "parent_request": null
+      }
+    },
+    {
+      "error": "ArbError: no command: put it after `--` (arb submit ... -- python train.py) or set [run] command in arboria.toml",
+      "id": "err-parent-config-now-empty",
+      "input": {
+        "config_command": "",
+        "explicit": null,
+        "override_style": "hydra",
+        "overrides": [],
+        "parent_request": {
+          "base_command": [
+            "python",
+            "train.py"
+          ],
+          "command": [
+            "python",
+            "train.py",
+            "lr=0.1"
+          ],
+          "command_source": "config",
+          "override_style": "hydra",
+          "overrides": [
+            [
+              "lr",
+              "0.1"
+            ]
+          ]
+        }
+      }
+    }
+  ],
+  "name": "build_command",
+  "notes": "input.config_command is arboria.toml [run] command (a string, split with shlex.split; '' = not configured), input.override_style its override_style. explicit = the `-- CMD` argv or null, overrides = --set pairs, parent_request = the --from run's request_json or null. Output is the CommandSpec: command, base, source, overrides (as [k, v] lists), style, and request_extra().",
+  "source": "arboria.submission.build_command",
+  "version": 1
+}

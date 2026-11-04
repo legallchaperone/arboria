@@ -1,0 +1,239 @@
+{
+  "cases": [
+    {
+      "id": "loss-nan",
+      "input": {
+        "patterns": null,
+        "text": "step 1 loss 2.3\nstep 2 loss nan\n"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "step 2 loss nan"
+      ]
+    },
+    {
+      "id": "loss-NaN-case",
+      "input": {
+        "patterns": null,
+        "text": "Step 5: Loss = NaN\n"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "Step 5: Loss = NaN"
+      ]
+    },
+    {
+      "id": "nan-before-loss",
+      "input": {
+        "patterns": null,
+        "text": "found nan in loss at step 3"
+      },
+      "output": [
+        "(?i)\\bnan\\b[^\\n]{0,40}\\bloss\\b",
+        "found nan in loss at step 3"
+      ]
+    },
+    {
+      "id": "nan-loss-far",
+      "input": {
+        "patterns": null,
+        "text": "nan yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy loss"
+      },
+      "output": null
+    },
+    {
+      "id": "loss-nan-41-apart",
+      "input": {
+        "patterns": null,
+        "text": "loss                                       x nan"
+      },
+      "output": null
+    },
+    {
+      "id": "nanosecond-not-nan",
+      "input": {
+        "patterns": null,
+        "text": "loss 0.1 after 5 nanoseconds"
+      },
+      "output": null
+    },
+    {
+      "id": "lossy-not-loss",
+      "input": {
+        "patterns": null,
+        "text": "lossy nan"
+      },
+      "output": null
+    },
+    {
+      "id": "cuda-oom",
+      "input": {
+        "patterns": null,
+        "text": "RuntimeError: CUDA out of memory."
+      },
+      "output": [
+        "CUDA out of memory",
+        "RuntimeError: CUDA out of memory."
+      ]
+    },
+    {
+      "id": "torch-oom",
+      "input": {
+        "patterns": null,
+        "text": "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate"
+      },
+      "output": [
+        "CUDA out of memory",
+        "torch.OutOfMemoryError: CUDA out of memory. Tried to allocate"
+      ]
+    },
+    {
+      "id": "pattern-order-within-line",
+      "input": {
+        "patterns": null,
+        "text": "torch.OutOfMemoryError CUDA out of memory"
+      },
+      "output": [
+        "CUDA out of memory",
+        "torch.OutOfMemoryError CUDA out of memory"
+      ]
+    },
+    {
+      "id": "first-line-wins",
+      "input": {
+        "patterns": null,
+        "text": "CUDA out of memory\nloss nan\n"
+      },
+      "output": [
+        "CUDA out of memory",
+        "CUDA out of memory"
+      ]
+    },
+    {
+      "id": "clean",
+      "input": {
+        "patterns": null,
+        "text": "epoch 1 loss 0.5\nepoch 2 loss 0.4\n"
+      },
+      "output": null
+    },
+    {
+      "id": "empty",
+      "input": {
+        "patterns": null,
+        "text": ""
+      },
+      "output": null
+    },
+    {
+      "id": "strip-indent",
+      "input": {
+        "patterns": null,
+        "text": "   \tloss: nan   \n"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "loss: nan"
+      ]
+    },
+    {
+      "id": "truncate-200",
+      "input": {
+        "patterns": null,
+        "text": "step 100 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx loss nan"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "step 100 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ]
+    },
+    {
+      "id": "cr-separated",
+      "input": {
+        "patterns": null,
+        "text": "loss 1\rloss nan\r"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "loss nan"
+      ]
+    },
+    {
+      "id": "u2028-separated",
+      "input": {
+        "patterns": null,
+        "text": "ok loss nan"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "loss nan"
+      ]
+    },
+    {
+      "id": "vt-separated",
+      "input": {
+        "patterns": null,
+        "text": "ok\u000bloss nan"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "loss nan"
+      ]
+    },
+    {
+      "id": "chinese-line",
+      "input": {
+        "patterns": null,
+        "text": "第3步 loss nan 了"
+      },
+      "output": [
+        "(?i)\\bloss\\b[^\\n]{0,40}\\bnan\\b",
+        "第3步 loss nan 了"
+      ]
+    },
+    {
+      "id": "custom",
+      "input": {
+        "patterns": [
+          "^Traceback",
+          "Error:"
+        ],
+        "text": "Traceback (most recent call last):\n  File x\nValueError: bad\n"
+      },
+      "output": [
+        "^Traceback",
+        "Traceback (most recent call last):"
+      ]
+    },
+    {
+      "id": "custom-anchor",
+      "input": {
+        "patterns": [
+          "^Traceback"
+        ],
+        "text": "  Traceback\nTraceback (x)"
+      },
+      "output": [
+        "^Traceback",
+        "Traceback (x)"
+      ]
+    },
+    {
+      "id": "custom-unicode-word",
+      "input": {
+        "patterns": [
+          "损失为\\s*nan"
+        ],
+        "text": "错误：损失为 nan"
+      },
+      "output": [
+        "损失为\\s*nan",
+        "错误：损失为 nan"
+      ]
+    }
+  ],
+  "name": "first_hit",
+  "notes": "Observation window: the first log line (Python str.splitlines(): \\n, \\r, \\r\\n, \\v, \\f, \\x1c-\\x1e, \\x85, U+2028, U+2029) matching any pattern, patterns tried in order per line. Output [pattern, line.strip()[:200]] (code points) or null. Patterns are Python `re` syntax; input.patterns null = arboria's DEFAULT_FAIL_PATTERNS ([\"(?i)\\\\bloss\\\\b[^\\\\n]{0,40}\\\\bnan\\\\b\", \"(?i)\\\\bnan\\\\b[^\\\\n]{0,40}\\\\bloss\\\\b\", \"CUDA out of memory\", \"torch\\\\.OutOfMemoryError\"]).",
+  "source": "arboria.monitor.first_hit",
+  "version": 1
+}

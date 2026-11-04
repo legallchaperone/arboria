@@ -1,0 +1,11 @@
+[package]
+name = "arboria-kernel-spike"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jupyter-zmq-client = { version = "=1.0.1", default-features = false, features = ["tokio-runtime", "ring"] }
+jupyter-protocol = "=2.0.2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "time", "fs"] }
+serde_json = "1"
+anyhow = "1"

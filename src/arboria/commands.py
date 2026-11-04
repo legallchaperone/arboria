@@ -291,6 +291,38 @@ BUILTINS: dict[str, str] = {
 KIND_LABELS = {"builtin": "内置", **SCOPE_LABELS}
 
 
+# ---------------------------------------------------------------- promote
+
+
+def promote(ledger: Ledger, name: str, *, force: bool = False) -> dict[str, Any]:
+    """Copy the project command `name` into the global library. Refuses to replace a
+    different global file unless `force`; the project file stays (and still wins here)."""
+    validate_name(name)
+    src = _file(name, "project", ledger.state_dir)
+    if src is None:
+        raise ArbError(f"no project command {name!r} ({project_dir(ledger.state_dir)}/{name}.py)")
+    dest = global_dir() / f"{name}.py"
+    old = _file(name, "global", None)
+    if old is not None and old.sha256 == src.sha256:
+        return {"name": name, "version": src.version, "path": str(dest), "changed": False,
+                "replaced": None}
+    if old is not None and not force:
+        raise ArbError(f"the global library already has {name} (v{old.version}, {dest}); "
+                       "pass --force to replace it")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    data = src.path.read_bytes()
+    version = hashlib.sha256(data).hexdigest()[:8]
+    tmp = dest.with_name(f".{name}.py.tmp")
+    tmp.write_bytes(data)
+    tmp.replace(dest)
+    replaced = old.version if old is not None else None
+    with ledger.write():
+        ledger.event("command_promote", name, {"version": version, "from": str(src.path),
+                                               "to": str(dest), "replaced": replaced})
+    return {"name": name, "version": version, "path": str(dest), "changed": True,
+            "replaced": replaced}
+
+
 # ---------------------------------------------------------------- loading (human's kernel only)
 
 _loaded: dict[str, tuple[str, Callable[..., Any]]] = {}
@@ -475,6 +507,7 @@ def svd(ctx, run, *, k=20, log=False):
 - 函数要能接受第一次调用的形状（payload 里的 args/kwargs）。说明（`ask=`）只是给你
   看的，不会传进来，不要为它留参数；旧 notebook 里说明写成末尾的位置字符串时，lab
   发现签名放不下它就会去掉。`scope=`、`ask=` 是 lab 自己用的，不能当参数名。
+- 好的项目命令以后可以 `arb commands promote <名字>` 复制进全局命令库（人决定）。
 
 ## ctx
 - `ctx.run(run_or_id)`：run 句柄（`lab.Run`）。`.id`、`.status()`、`.row()`、

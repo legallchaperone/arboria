@@ -767,6 +767,24 @@ def commands_list(as_json: JsonOpt = False) -> None:
     typer.echo(builtins)
 
 
+@commands_app.command("promote")
+@handle_errors
+def commands_promote(
+    name: Annotated[str, typer.Argument(help="The project command to copy.")],
+    force: Annotated[bool, typer.Option("--force", help="Replace a different global one.")] = False,
+) -> None:
+    """Copy a project command into the global library (~/.config/arboria/commands)."""
+    _, ledger = _open()
+    with ledger:
+        res = commands_mod.promote(ledger, name, force=force)
+    if not res["changed"]:
+        typer.echo(f"{name} v{res['version']} 已经是全局命令库里的版本（{res['path']}）")
+        return
+    replaced = f"，替换了 v{res['replaced']}" if res["replaced"] else ""
+    typer.echo(f"promoted {name} v{res['version']} → {res['path']}{replaced}\n"
+               f"项目里的 {name} 仍然优先；别的项目和种子里 lab.{name}(...) 用全局的这份。")
+
+
 # ---------------------------------------------------------------- notes / status / export
 
 

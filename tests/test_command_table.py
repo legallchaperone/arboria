@@ -221,3 +221,38 @@ def test_commands_list_shows_signatures(initialized: Path, config_dir: Path, arb
     assert "内置" in out and "plot" in out and "lab.commands()" in out
     data = json.loads(arb(initialized, "commands", "list", "--json").stdout)
     assert data[0]["signature"] == "svd(run, *, k=20, log=False)"
+
+
+def test_promote_copies_a_project_command_to_the_global_library(
+        idea: Path, initialized: Path, config_dir: Path, arb) -> None:
+    src = _write(_project(initialized), "svd", SVD)
+    before = git(initialized / ".arboria", "log", "--format=%s").splitlines()
+    out = arb(idea, "commands", "promote", "svd").stdout
+    dest = config_dir / "commands" / "svd.py"
+    assert dest.read_text() == SVD and src.read_text() == SVD  # copied, not moved
+    assert "svd" in out and str(dest) in out and "项目里的 svd 仍然优先" in out
+    with Ledger(initialized / ".arboria") as l:
+        ev = l.one("SELECT * FROM events WHERE kind = 'command_promote'")
+    payload = json.loads(ev["payload_json"])
+    assert ev["subject"] == "svd" and payload["version"] == commands._sha(src)[:8]
+    assert payload["replaced"] is None and payload["to"] == str(dest)
+    after = git(initialized / ".arboria", "log", "--format=%s").splitlines()
+    assert after[0] == "arboria backup: command_promote svd" and len(after) == len(before) + 1
+
+    # same content again: nothing to do, nothing recorded
+    assert "已经是" in arb(idea, "commands", "promote", "svd").stdout
+    # a different global version is not replaced without --force
+    src.write_text(SVD.replace("k=20", "k=30"))
+    res = arb(idea, "commands", "promote", "svd", ok=False)
+    assert res.exit_code != 0 and "--force" in res.output
+    assert dest.read_text() == SVD
+    old_version = commands._sha(dest)[:8]
+    arb(idea, "commands", "promote", "svd", "--force")
+    assert "k=30" in dest.read_text()
+    with Ledger(initialized / ".arboria") as l:
+        evs = l.all("SELECT * FROM events WHERE kind = 'command_promote' ORDER BY id")
+    assert len(evs) == 2 and json.loads(evs[1]["payload_json"])["replaced"] == old_version
+
+    assert "no project command 'nope'" in arb(idea, "commands", "promote", "nope",
+                                               ok=False).output
+    assert "already part of lab" in arb(idea, "commands", "promote", "plot", ok=False).output

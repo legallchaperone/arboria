@@ -55,7 +55,7 @@ BACKUP_EVENTS = frozenset({
     "run_submit", "run_approve", "run_queued", "run_reject", "run_cancel", "run_final",
     "run_config", "todo_new", "todo_done", "todo_drop", "idea_confidence", "idea_metric",
     "notebook_new", "seed_new", "seed_set", "seed_drop", "seed_revive",
-    "seed_plant",
+    "seed_plant", "command_promote",
 })
 
 # Limits for the free-text fields an LLM is allowed to write.

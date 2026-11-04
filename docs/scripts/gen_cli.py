@@ -39,6 +39,7 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
     ]),
     ("待办与 notebook 命令", "notebook 里 `lab.todo(...)` 和 `lab.<名字>(...)` 留下的活。", [
         "todo list", "todo done", "todo drop", "commands list", "commands guide",
+        "commands promote",
     ]),
     ("看板", "", ["ui"]),
     ("机器", "机器配置在 `~/.config/arboria/clusters.toml`。", ["machine init", "doctor"]),

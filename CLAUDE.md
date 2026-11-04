@@ -22,6 +22,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - CI：`.github/workflows/tests.yml` 在 Python 3.11 和 3.13 上跑 `uv sync --all-extras --dev` + `uv run pytest`（包括真的 marimo）。
 - 用户文档：`README.md` 只放概览和快速开始，完整说明在文档网站 https://arboria.cwx.world（Astro + Starlight，源码在 `docs/`：页面在 `docs/src/content/docs/`，入门 / 指南 / 参考 / 项目）；改了命令或行为要同步对应页面。CLI 参考页 `reference/cli.md` 由 `uv run python docs/scripts/gen_cli.py` 生成，`tests/test_docs_cli.py` 和 docs CI 检查它是最新的；新命令要在脚本的 `SECTIONS` 里归类。本地预览 `cd docs && npm ci && npm run dev`；部署见 `docs/DEPLOY.md`。
 - 跨语言测试向量（`tests/vectors/`，Rust 版要逐字节一致）：改了被覆盖的 Python 行为后运行 `uv run python scripts/export_vectors.py` 重新生成并提交，`tests/test_vectors.py` 会检查它们是最新的。`quirk-` 开头的用例记录的是现在的 Python 行为（可能是 bug），Rust 先照抄。
+- Rust 核心（`crates/`，契约见 `docs/adr/0002-rust-contract.md`）：`cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace` 必须全绿（CI：`.github/workflows/rust.yml`）。改了 Python CLI 或 `db.py` 的 schema 要重新生成 `crates/arb/tests/python_commands.txt`（`gen_python_commands.py`）和 `crates/arboria-core/tests/fixtures/`（`gen_fixtures.py`）。
 - commit 要小、逻辑清楚。
 - 本机（macOS）会给整个 `.venv` 加 `hidden` 标志，Python 3.13 跳过 hidden 的 `.pth`，editable 安装就失效（`No module named 'arboria'`）。所以 pytest 配了 `pythonpath = ["src"]`，起子进程的测试要自己传 `PYTHONPATH`。
 

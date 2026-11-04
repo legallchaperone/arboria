@@ -1,16 +1,20 @@
 ---
-// Starlight's Hero, rearranged for Arboria: text on the left, the idea-tree
-// drawing on the right; the drawing is inline SVG so it follows the theme.
+// Starlight's Hero, rearranged for Arboria: a short line of what it is, the title,
+// the subtitle and the buttons, then the contrast picture (HeroContrast) below.
 import { LinkButton } from '@astrojs/starlight/components';
-import HeroArt from './HeroArt.astro';
+import HeroContrast from './HeroContrast.astro';
 
 const PAGE_TITLE_ID = '_top'; // Starlight's id for the page title (skip link target)
-const { data } = Astro.locals.starlightRoute.entry;
+const { entry, lang: pageLang } = Astro.locals.starlightRoute;
+const { data } = entry;
 const { title = data.title, tagline, actions = [] } = data.hero || {};
+const lang = pageLang.startsWith('en') ? 'en' : 'zh';
+const kicker = lang === 'en' ? 'Arboria · ML research with an agent' : 'Arboria · 和 agent 一起做 ML 研究';
 ---
 
 <div class="hero not-content">
 	<div class="copy">
+		<p class="kicker">{kicker}</p>
 		<h1 id={PAGE_TITLE_ID} data-page-title set:html={title} />
 		{tagline && <p class="tagline" set:html={tagline} />}
 		{
@@ -25,58 +29,56 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 			)
 		}
 	</div>
-	<div class="art">
-		<HeroArt />
-	</div>
+	<HeroContrast lang={lang} />
 </div>
 
 <style>
 	.hero {
-		display: grid;
-		grid-template-columns: 100%;
-		gap: 2rem;
-		align-items: center;
-		padding-block: 2.5rem 1.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 2.5rem;
+		padding-block: 0.5rem 2.5rem;
 	}
 	.copy {
 		display: flex;
 		flex-direction: column;
-		gap: 1.25rem;
+		gap: 1rem;
+	}
+	.kicker {
+		margin: 0;
+		font-size: var(--sl-text-sm);
+		font-weight: 600;
+		color: var(--arb-accent);
 	}
 	h1 {
 		margin: 0;
-		font-size: clamp(2.5rem, 1.6rem + 3.6vw, 3.75rem);
-		line-height: 1.1;
+		font-size: clamp(2rem, 1.2rem + 2.8vw, 3.25rem);
+		line-height: 1.2;
 		font-weight: 600;
 		letter-spacing: -0.01em;
 		color: var(--sl-color-white);
 	}
+	/* the title breaks at its comma, never inside a half */
+	h1 :global(span) {
+		display: inline-block;
+	}
 	.tagline {
 		margin: 0;
-		max-width: 30rem;
-		font-size: clamp(1.0625rem, 0.95rem + 0.6vw, 1.3125rem);
-		line-height: 1.6;
+		max-width: 44rem;
+		font-size: clamp(1rem, 0.94rem + 0.3vw, 1.125rem);
+		line-height: 1.8;
 		color: var(--sl-color-gray-2);
 	}
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.75rem 1rem;
-		margin-top: 0.25rem;
-	}
-	.art {
-		max-width: 26rem;
-		width: 100%;
-		margin-inline: auto;
+		margin-top: 0.5rem;
 	}
 	@media (min-width: 50rem) {
 		.hero {
-			grid-template-columns: 6fr 5fr;
-			gap: 3rem;
-			padding-block: 4.5rem 3rem;
-		}
-		.art {
-			margin-inline: 0 auto;
+			gap: 2.5rem;
+			padding-block: 0.75rem 3rem;
 		}
 	}
 </style>

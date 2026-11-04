@@ -227,15 +227,6 @@ h1#_top {
 
 /* ---------------------------------------------------------------- calmer chrome */
 
-/* hero: the one-line tagline, then a quieter line */
-.hero .tagline .sub {
-	display: block;
-	margin-top: 0.75rem;
-	font-size: var(--sl-text-base);
-	line-height: 1.75;
-	color: var(--sl-color-gray-3);
-}
-
 /* the current page in the sidebar: tint, not a solid block */
 .sidebar-content a[aria-current='page'],
 .sidebar-content a[aria-current='page']:hover,

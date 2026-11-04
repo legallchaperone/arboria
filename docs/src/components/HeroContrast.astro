@@ -1,0 +1,370 @@
+---
+// The hero picture: on the left (muted) the agent does it all and you read its report;
+// on the right (bright) your notebook, where every step is one line you call yourself.
+// Plain HTML plus two small inline SVGs, coloured by the theme tokens.
+interface Props {
+	lang?: 'zh' | 'en';
+}
+const { lang = 'zh' } = Astro.props;
+const zh = lang === 'zh';
+
+const t = zh
+	? {
+			left: '全交给 agent',
+			right: 'Arboria',
+			chat: 'agent 会话',
+			report:
+				'我看了 r002 的训练日志。前 2k 步的 loss 尖峰基本消失了，这多半和 warmup 从 1000 步加到 4000 步有关，不过也可能是随机种子的差别。第 9–12 层的 attention 熵在 1.2k 步附近略有下降，梯度范数的峰值也小了一些，而 val/loss 几乎没变（2.913 对 2.912）。综合来看，我建议把 β2 调到 0.95，同时把学习率提高到 6e-4，eval 间隔缩短到 250 步，再换三个 seed 各跑一次……配置和提交脚本我已经改好了。',
+			ask: '继续？',
+			reply: '嗯……好。',
+			leftCap: '一大段报告，凭信任点头。换个会话，再从头讲一遍。',
+			nb: 'warmup-long · notebook',
+			handed: '命令 svd 还不存在，已交给 agent（t007）',
+			rerun: '写好了，这个 cell 自动重跑',
+			prov: '命令 svd · v1a2b3c4d · 项目',
+			waiting: '待批准',
+			rightCap: '数据、曲线和决定都在你眼前；代码交给 agent。',
+			stance: '不是 agent 包办一切的 autoresearch，也不是全靠手的古法科研。',
+			title: '对比：左边是 agent 写来的一大段报告，最后问“继续？”；右边是你的 notebook，三行调用分别画出曲线、交给 agent 写一个新命令、生成一个待批准的 run。',
+		}
+	: {
+			left: 'The agent does it all',
+			right: 'Arboria',
+			chat: 'agent session',
+			report:
+				'I looked at the training logs of r002. The loss spikes in the first 2k steps are mostly gone, most likely because warmup went from 1000 to 4000 steps, although seed variance may play a part. Attention entropy in layers 9–12 dips slightly around step 1.2k and the gradient-norm peaks are a little lower, while val/loss is essentially unchanged (2.913 vs 2.912). Overall I suggest setting β2 to 0.95, raising the learning rate to 6e-4, shortening the eval interval to 250 steps and repeating with three seeds… I have already updated the config and the submit script.',
+			ask: 'Continue?',
+			reply: 'Uh… sure.',
+			leftCap: 'A wall of text, a nod on trust. New session: explain it all again.',
+			nb: 'warmup-long · notebook',
+			handed: 'No command svd yet: handed to the agent (t007)',
+			rerun: 'Written; this cell re-ran by itself',
+			prov: 'command svd · v1a2b3c4d · project',
+			waiting: 'awaiting approval',
+			rightCap: 'The data, curves and decisions are in front of you; the code goes to the agent.',
+			stance: 'Not autoresearch, where the agent does it all. Not old-school research by hand either.',
+			title: 'Contrast: on the left a long report from an agent ending in “Continue?”; on the right your notebook, where three one-line calls draw curves, hand a new command to the agent and create a run awaiting approval.',
+		};
+
+// two loss curves: r001 has spikes early on, r002 (longer warmup) does not
+const W = 300;
+const H = 84;
+const N = 90;
+const loss = (x: number, spiky: boolean) => {
+	let y = 0.55 + 2.6 * Math.exp(-x / 0.16) + 0.02 * Math.sin(x * 60);
+	if (spiky) for (const s of [0.07, 0.12, 0.17, 0.22]) y += 0.75 * Math.exp(-((x - s) ** 2) / 0.00006);
+	return y;
+};
+const path = (spiky: boolean, shift: number) =>
+	Array.from({ length: N + 1 }, (_, i) => {
+		const x = i / N;
+		const y = loss(x, spiky) + shift;
+		return `${i ? 'L' : 'M'}${(8 + x * (W - 16)).toFixed(1)} ${(H - 6 - (y / 3.4) * (H - 14)).toFixed(1)}`;
+	}).join(' ');
+const r1 = path(true, 0.02);
+const r2 = path(false, 0);
+
+// the singular values the svd command draws
+const sv = Array.from({ length: 20 }, (_, i) => 1 / (1 + i) ** 0.75);
+---
+
+<figure class="contrast" role="group" aria-label={t.title}>
+	<div class="side before">
+		<p class="label">{t.left}</p>
+		<div class="win chat" aria-hidden="true">
+			<div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>{t.chat}</span></div>
+			<div class="msgs">
+				<div class="msg agent">
+					<p>{t.report}</p>
+					<p class="ask">{t.ask}</p>
+				</div>
+				<div class="msg you">{t.reply}</div>
+			</div>
+		</div>
+		<p class="cap">{t.leftCap}</p>
+	</div>
+
+	<div class="side after">
+		<p class="label">{t.right}</p>
+		<div class="win nb" aria-hidden="true">
+			<div class="bar"><span class="dots"><i></i><i></i><i></i></span><span>{t.nb}</span></div>
+			<div class="cells">
+				<div class="cell">
+					<pre class="code"><span class="o">lab</span>.<span class="f">plot</span>([r1, r2], <span class="s">"val/loss"</span>)</pre>
+					<div class="out">
+						<svg class="curve" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+							<path class="grid" d={`M8 ${H - 6} H ${W - 8} M8 ${H / 2} H ${W - 8} M8 8 H ${W - 8}`}></path>
+							<path class="c1" d={r1}></path>
+							<path class="c2" d={r2}></path>
+						</svg>
+						<p class="legend"><span class="k1"></span>r001 <span class="k2"></span>r002</p>
+					</div>
+				</div>
+				<div class="cell">
+					<pre class="code"><span class="o">lab</span>.<span class="f">svd</span>(r2, ask=<span class="s">"{zh ? '前 20 个奇异值' : 'top 20 singular values'}"</span>)</pre>
+					<div class="out">
+						<p class="handed">{t.handed}</p>
+						<p class="rerun">↻ {t.rerun}</p>
+						<svg class="bars" viewBox="0 0 300 44" preserveAspectRatio="none">
+							{sv.map((v, i) => <rect x={6 + i * 14.6} y={42 - v * 38} width="9.6" height={v * 38} rx="1.5" />)}
+						</svg>
+						<p class="prov">{t.prov}</p>
+					</div>
+				</div>
+				<div class="cell">
+					<pre class="code"><span class="o">lab</span>.<span class="f">run</span>(reason=<span class="s">"β2=0.95"</span>, from_=r2)</pre>
+					<div class="out">
+						<p class="run"><b>r003</b> · <span class="warn">{t.waiting}</span> · <code>arb approve r003</code></p>
+					</div>
+				</div>
+			</div>
+		</div>
+		<p class="cap">{t.rightCap}</p>
+	</div>
+
+	<figcaption class="stance">{t.stance}</figcaption>
+</figure>
+
+<style>
+	.contrast {
+		margin: 0;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: 1.75rem;
+		align-items: start;
+	}
+	@media (min-width: 50rem) {
+		.contrast {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+			gap: 2rem;
+		}
+		.stance {
+			grid-column: 1 / -1;
+		}
+	}
+	.side {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		min-width: 0;
+	}
+	.label {
+		margin: 0;
+		font-size: var(--sl-text-xs);
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		color: var(--arb-faint);
+	}
+	.after .label {
+		color: var(--arb-accent);
+	}
+	.cap {
+		margin: 0;
+		font-size: var(--sl-text-sm);
+		line-height: 1.6;
+		color: var(--arb-faint);
+	}
+	.after .cap {
+		color: var(--sl-color-gray-2);
+	}
+	.stance {
+		margin: 0.25rem 0 0;
+		padding-top: 1rem;
+		border-top: 1px dashed var(--arb-line);
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-gray-3);
+		text-align: center;
+	}
+
+	/* windows */
+	.win {
+		border: 1px solid var(--arb-line);
+		border-radius: 0.75rem;
+		overflow: hidden;
+		background: var(--arb-surface);
+	}
+	.bar {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.45rem 0.8rem;
+		border-bottom: 1px solid var(--arb-line-soft);
+		background: var(--arb-sunken);
+		font-size: 0.75rem;
+		color: var(--arb-faint);
+	}
+	.dots {
+		display: inline-flex;
+		gap: 0.3rem;
+	}
+	.dots i {
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 50%;
+		background: var(--arb-line);
+	}
+
+	/* left: muted */
+	.before .win {
+		background: var(--arb-sunken);
+		border-color: var(--arb-line-soft);
+	}
+	.msgs {
+		padding: 0.9rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.7rem;
+	}
+	.msg {
+		font-size: 0.8125rem;
+		line-height: 1.75;
+		color: var(--arb-faint);
+	}
+	.msg p {
+		margin: 0;
+	}
+	.msg .ask {
+		margin-top: 0.5rem;
+		color: var(--arb-muted);
+		font-weight: 600;
+	}
+	.msg.you {
+		align-self: flex-end;
+		padding: 0.3rem 0.75rem;
+		border-radius: 0.9rem 0.9rem 0.2rem 0.9rem;
+		background: var(--arb-line-soft);
+		color: var(--arb-muted);
+	}
+
+	/* right: bright */
+	.after .win {
+		border-color: var(--arb-line);
+		box-shadow: var(--arb-shot-shadow);
+	}
+	.after .bar {
+		color: var(--arb-muted);
+	}
+	.cells {
+		padding: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+	.cell {
+		border: 1px solid var(--arb-line-soft);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+	.code {
+		margin: 0;
+		padding: 0.45rem 0.75rem;
+		border-bottom: 1px solid var(--arb-line-soft);
+		background: var(--arb-sunken);
+		font-family: var(--__sl-font-mono);
+		font-size: 0.8125rem;
+		line-height: 1.6;
+		color: var(--arb-ink);
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.code .f {
+		color: var(--arb-accent);
+	}
+	.code .s {
+		color: var(--arb-ok);
+	}
+	.code .o {
+		color: var(--arb-ink);
+	}
+	.out {
+		padding: 0.55rem 0.75rem 0.6rem;
+		font-size: 0.8125rem;
+		line-height: 1.6;
+		color: var(--arb-ink);
+	}
+	.out p {
+		margin: 0;
+	}
+	.curve,
+	.bars {
+		display: block;
+		width: 100%;
+	}
+	.curve {
+		height: 3.75rem;
+	}
+	.bars {
+		height: 2.2rem;
+		margin-top: 0.35rem;
+	}
+	.grid {
+		fill: none;
+		stroke: var(--arb-line-soft);
+		stroke-width: 1;
+		vector-effect: non-scaling-stroke;
+	}
+	.c1,
+	.c2 {
+		fill: none;
+		stroke-width: 1.6;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+	}
+	.c1 {
+		stroke: var(--arb-warn);
+	}
+	.c2 {
+		stroke: var(--arb-accent);
+	}
+	.bars rect {
+		fill: var(--arb-accent);
+		opacity: 0.85;
+	}
+	.legend {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		font-size: 0.75rem;
+		color: var(--arb-muted);
+	}
+	.legend span {
+		display: inline-block;
+		width: 0.9rem;
+		height: 2px;
+		border-radius: 1px;
+	}
+	.legend .k1 {
+		background: var(--arb-warn);
+	}
+	.legend .k2 {
+		margin-left: 0.5rem;
+		background: var(--arb-accent);
+	}
+	.handed {
+		color: var(--arb-faint);
+		font-size: 0.75rem;
+	}
+	.rerun {
+		color: var(--arb-ok);
+		font-size: 0.75rem;
+	}
+	.prov {
+		margin-top: 0.3rem !important;
+		font-size: 0.75rem;
+		color: var(--arb-muted);
+	}
+	.run b {
+		font-weight: 600;
+	}
+	.run .warn {
+		color: var(--arb-warn);
+	}
+	.run code {
+		padding: 0.05rem 0.35rem;
+		border-radius: 0.3rem;
+		background: var(--arb-sunken);
+		font-family: var(--__sl-font-mono);
+		font-size: 0.78rem;
+		white-space: nowrap;
+	}
+</style>

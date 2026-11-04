@@ -8,32 +8,47 @@ import garden from '../../../assets/shots/seed-garden.webp';
 import seedNb from '../../../assets/shots/seed-notebook-full.webp';
 import planted from '../../../assets/shots/seed-planted.webp';
 
-想法常常还在酝酿：不属于任何仓库，也许永远不需要代码。**种子**就是这样的想法，放在全局的种子园里，有自己的 marimo notebook；想清楚了，再**种进**某个仓库，变成普通的 idea。
+想法常常还在酝酿：不属于任何仓库，也许永远不需要代码。**种子**就是这样的想法：一个还没有仓库的 idea。它放在全局的种子园里，有自己的 marimo notebook；想清楚了，再**种进**某个仓库，变成普通的 idea。
+
+种子用的也是 `arb idea`：**在仓库外**（或种子园里）运行时，`arb idea` 管的是种子；在初始化过的仓库里，管的是这个仓库的 idea。
 
 ```bash
-arb seed new rank-schedule "LoRA 的秩随层深度变化" --metric "同参数量下的 GLUE 平均分"
+cd ~                                               # 不在任何仓库里
+arb idea new rank-schedule "LoRA 的秩随层深度变化" --metric "同参数量下的 GLUE 平均分"
 marimo edit ~/arboria/seeds/rank-schedule.py      # 或在 VS Code 里用 marimo 扩展打开
-arb seed list                                      # 最近编辑的在前；--all 含已放弃的
-arb seed set rank-schedule --hypothesis "浅层需要更高的秩"
-cd ~/code/lm && arb seed plant rank-schedule       # 在这个仓库里建 idea
+arb idea list                                      # 最近编辑的在前；--all 含已放弃的
+arb idea set rank-schedule --hypothesis "浅层需要更高的秩"
+cd ~/code/lm && arb idea plant rank-schedule       # 在这个仓库里建 idea
 ```
+
+规则是固定的：
+
+| 当前目录 | `arb idea new/list/show/drop` 作用于 |
+| --- | --- |
+| 不在任何 git 仓库里，或在种子园里 | 种子（种子园 `~/arboria`） |
+| 在 git 仓库里，但还没 `arb init` | 报错，和以前一样（不会悄悄记成种子） |
+| 在 `arb init` 过的仓库里 | 这个仓库的 idea |
+
+`arb idea set` 和 `arb idea revive` 只用于种子，要在仓库外运行；`arb idea plant` 正相反，在目标仓库里运行。在仓库外运行 `arb idea new` 会多打印一行：记成了种子、放在哪里、以后怎么种下。
+
+旧写法 `arb seed new/list/show/set/drop/revive/plant` 仍然可用（`--help` 里不再列出），在任何目录下都作用于种子。
 
 <Shot src={seedNb} alt="种子 loss-spikes 的 notebook：一句话想法、假设、指标，然后是观察、猜想，一个画 |m/√v| 的玩具实验，最后一个给 Claude 的待办" caption="种子 notebook（演示数据）：观察、猜想、一个玩具实验，最后给 Claude 留了一个查文献的待办。" />
 
 ## 种子园
 
-- 位置是 `~/arboria/`，环境变量 `ARBORIA_HOME` 可以改。任何目录下的第一个 `arb seed …`（以及仓库外的 `arb ui`、`arb install-claude --home`）会自动建好它，并打印一行说明位置。
+- 位置是 `~/arboria/`，环境变量 `ARBORIA_HOME` 可以改。第一个用到种子的命令（仓库外的 `arb idea …`，以及仓库外的 `arb ui`、`arb install-claude --home`）会自动建好它，并打印一行说明位置。
 - 里面是 `seeds/<名字>.py`（种子 notebook，普通文件，好找好打开）和 `.arboria/`（和项目一样的账本和备份仓库）。种子园本身不是 git 仓库。
 - 种子的字段：名字（规则和 idea 一样）、一句话想法（≤300，可空）、可选的假设（≤300）和指标（≤200）、状态（思考中 / 已种下 / 已放弃）、种在哪里（可以有多处）、创建和最近编辑时间（notebook 文件改过也算）。
 
 ## 种子只由你写
 
-`arb seed new` / `set` / `drop` / `revive` / `plant` 在 Claude Code 里会被拒绝，`arb install-claude --home` 也把它们设为 deny。Claude 可以读：`arb seed list`、`arb seed show`、种子 notebook。
+写种子的命令（作用于种子时的 `arb idea new` / `set` / `drop` / `revive`，以及 `arb idea plant`；旧写法 `arb seed …` 也一样）在 Claude Code 里会被拒绝，这由代码保证，不靠权限规则。`arb install-claude` 另外把只写种子的 `arb idea set/revive/plant` 和 `arb seed …` 设为 deny；`--home` 在种子园里还 deny `arb idea new/drop`（在种子园里它们写的是种子，在仓库里 Claude 照常可以用）。Claude 可以读：仓库外的 `arb idea list`、`arb idea show`、种子 notebook。
 
 ## 种下
 
 ```bash
-arb seed plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--again]
+arb idea plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--again]
 ```
 
 - 目标仓库默认是当前目录所在的仓库，必须已经 `arb init`。种子里没有假设和指标时，用 `--hypothesis` / `--metric` 给出。
@@ -45,8 +60,10 @@ arb seed plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--a
 
 ## 放弃和恢复
 
-- `arb seed drop NAME`：放弃一个种子，notebook 留着。
-- `arb seed revive NAME`：改主意了，让已放弃的种子回到“思考中”。只对已放弃的种子有效；种在哪里的记录不变。
+在仓库外：
+
+- `arb idea drop NAME`：放弃一个种子，notebook 留着。
+- `arb idea revive NAME`：改主意了，让已放弃的种子回到“思考中”。只对已放弃的种子有效；种在哪里的记录不变。
 
 ## 种子 notebook 里的 `lab`
 
@@ -54,12 +71,12 @@ arb seed plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--a
 
 - `lab.todo("…")` / `lab.todos()`：待办记在种子园的账本里，给在 `~/arboria` 里打开的 Claude Code 会话。
 - `lab.metric("…")` 改种子的指标；`lab.conf` 拒绝（种子没有置信度）。
-- `lab.run`、`lab.get`、`lab.runs`、`lab.compare`、`lab.fork`、`lab.prune` 报错，提示先 `arb seed plant NAME --repo …`（已经种下的会说种在了哪里）。
+- `lab.run`、`lab.get`、`lab.runs`、`lab.compare`、`lab.fork`、`lab.prune` 报错，提示先在目标仓库里 `arb idea plant NAME`（已经种下的会说种在了哪里）。
 - 自定义命令只能用**全局**命令（`~/.config/arboria/commands/`）。命令里 `ctx.idea` 是 None，`ctx.seed` 有 name、gist、hypothesis、metric、notebook。
 
 ## 种子园看板
 
-`arb ui` 在任何仓库之外运行（或 `arb ui --home`）打开种子园：顶部是三种状态的个数，下面是种子卡片（按最近编辑排序：名字、状态、一句话想法、假设、种在哪里、`marimo edit` 命令和 VS Code 链接），已放弃的折叠在最后（每个旁边是 `arb seed revive NAME` 的命令文本），右边是等 Claude 的待办。和项目看板一样只读。
+`arb ui` 在任何仓库之外运行（或 `arb ui --home`）打开种子园：顶部是三种状态的个数，下面是种子卡片（按最近编辑排序：名字、状态、一句话想法、假设、种在哪里、`marimo edit` 命令和 VS Code 链接），已放弃的折叠在最后（每个旁边是 `arb idea revive NAME` 的命令文本），右边是等 Claude 的待办。和项目看板一样只读。
 
 <Shot src={garden} alt="种子园看板：思考中 3、已种下 1、已放弃 1；四张种子卡片；右边一个等 Claude 的待办" caption="种子园看板（演示数据）。" />
 
@@ -72,6 +89,6 @@ arb install-claude --home     # ~/arboria/.claude/settings.json 和 ~/arboria/CL
 cd ~/arboria && claude
 ```
 
-- settings.json：同样的 SessionStart hook；deny 集群命令、`arb approve`、`arb lesson accept`、会写种子的 `arb seed new/set/drop/revive/plant`，以及对 `**/seeds/**` 和 `**/.arboria/**` 的编辑（读不受限）。
+- settings.json：同样的 SessionStart hook；deny 集群命令、`arb approve`、`arb lesson accept`、会写种子的 `arb idea new/set/drop/revive/plant` 和旧写法 `arb seed …`，以及对 `**/seeds/**` 和 `**/.arboria/**` 的编辑（读不受限）。
 - CLAUDE.md：只有一个 arboria 区块，写着种子园的规则；区块外是你的。
 - hook 在种子园里注入：三种状态的个数、最近编辑的 5 个种子和它们的一句话想法、未完成的待办。`arb status` 在种子园里显示同样的内容（不截断），`arb todo list` / `done` 是种子的待办。

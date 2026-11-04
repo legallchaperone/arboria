@@ -11,14 +11,15 @@ description: 从一个种子开始，种进仓库成为 idea，打开它的 note
 
 ## 1. 记一个种子（可选）
 
-还没想好放进哪个仓库的想法，先记成种子。任何目录下都可以：
+还没想好放进哪个仓库的想法，先记成种子，也就是还没有仓库的 idea。在任何仓库之外运行 `arb idea new`，记下的就是种子：
 
 ```bash
-arb seed new loss-spikes "大 batch 里的 loss 尖峰是不是 Adam 二阶矩滞后"
+cd ~
+arb idea new loss-spikes "大 batch 里的 loss 尖峰是不是 Adam 二阶矩滞后"
 marimo edit ~/arboria/seeds/loss-spikes.py
 ```
 
-第一次运行会建好种子园 `~/arboria/`。在 notebook 里写观察、猜想、玩具实验；`arb seed list` 列出所有种子。详见[种子园](/guides/seeds/)。
+第一次运行会建好种子园 `~/arboria/`。在 notebook 里写观察、猜想、玩具实验；在仓库外 `arb idea list` 列出所有种子。详见[种子园](/guides/seeds/)。
 
 ## 2. 准备实验仓库
 
@@ -35,7 +36,7 @@ arb install-claude        # SessionStart hook、权限规则（可以晚点再�
 ## 3. 种进仓库，成为 idea
 
 ```bash
-arb seed plant loss-spikes --hypothesis "把 β2 从 0.999 降到 0.95，大部分尖峰会消失" \
+arb idea plant loss-spikes --hypothesis "把 β2 从 0.999 降到 0.95，大部分尖峰会消失" \
                            --metric "前 1B tokens 内的尖峰次数"
 ```
 

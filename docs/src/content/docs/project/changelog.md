@@ -7,6 +7,8 @@ description: 按日期整理的主要变化，来自 git 历史。
 
 ## 2026-11-04
 
+- **种子并进 `arb idea`**：种子就是还没有仓库的 idea。在仓库外（或种子园里），`arb idea new/list/show/set/drop/revive` 作用于种子；在没有 `arb init` 的仓库里照旧报错；在仓库里照旧是 idea。`arb idea plant` 在目标仓库里运行。idea 也有了 `arb idea show` 和 `arb idea drop`（= `close --drop`）。`arb seed …` 保留为隐藏的别名。
+- `arb --help` 分成四组：你做的、集群、agent 做的、安装与内部。只做本地快照的 `arb run new` 不再列出（被 `arb submit` 取代，仍然可用）。
 - **网站**：项目主页和文档搬到 arboria.cwx.world（Astro + Starlight），取代 `docs/guide.md`；CLI 参考从命令行生成。
 - **种子**：schema v6（`seeds`、`plantings`，待办属于一个 idea 或一个种子）。`arb seed new/list/show/set/drop/plant`，任何目录可用；种下的 idea notebook 链接回种子并带上种子的 markdown。
 - 种子 notebook 里的 `lab`：待办和全局命令可用，run 相关的函数提示先种下。

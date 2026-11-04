@@ -11,8 +11,8 @@ Arboria 防的是 **“Claude 顺手照做”**：会话里一句话、一段日
 | 唯一的提交路径 | 只有 `arb approve` 会调用后端的提交，而且提交前代码再查一次账本里有你的批准 Decision。没有任何自动批准的代码路径；`lab` 里没有批准函数。测试用源码扫描和 spy 守着这一点。 |
 | 只在你的终端里批准 | `arb approve` / `arb lesson accept` 在有 `CLAUDECODE` / `CLAUDE_CODE_ENTRYPOINT`、stdin 不是 TTY 或正在运行 notebook 命令时拒绝，然后要你输入 id 确认。 |
 | 审核单哈希 | 批准绑定在审核单哈希上（快照、命令、资源、账户、机器、分区、分段计划、环境、项目 id）；任何一项变了，`arb approve` 就拒绝。 |
-| Claude Code 权限 | `install-claude` 把 `sbatch`/`srun`/`salloc`/`scancel`/`ssh`/`scp`/`rsync`、`arb approve`、`arb lesson accept` 设为 deny，并禁止 Claude 编辑 notebook、账本、备份、`.arboria/` 里的 toml 和会话记录（可以读）。 |
-| 只由你写的记录 | `arb note`、种子的 `new/set/drop/revive/plant`、`lab.todo`/`lab.conf`/`lab.metric`/`lab.prune` 在 Claude Code 里拒绝。 |
+| Claude Code 权限 | `install-claude` 把 `sbatch`/`srun`/`salloc`/`scancel`/`ssh`/`scp`/`rsync`、`arb approve`、`arb lesson accept` 和只写种子的 `arb idea plant/set/revive`（以及 `arb seed …`）设为 deny，并禁止 Claude 编辑 notebook、账本、备份、`.arboria/` 里的 toml 和会话记录（可以读）。 |
+| 只由你写的记录 | `arb note`、写种子的命令（仓库外的 `arb idea new/set/drop/revive`、`arb idea plant`，旧写法 `arb seed …`）、`lab.todo`/`lab.conf`/`lab.metric`/`lab.prune` 在 Claude Code 里拒绝。 |
 | 远端 | `SshSlurm` 只复用你登录好的 ssh 主连接（BatchMode，不弹 Duo），只认本项目的作业名，读写路径限制在本项目的 `<runs>/<project>`、`<out>/<project>` 下。 |
 | 快照 | 不动你的分支、暂存区和工作区（`tests/test_snapshot.py` 是这条的契约）。 |
 | 看板 | 只读：账本以 `mode=ro` 打开，不起进程、不联网、没有会动手的控件；文字 HTML 转义。 |

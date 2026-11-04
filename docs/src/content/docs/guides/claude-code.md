@@ -27,6 +27,7 @@ hook 绝不让会话失败：任何错误都只写进 `.arboria/hook.log`，以�
     "deny": ["Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
              "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)",
              "Bash(arb approve:*)", "Bash(arb lesson accept:*)",
+             "Bash(arb idea plant:*)", "Bash(arb idea set:*)", "Bash(arb idea revive:*)", "Bash(arb seed new:*)", "...",
              "Edit(**/.arboria/notebooks/**)", "Write(**/.arboria/notebooks/**)", "...",
              "Edit(**/notebook.py)", "Write(**/notebook.py)", "MultiEdit(**/notebook.py)", "NotebookEdit(**/notebook.py)"]
   }
@@ -35,6 +36,7 @@ hook 绝不让会话失败：任何错误都只写进 `.arboria/hook.log`，以�
 
 - 文件规则对 Edit、Write、MultiEdit、NotebookEdit 各有一条，覆盖 `**/.arboria/notebooks/**`、`**/.arboria/ledger.db*`、`**/.arboria/backup/**`、`**/.arboria/*.toml`、`**/.arboria/sessions/**` 和 `**/notebook.py`。读取不受限制；`.arboria/commands/` 也不受限制（Claude 在那里写命令）。
 - 全局命令目录（`~/.config/arboria/commands`，写成绝对路径）加进 `permissions.additionalDirectories`。这个路径只属于你这台机器，所以在项目里它写进**不提交**的 `.claude/settings.local.json`（arb 把它加进 `.git/info/exclude`），`.claude/settings.json` 保持可移植、可以提交。
+- 只写种子的命令（`arb idea plant/set/revive` 和旧写法 `arb seed new/set/drop/revive/plant`）也设为 deny：它们本来就只由你在终端里运行，在 Claude Code 里代码会拒绝，这几条规则是多一层。
 - 需要 Claude 上集群帮你排查时，可以自己在 settings.json 里放宽 `Bash(ssh:*)`，排查完再改回来。
 
 :::caution[每个 worktree 是独立的文件夹]

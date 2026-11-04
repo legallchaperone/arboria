@@ -97,12 +97,12 @@
       }
     },
     {
-      "id": "quirk-trailing-newline-accepted",
+      "error": "ArbError: invalid idea name 'abc\\n': use lowercase letters, digits and '-' (must start with a letter or digit, max 63 chars)",
+      "id": "err-trailing-newline",
       "input": {
         "name": "abc\n",
         "what": "idea"
-      },
-      "output": "abc\n"
+      }
     },
     {
       "id": "seed-ok",

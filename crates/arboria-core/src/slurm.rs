@@ -24,7 +24,7 @@ use serde_json::{json, Value};
 
 use crate::canonical::python_float_repr;
 use crate::clusters::Profile;
-use crate::model::{py_dollar, IdeaName, ProjectId, RunId};
+use crate::model::{IdeaName, ProjectId, RunId};
 use crate::records::{py_decimal, py_repr, py_strip};
 use crate::{bail, Error, Result};
 
@@ -394,9 +394,9 @@ pub enum OverrideValue {
     Null,
 }
 
-/// `^[+~]{0,2}[A-Za-z_][A-Za-z0-9_.\-/]*$` (Python `$`: one trailing `\n` passes).
+/// `^[+~]{0,2}[A-Za-z_][A-Za-z0-9_.\-/]*$` on the whole string.
 fn override_key_ok(key: &str) -> bool {
-    let b = py_dollar(key).as_bytes();
+    let b = key.as_bytes();
     let prefix = b.iter().take_while(|c| matches!(c, b'+' | b'~')).count();
     let rest = &b[prefix..];
     prefix <= 2
@@ -498,8 +498,7 @@ pub fn parse_job_name(name: &str) -> Result<(ProjectId, String, u32)> {
     if name.chars().count() > MAX_JOB_NAME {
         return Err(refuse());
     }
-    let t = py_dollar(name);
-    let body = t.strip_prefix("arb-").ok_or_else(refuse)?;
+    let body = name.strip_prefix("arb-").ok_or_else(refuse)?;
     // -s<k>: k is the trailing ASCII digits, no leading zero
     let k_start = body.trim_end_matches(|c: char| c.is_ascii_digit()).len();
     let k = &body[k_start..];
@@ -513,9 +512,7 @@ pub fn parse_job_name(name: &str) -> Result<(ProjectId, String, u32)> {
         && run
             .bytes()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
-    // ProjectId::parse lets one trailing '\n' through (Python `$`); inside a job name
-    // the group is followed by '-', so a newline there never matches
-    if !run_ok || project.ends_with('\n') {
+    if !run_ok {
         return Err(refuse());
     }
     let project = ProjectId::parse(project).map_err(|_| refuse())?;

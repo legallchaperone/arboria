@@ -145,15 +145,11 @@
       }
     },
     {
-      "id": "quirk-trailing-newline-accepted",
+      "error": "ArbError: not an arboria job name: 'arb-wavefront-3f2a-r001-s1\\n'",
+      "id": "err-trailing-newline",
       "input": {
         "name": "arb-wavefront-3f2a-r001-s1\n"
-      },
-      "output": [
-        "wavefront-3f2a",
-        "r001",
-        1
-      ]
+      }
     },
     {
       "error": "ArbError: not an arboria job name: 'arb-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-r001-s1'",

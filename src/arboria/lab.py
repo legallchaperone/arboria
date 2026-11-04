@@ -1597,6 +1597,6 @@ def commands() -> CommandTable:
 
 def __getattr__(name: str) -> Command:
     """Any other lowercase name is a notebook command (`lab.svd(...)`)."""
-    if not _commands.NAME_RE.match(name):
+    if not _commands.NAME_RE.fullmatch(name):
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     return Command(name)

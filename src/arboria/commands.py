@@ -70,7 +70,7 @@ def reserved_names() -> set[str]:
 
 
 def validate_name(name: Any, *, check_reserved: bool = True) -> str:
-    if not isinstance(name, str) or not NAME_RE.match(name):
+    if not isinstance(name, str) or not NAME_RE.fullmatch(name):
         raise ArbError(f"invalid command name {name!r}: lowercase letters, digits and '_', "
                        "starting with a letter, at most 41 chars")
     if check_reserved and name in reserved_names():
@@ -252,7 +252,7 @@ def discover(state_dir: Path | None) -> list[dict[str, Any]]:
             continue
         for path in sorted(folder.glob("*.py")):
             name = path.stem
-            if not NAME_RE.match(name):
+            if not NAME_RE.fullmatch(name):
                 continue
             try:
                 sha = _sha(path)

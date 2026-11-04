@@ -50,7 +50,7 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 
 ## 测试
 - `crates/arboria-core/tests/schema.rs`：v1–v7 与 `tests/fixtures/migrations_v1_v7.sql`（由 `gen_fixtures.py` 从 Python 生成）逐字节一致；v7 的 `sqlite_master` 与 Python 账本一致；Python 生成的 v7 账本迁移到 v8 不丢行；v8 的 CHECK；锁、回滚、`BEGIN IMMEDIATE`、`data_version`；probe 的写入和启用哈希。
-- `tests/vectors.rs`：读 `tests/vectors/<name>.json`。已接上 canonical_json、validate_text、validate_name、check_project、wandb_id、next_id、check_job_ids、constants，以及 slurm / cards / config / clusters 的 33 个文件；其余每个文件一个 `#[ignore]` 测试，`every_vector_file_is_known` 保证新文件不会被漏掉。Python 的 `quirk-*`（正则 `$` 放过结尾换行）照做。
+- `tests/vectors.rs`：读 `tests/vectors/<name>.json`。已接上 canonical_json、validate_text、validate_name、check_project、wandb_id、next_id、check_job_ids、constants，以及 slurm / cards / config / clusters 的 33 个文件；其余每个文件一个 `#[ignore]` 测试，`every_vector_file_is_known` 保证新文件不会被漏掉。`quirk-*` 用例照做。
 - `tests/guards.rs`：源码扫描（只有 submission 调 `.submit(`、`probe_results` 只有一个写入点、probe 碰不到 decisions / submit、核心不联网不异步）。
 - `crates/arb/tests/cli_tree.rs`：clap 树与 `python_commands.txt`（`gen_python_commands.py` 从 Python CLI 生成）逐行一致，帮助分组同 `cli.HELP_PANELS`；`arb probe` 是 Rust 独有的，比较时排除。CI 的 `python-snapshots` 任务重新生成这两类快照，过期就失败。
 
@@ -63,7 +63,7 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 
 ## 移植时别扭的地方（记下来，接手的人先看）
 - 签名改动（2026-11-04）：`slurm::parse_job_name` 返回 `(ProjectId, String, u32)`，不是 `RunId`：Python 认任何 `[a-z0-9]+`（`arb-a-b-s1` → run `b`，向量里有）。路径函数和 `job_name` 仍收 `&RunId`，向量里不是 `RunId` 的 run id 跳过。
-- Python 的 `$` 放过结尾换行，在 `check_remote_path` 里是逐段匹配，所以 `/a\n/b` 这种中间带换行的远程路径也能过（向量 `quirk-inner-newline-accepted`），换行会进到 `#SBATCH` 行和 sbatch 脚本里；host 也一样（`quirk-host-trailing-newline-accepted`）。现在照做，要和 Python 一起修。
+- 已修（2026-11-04）：Python 原来用 `re.match(r"^…$")`，`$` 放过结尾换行；`check_remote_path` 逐段匹配，`/a\n/b` 这种中间带换行的路径也能过，换行会进到 `#SBATCH` 行和 sbatch 脚本。现在 Python 的校验一律 `fullmatch`，Rust 整串匹配（去掉了 `py_dollar`），向量里对应的用例改成 `err-*-newline`。
 - 向量里 Python 接受、Rust 类型表达不了的输入（非字符串、`R-1/x` 这种 run id、list 值）一律 `Got::Skip`，测试输出里列出来；只有能表达的才比较。
 - 命令的签名和 docstring 靠 Python `ast` 读（`commands.describe`）：Rust 没有现成的 Python 解析器，要么起 `python -I` 跑一个只读脚本（像 probe 宿主），要么用 tree-sitter-python。绝不 import。
 - `fail_patterns` 是 Python `re` 语法（`(?i)\b…`）：定了用 `regex` crate（线性时间，日志里的长行不会卡住）。默认的四条和常见写法都能编译；look-around、反向引用编译不了，`arboria.toml` 就报错（带 crate 的消息），不静默跳过。`\b`、`\d`、`\w` 两边都是 Unicode 语义。
@@ -71,4 +71,4 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 - 行是 `dict`，`submit` 返回 `run | {"existed": …}`：Rust 用 `#[serde(flatten)]` 的结构体，`--json` 的键顺序会跟 Python 不同（内容相同）。
 - v8 里种子的 `status` 是 `open`：Python 的 `WHERE status = 'open'` 在家目录账本里会把种子算成 idea；Rust 一律按 `stage` 查。
 - `iterdump` 没有 Rust 对应物：备份的 `ledger.sql` 要自己写导出，并保持格式稳定，否则备份历史的 diff 不好读。
-- Python 的 `$` 放过结尾换行（`quirk-*` 向量），名字 / 项目 id / 作业 id 都受影响；现在照做（`model::py_dollar`），修的时候两边一起改。
+- 名字 / 项目 id / 作业 id / host / 分区 / 覆盖参数的 key 都是整串匹配，结尾换行一律拒绝（Python `fullmatch`）。

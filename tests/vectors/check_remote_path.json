@@ -137,20 +137,20 @@
       }
     },
     {
-      "id": "quirk-trailing-newline-accepted",
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/a/b\\n': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-trailing-newline",
       "input": {
         "value": "/a/b\n",
         "where": "clusters.toml: [deltaai.paths] runs"
-      },
-      "output": "/a/b\n"
+      }
     },
     {
-      "id": "quirk-inner-newline-accepted",
+      "error": "ArbError: clusters.toml: [deltaai.paths] runs = '/a\\n/b': use only letters, digits, '.', '_', '-', '/' and $USER",
+      "id": "err-inner-newline",
       "input": {
         "value": "/a\n/b",
         "where": "clusters.toml: [deltaai.paths] runs"
-      },
-      "output": "/a\n/b"
+      }
     }
   ],
   "name": "check_remote_path",

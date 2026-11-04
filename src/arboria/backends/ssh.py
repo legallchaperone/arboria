@@ -235,7 +235,7 @@ class SshSlurm(Backend):
         local_dir.mkdir(parents=True, exist_ok=True)
         if not resolved:
             return  # the run wrote nothing to ARBORIA_OUT
-        if not _ABS_PATH_RE.match(resolved):
+        if not _ABS_PATH_RE.fullmatch(resolved):
             raise BackendError(f"unexpected remote path {resolved!r}")
         ssh_cmd = shlex.join(["ssh", *SSH_OPTS])
         if shutil.which("rsync"):

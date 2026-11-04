@@ -80,7 +80,7 @@ def load_toml(path, what: str) -> dict[str, Any]:
 
 
 def validate_project_id(value: Any, where: str = "project id") -> str:
-    if not isinstance(value, str) or not PROJECT_ID_RE.match(value):
+    if not isinstance(value, str) or not PROJECT_ID_RE.fullmatch(value):
         raise ArbError(f"{where} must match {PROJECT_ID_RE.pattern} "
                        f"(lowercase letters, digits, '-', at most 31 chars); got {value!r}")
     return value
@@ -139,7 +139,7 @@ def _wandb(cfg: dict[str, Any], path) -> WandbConfig:
     vals = {}
     for key in ("entity", "project"):
         v = table.get(key, "")
-        if not isinstance(v, str) or (v.strip() and not _WANDB_NAME_RE.match(v.strip())):
+        if not isinstance(v, str) or (v.strip() and not _WANDB_NAME_RE.fullmatch(v.strip())):
             raise ArbError(f"{path}: [wandb] {key} must be a wandb name (letters, digits, "
                            f"'.', '_', '-'); got {v!r}")
         vals[key] = v.strip()

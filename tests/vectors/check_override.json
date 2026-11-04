@@ -393,15 +393,12 @@
       }
     },
     {
-      "id": "quirk-key-trailing-newline-accepted",
+      "error": "ArbError: invalid override key 'lr\\n': use letters, digits, '_', '.', '-', '/' (hydra prefixes + / ~ allowed)",
+      "id": "err-key-trailing-newline",
       "input": {
         "key": "lr\n",
         "value": 1
-      },
-      "output": [
-        "lr\n",
-        "1"
-      ]
+      }
     }
   ],
   "name": "check_override",

@@ -14,9 +14,8 @@
 //!   `db.NAME_RE`); project ids `^[a-z0-9][a-z0-9-]{0,30}$` (`slurm.PROJECT_RE`); Slurm job
 //!   ids `^[0-9]+(?:_[0-9]+)?$` (`backends.base.JOB_ID_RE`).
 //! - Enum strings are the ledger's CHECK lists (schema v8); `ALL` keeps their order.
-//! - Python quirk kept on purpose (test vectors `quirk-*`): Python's `re.match(r"^…$")`
-//!   lets one trailing `\n` through, so `"abc\n"` is a valid name / project id / job id
-//!   there, and here ([`py_dollar`]). Remove both sides together.
+//! - All of these match the whole string: a trailing `\n` is refused (Python uses
+//!   `re.fullmatch`; its `$` alone would let one through).
 
 use std::fmt;
 use std::str::FromStr;
@@ -482,14 +481,9 @@ macro_rules! text_id {
     };
 }
 
-/// What Python's `$` anchors against: `s` without one trailing `\n` (see module docs).
-pub fn py_dollar(s: &str) -> &str {
-    s.strip_suffix('\n').unwrap_or(s)
-}
-
-/// `^[a-z0-9][a-z0-9-]{0,max}$`, ASCII only (Python `$` semantics).
+/// `^[a-z0-9][a-z0-9-]{0,max}$` on the whole string, ASCII only.
 fn slug(s: &str, max_rest: usize) -> bool {
-    let b = py_dollar(s).as_bytes();
+    let b = s.as_bytes();
     !b.is_empty()
         && b.len() <= max_rest + 1
         && (b[0].is_ascii_lowercase() || b[0].is_ascii_digit())
@@ -524,10 +518,9 @@ fn check_project_id(s: &str) -> Result<()> {
 
 fn check_job_id(s: &str) -> Result<()> {
     let ok_part = |p: &str| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit());
-    let t = py_dollar(s);
-    let ok = match t.split_once('_') {
+    let ok = match s.split_once('_') {
         Some((a, b)) => ok_part(a) && ok_part(b),
-        None => ok_part(t),
+        None => ok_part(s),
     };
     if ok {
         Ok(())
@@ -805,7 +798,7 @@ mod tests {
 
     #[test]
     fn names_follow_python_name_re() {
-        for good in ["a", "0", "wide-lr", "a-", &"a".repeat(63), "abc\n"] {
+        for good in ["a", "0", "wide-lr", "a-", &"a".repeat(63)] {
             assert!(IdeaName::parse(good).is_ok(), "{good:?}");
         }
         for bad in [
@@ -817,6 +810,7 @@ mod tests {
             "é",
             &"a".repeat(64),
             "a b",
+            "abc\n",
             "a\n\n",
             "\n",
             "a\nb",

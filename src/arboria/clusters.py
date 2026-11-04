@@ -95,7 +95,7 @@ def check_remote_path(value: Any, where: str) -> str:
         raise ArbError(f"{where} = {value!r} must be an absolute path")
     plain = _USER_VAR_RE.sub("u", value)
     parts = [p for p in plain.split("/") if p]
-    if not parts or any(p in (".", "..") or not _PATH_SEGMENT_RE.match(p) for p in parts):
+    if not parts or any(p in (".", "..") or not _PATH_SEGMENT_RE.fullmatch(p) for p in parts):
         raise ArbError(f"{where} = {value!r}: use only letters, digits, '.', '_', '-', '/' "
                        "and $USER")
     return value.rstrip("/")
@@ -120,7 +120,7 @@ def parse_profile(name: str, raw: Any, source: str = FILENAME) -> Profile:
     w = f"{source}: [{name}]"
     if not isinstance(raw, dict):
         raise ArbError(f"{w} must be a table")
-    if not PROFILE_NAME_RE.match(name):
+    if not PROFILE_NAME_RE.fullmatch(name):
         raise ArbError(f"{w}: invalid machine name")
     if "charge_cmd" in raw:
         raise ArbError(f"{w} charge_cmd is gone: set billing_per_su (sacct billing units "
@@ -132,7 +132,7 @@ def parse_profile(name: str, raw: Any, source: str = FILENAME) -> Profile:
     if kind not in KINDS:
         raise ArbError(f"{w} kind must be one of: {', '.join(KINDS)}")
     host = raw.get("host", "")
-    if kind == "slurm" and (not isinstance(host, str) or not HOST_RE.match(host)):
+    if kind == "slurm" and (not isinstance(host, str) or not HOST_RE.fullmatch(host)):
         raise ArbError(f"{w} host must be an ~/.ssh/config alias (letters, digits, . _ -)")
     root = raw.get("root")
     if kind == "fake":
@@ -166,7 +166,7 @@ def parse_profile(name: str, raw: Any, source: str = FILENAME) -> Profile:
     partitions: dict[str, Partition] = {}
     for pname, p in parts_raw.items():
         pw = f"{source}: [{name}.partitions.{pname}]"
-        if not PARTITION_RE.match(pname) or not isinstance(p, dict):
+        if not PARTITION_RE.fullmatch(pname) or not isinstance(p, dict):
             raise ArbError(f"{pw}: invalid partition")
         bad = sorted(set(p) - PARTITION_KEYS)
         if bad:

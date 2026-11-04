@@ -385,7 +385,7 @@ def validate_text(field: str, value: str | None, *, required: bool = True) -> st
 
 
 def validate_name(name: str, what: str = "idea") -> str:
-    if not NAME_RE.match(name or ""):
+    if not NAME_RE.fullmatch(name or ""):
         raise ArbError(
             f"invalid {what} name {name!r}: use lowercase letters, digits and '-' "
             "(must start with a letter or digit, max 63 chars)"

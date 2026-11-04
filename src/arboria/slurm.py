@@ -36,14 +36,14 @@ def parse_walltime(text: Any) -> int:
     if not isinstance(text, str):
         raise ArbError(f"invalid walltime {text!r}")
     t = text.strip().lower()
-    m = _CLOCK_RE.match(t)
+    m = _CLOCK_RE.fullmatch(t)
     if m:
         d, h, mi, s = (int(x or 0) for x in m.groups())
         if mi >= 60 or s >= 60:
             raise ArbError(f"invalid walltime {text!r}: minutes and seconds must be < 60")
         total = ((d * 24 + h) * 60 + mi) * 60 + s
     else:
-        m = _UNITS_RE.match(t)
+        m = _UNITS_RE.fullmatch(t)
         if not t or not m or not any(m.groups()):
             raise ArbError(f"invalid walltime {text!r}; use e.g. 90m, 12h, 1d6h or HH:MM:SS")
         d, h, mi, s = (int(x or 0) for x in m.groups())
@@ -157,7 +157,7 @@ class Plan:
 
 
 def check_project(project: Any) -> str:
-    if not isinstance(project, str) or not PROJECT_RE.match(project):
+    if not isinstance(project, str) or not PROJECT_RE.fullmatch(project):
         raise ArbError(f"invalid project id {project!r}; must match {PROJECT_RE.pattern}")
     return project
 
@@ -208,7 +208,7 @@ _OVERRIDE_KEY_RE = re.compile(r"^[+~]{0,2}[A-Za-z_][A-Za-z0-9_.\-/]*$")
 
 def check_override(key: Any, value: Any) -> tuple[str, str]:
     """Validate one `k=v` override; values are stringified (bools as true/false)."""
-    if not isinstance(key, str) or not _OVERRIDE_KEY_RE.match(key):
+    if not isinstance(key, str) or not _OVERRIDE_KEY_RE.fullmatch(key):
         raise ArbError(f"invalid override key {key!r}: use letters, digits, '_', '.', '-', '/' "
                        "(hydra prefixes + / ~ allowed)")
     if isinstance(value, bool):
@@ -298,14 +298,14 @@ def card_hash(snapshot_commit: str, plan: Plan) -> str:
 
 def job_name(project: str, run_id: str, segment: int) -> str:
     name = f"arb-{check_project(project)}-{run_id}-s{segment}"
-    if len(name) > MAX_JOB_NAME or not JOB_NAME_RE.match(name):
+    if len(name) > MAX_JOB_NAME or not JOB_NAME_RE.fullmatch(name):
         raise ArbError(f"job name {name!r} is invalid or longer than {MAX_JOB_NAME} chars")
     return name
 
 
 def parse_job_name(name: str) -> tuple[str, str, int]:
     """(project, run id, segment) of an arboria job name."""
-    m = JOB_NAME_RE.match(name or "")
+    m = JOB_NAME_RE.fullmatch(name or "")
     if not m or len(name) > MAX_JOB_NAME:
         raise ArbError(f"not an arboria job name: {name!r}")
     return m.group(1), m.group(2), int(m.group(3))

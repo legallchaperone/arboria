@@ -110,15 +110,13 @@
       }
     },
     {
-      "id": "quirk-trailing-newline-accepted",
+      "error": "BackendError: invalid Slurm job id(s): 4523101\n",
+      "id": "err-trailing-newline",
       "input": {
         "job_ids": [
           "4523101\n"
         ]
-      },
-      "output": [
-        "4523101\n"
-      ]
+      }
     }
   ],
   "name": "check_job_ids",

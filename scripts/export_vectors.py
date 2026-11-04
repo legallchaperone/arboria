@@ -478,7 +478,7 @@ def v_check_override() -> Vectors:
         ("err-key-eq", "lr=", 1), ("err-key-triple-plus", "+++x", 1),
         ("err-key-unicode", "学习率", 1), ("err-key-int", 5, 1), ("err-key-null", None, 1),
         ("err-key-dot-start", ".lr", 1),
-        ("quirk-key-trailing-newline-accepted", "lr\n", 1),
+        ("err-key-trailing-newline", "lr\n", 1),
     ]:
         v.add(cid, {"key": key, "value": value},
               lambda key=key, value=value: slurm.check_override(key, value))
@@ -614,7 +614,7 @@ def v_check_project() -> Vectors:
                    ("err-32-chars", "a" * 32), ("err-upper", "WaveFront"),
                    ("err-dash-start", "-proj"), ("err-underscore", "my_proj"), ("err-empty", ""),
                    ("err-dot", "a.b"), ("err-unicode", "项目"), ("err-null", None), ("err-int", 7),
-                   ("quirk-trailing-newline-accepted", "proj\n"),
+                   ("err-trailing-newline", "proj\n"),
                    ("err-inner-newline", "pro\nj")]:
         v.add(cid, {"project": p}, lambda p=p: slurm.check_project(p))
     return v
@@ -654,7 +654,7 @@ def v_parse_job_name() -> Vectors:
         ("err-segment-leading-zero", f"arb-{PROJECT}-r001-s01"),
         ("err-upper", "arb-Proj-r001-s1"), ("err-no-segment", f"arb-{PROJECT}-r001"),
         ("err-empty", ""), ("err-suffix", f"arb-{PROJECT}-r001-s1x"),
-        ("quirk-trailing-newline-accepted", f"arb-{PROJECT}-r001-s1\n"),
+        ("err-trailing-newline", f"arb-{PROJECT}-r001-s1\n"),
         ("err-project-32", f"arb-{'a' * 32}-r001-s1"),
     ]
     for cid, n in names:
@@ -983,7 +983,7 @@ def v_check_job_ids() -> Vectors:
                      ("err-empty-id", [""]), ("err-dot-step", ["12.batch"]),
                      ("err-plus-het", ["12+0"]), ("ints-stringified", [4523101, 7]),
                      ("err-negative", ["-1"]), ("err-leading-space", [" 1"]),
-                     ("quirk-trailing-newline-accepted", ["4523101\n"])]:
+                     ("err-trailing-newline", ["4523101\n"])]:
         v.add(cid, {"job_ids": ids}, lambda ids=ids: backend_base.check_job_ids(ids))
     return v
 
@@ -1267,7 +1267,7 @@ def v_validate_project_id() -> Vectors:
                             ("err-int", 5, "project id"), ("err-long", "a" * 32, "project id"),
                             ("ok-31", PROJECT_31, "project id"), ("err-null", None, "project id"),
                             ("err-empty", "", "project id"), ("err-dash-start", "-a", "project id"),
-                            ("quirk-trailing-newline-accepted", "proj\n", "project id")]:
+                            ("err-trailing-newline", "proj\n", "project id")]:
         v.add(cid, {"value": val, "where": where},
               lambda val=val, where=where: config.validate_project_id(val, where))
     return v
@@ -1319,7 +1319,7 @@ def v_clusters_parse_profile() -> Vectors:
         ("err-host-missing", sub('host = "deltaai"\n', ""), "deltaai", "clusters.toml"),
         ("err-host-spaces", sub('host = "deltaai"', 'host = "delta ai"'), "deltaai",
          "clusters.toml"),
-        ("quirk-host-trailing-newline-accepted", sub('host = "deltaai"', 'host = "deltaai\\n"'),
+        ("err-host-trailing-newline", sub('host = "deltaai"', 'host = "deltaai\\n"'),
          "deltaai", "clusters.toml"),
         ("err-fake-no-root", FAKE_TOML.replace('root = "/tmp/arboria-fake/state"\n', ""), "fake",
          "clusters.toml"),
@@ -1400,7 +1400,7 @@ def v_check_remote_path() -> Vectors:
         ("err-placeholder", "/projects/<proj>/$USER"), ("err-relative", "projects/x"),
         ("err-empty", ""), ("err-root", "/"), ("err-dotdot", "/a/../b"), ("err-dot", "/a/./b"),
         ("err-space", "/a b"), ("err-home", "~/x"), ("err-int", 5), ("err-unicode", "/数据"),
-        ("quirk-trailing-newline-accepted", "/a/b\n"), ("quirk-inner-newline-accepted", "/a\n/b"),
+        ("err-trailing-newline", "/a/b\n"), ("err-inner-newline", "/a\n/b"),
     ]:
         v.add(cid, {"value": val, "where": "clusters.toml: [deltaai.paths] runs"},
               lambda val=val: check_remote_path(val, "clusters.toml: [deltaai.paths] runs"))
@@ -1561,7 +1561,7 @@ def v_validate_name() -> Vectors:
         ("63", "a" * 63, "idea"), ("err-64", "a" * 64, "idea"), ("err-upper", "DMD", "idea"),
         ("err-dash-start", "-x", "idea"), ("err-underscore", "a_b", "idea"),
         ("err-space", "a b", "idea"), ("err-empty", "", "idea"), ("err-dot", "v1.2", "seed"),
-        ("err-chinese", "蒸馏", "seed"), ("quirk-trailing-newline-accepted", "abc\n", "idea"),
+        ("err-chinese", "蒸馏", "seed"), ("err-trailing-newline", "abc\n", "idea"),
         ("seed-ok", "low-rank-adam", "seed"), ("trailing-dash", "x-", "seed"),
     ]:
         v.add(cid, {"name": name, "what": what},

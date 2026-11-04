@@ -57,7 +57,7 @@ def split_sections(text: str) -> dict[str, str]:
     out: dict[str, list[str]] = {}
     current = None
     for line in text.splitlines():
-        m = _SECTION_RE.match(line.strip())
+        m = _SECTION_RE.fullmatch(line.strip())
         if m:
             current = m.group(1)
             out.setdefault(current, [])
@@ -359,7 +359,7 @@ def replace_table(text: str, name: str, new_block: str) -> str:
 # ------------------------------------------------------------------ commands
 
 def _session(host: str, runner=None) -> SshSession:
-    if not clusters.HOST_RE.match(host or ""):
+    if not clusters.HOST_RE.fullmatch(host or ""):
         raise ArbError(f"invalid ssh host alias {host!r}")
     return SshSession(host, runner)
 
@@ -399,7 +399,7 @@ class InitResult:
 def machine_init(name: str, *, host: str | None = None, account: str | None = None,
                  write: bool = False, replace: bool = False, runner=None,
                  now: Callable[[], datetime] | None = None) -> InitResult:
-    if not clusters.PROFILE_NAME_RE.match(name) or "." in name:
+    if not clusters.PROFILE_NAME_RE.fullmatch(name) or "." in name:
         raise ArbError(f"invalid machine name {name!r} (letters, digits, _ and -)")
     path = clusters.config_path()
     raw_all = clusters.load_all_raw(path) if path.is_file() else {}

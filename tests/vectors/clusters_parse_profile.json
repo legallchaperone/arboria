@@ -654,53 +654,12 @@
       }
     },
     {
-      "id": "quirk-host-trailing-newline-accepted",
+      "error": "ArbError: clusters.toml: [deltaai] host must be an ~/.ssh/config alias (letters, digits, . _ -)",
+      "id": "err-host-trailing-newline",
       "input": {
         "name": "deltaai",
         "source": "clusters.toml",
         "toml": "[deltaai]\nkind = \"slurm\"\nhost = \"deltaai\\n\"\narch = \"aarch64\"\naccount = \"bjki-dtai-gh\"\ngpus_per_node = 4\ncpus_per_gpu = 72\nmem_per_gpu_gb = 110.898\ndefault_partition = \"ghx4\"\nmax_segments = 4\nbalance_cmd = \"accounts\"\nbilling_per_su = 1000\nprelude = []\nenv_activate = []\n[deltaai.partitions.ghx4]\nmax_walltime = \"48h\"\ncharge = 1.0\n[deltaai.partitions.\"ghx4-interactive\"]\nmax_walltime = \"2h\"\ncharge = 2.0\n[deltaai.paths]\nruns = \"/projects/bjki/$USER/arboria/runs\"\ndata = \"/work/nvme/bjki/$USER/data\"\ncache = \"/projects/bjki/$USER/arboria/cache\"\nckpt = \"/work/hdd/bjki/$USER/arboria/ckpt\"\nout = \"/projects/bjki/$USER/arboria/out\"\n"
-      },
-      "output": {
-        "account": "bjki-dtai-gh",
-        "account_set": true,
-        "arch": "aarch64",
-        "balance_cmd": "accounts",
-        "billing_per_su": 1000.0,
-        "cpus_per_gpu": 72,
-        "default_partition": "ghx4",
-        "env_activate": [],
-        "gpus_per_node": 4,
-        "host": "deltaai\n",
-        "kind": "slurm",
-        "max_segments": 4,
-        "mem_per_gpu_gb": 110.898,
-        "name": "deltaai",
-        "partition_order": [
-          "ghx4",
-          "ghx4-interactive"
-        ],
-        "partitions": {
-          "ghx4": {
-            "charge": 1.0,
-            "max_walltime_s": 172800,
-            "name": "ghx4"
-          },
-          "ghx4-interactive": {
-            "charge": 2.0,
-            "max_walltime_s": 7200,
-            "name": "ghx4-interactive"
-          }
-        },
-        "paths": {
-          "cache": "/projects/bjki/$USER/arboria/cache",
-          "ckpt": "/work/hdd/bjki/$USER/arboria/ckpt",
-          "data": "/work/nvme/bjki/$USER/data",
-          "out": "/projects/bjki/$USER/arboria/out",
-          "runs": "/projects/bjki/$USER/arboria/runs"
-        },
-        "prelude": [],
-        "root": null,
-        "source": "clusters.toml"
       }
     },
     {

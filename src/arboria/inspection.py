@@ -338,7 +338,7 @@ def validate_result(repo: Path, task: dict[str, Any], data: Any) -> dict[str, An
         if bad:
             raise ArbError(f"spans[{i - 1}]: unknown keys {', '.join(sorted(bad))}")
         sid = s.get("id", f"s{i}")
-        if not isinstance(sid, str) or not ID_RE.match(sid) or sid in ids:
+        if not isinstance(sid, str) or not ID_RE.fullmatch(sid) or sid in ids:
             raise ArbError(f"spans[{i - 1}].id {sid!r}: letters, digits, _ or -, unique")
         ids.add(sid)
         path = check_path(s.get("path"))
@@ -374,7 +374,7 @@ def validate_result(repo: Path, task: dict[str, Any], data: Any) -> dict[str, An
         out["text"] = _text("inspect_text", data.get("text"), required=True)
         if view == "simple":
             lang = data.get("lang", "python")
-            if not isinstance(lang, str) or not LANG_RE.match(lang):
+            if not isinstance(lang, str) or not LANG_RE.fullmatch(lang):
                 raise ArbError(f"lang {lang!r}: a short language name like python")
             out["lang"] = lang
     if view == "map":
@@ -384,7 +384,7 @@ def validate_result(repo: Path, task: dict[str, Any], data: Any) -> dict[str, An
             raise ArbError(f"nodes must map node ids to span ids (at most {MAX_NODES})")
         clean: dict[str, list[str]] = {}
         for node, refs in nodes.items():
-            if not isinstance(node, str) or not ID_RE.match(node):
+            if not isinstance(node, str) or not ID_RE.fullmatch(node):
                 raise ArbError(f"nodes: bad node id {node!r}")
             if not re.search(rf"(?<![A-Za-z0-9_-]){re.escape(node)}(?![A-Za-z0-9_-])",
                              out["mermaid"]):

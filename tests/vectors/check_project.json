@@ -106,11 +106,11 @@
       }
     },
     {
-      "id": "quirk-trailing-newline-accepted",
+      "error": "ArbError: invalid project id 'proj\\n'; must match ^[a-z0-9][a-z0-9-]{0,30}$",
+      "id": "err-trailing-newline",
       "input": {
         "project": "proj\n"
-      },
-      "output": "proj\n"
+      }
     },
     {
       "error": "ArbError: invalid project id 'pro\\nj'; must match ^[a-z0-9][a-z0-9-]{0,30}$",

@@ -20,7 +20,6 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{load_toml, py_repr_toml, toml_number};
-use crate::model::py_dollar;
 use crate::records::{py_repr, py_strip};
 use crate::slurm::{parse_walltime, replace_user_var};
 use crate::{bail, Error, Result};
@@ -151,9 +150,9 @@ pub fn config_path() -> PathBuf {
     config_dir().join(FILENAME)
 }
 
-/// `^[A-Za-z0-9][A-Za-z0-9<extra>]*$` (Python `$`: one trailing `\n` passes).
+/// `^[A-Za-z0-9][A-Za-z0-9<extra>]*$` on the whole string.
 fn name_ok(s: &str, extra: &[u8]) -> bool {
-    let b = py_dollar(s).as_bytes();
+    let b = s.as_bytes();
     !b.is_empty()
         && b[0].is_ascii_alphanumeric()
         && b[1..]
@@ -179,9 +178,9 @@ pub fn check_remote_path(value: &toml::Value, where_: &str) -> Result<String> {
     // `$USER` stands for one plain character
     let plain = replace_user_var(value, "u");
     let parts: Vec<&str> = plain.split('/').filter(|p| !p.is_empty()).collect();
-    // ^[A-Za-z0-9._-]+$ (Python `$`: see the quirk vectors)
+    // ^[A-Za-z0-9._-]+$ on the whole segment: no newline gets into #SBATCH lines
     let segment_ok = |p: &str| {
-        let b = py_dollar(p).as_bytes();
+        let b = p.as_bytes();
         !b.is_empty()
             && b.iter()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, b'.' | b'_' | b'-'))

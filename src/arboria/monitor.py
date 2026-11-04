@@ -397,7 +397,7 @@ def remote_ls(ctx: RepoContext, ledger: Ledger, run_id: str, subpath: str | None
             else slurm.run_dir(paths, project, run_id))
     if subpath:
         sub = subpath.strip("/")
-        if not _SUBPATH_RE.match(sub) or any(p in (".", "..") for p in sub.split("/")):
+        if not _SUBPATH_RE.fullmatch(sub) or any(p in (".", "..") for p in sub.split("/")):
             raise ArbError(f"invalid subpath {subpath!r}")
         base = f"{base}/{sub}"
     return base, backend_for(ctx, run).list_dir(base)

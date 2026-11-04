@@ -28,7 +28,7 @@ def need_login_message(host: str) -> str:
 
 def check_job_ids(job_ids: list[str]) -> list[str]:
     ids = [str(j) for j in job_ids]
-    bad = [j for j in ids if not JOB_ID_RE.match(j)]
+    bad = [j for j in ids if not JOB_ID_RE.fullmatch(j)]
     if bad:
         raise BackendError(f"invalid Slurm job id(s): {', '.join(bad)}")
     return ids
@@ -43,7 +43,7 @@ def restrict_path(profile: Profile, project: str, path: str) -> str:
         if path == root or path.startswith(root + "/"):
             rest = path[len(root):].strip("/")
             parts = rest.split("/") if rest else []
-            if all(p not in (".", "..") and _SEGMENT_RE.match(p) for p in parts):
+            if all(p not in (".", "..") and _SEGMENT_RE.fullmatch(p) for p in parts):
                 return path
     raise ArbError(f"remote path {path!r} is outside project {project}'s runs/ and out/ dirs "
                    "on this machine; refused")

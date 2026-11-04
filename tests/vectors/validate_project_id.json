@@ -73,12 +73,12 @@
       }
     },
     {
-      "id": "quirk-trailing-newline-accepted",
+      "error": "ArbError: project id must match ^[a-z0-9][a-z0-9-]{0,30}$ (lowercase letters, digits, '-', at most 31 chars); got 'proj\\n'",
+      "id": "err-trailing-newline",
       "input": {
         "value": "proj\n",
         "where": "project id"
-      },
-      "output": "proj\n"
+      }
     }
   ],
   "name": "validate_project_id",

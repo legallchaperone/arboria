@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::canonical::python_float_repr;
-use crate::model::{py_dollar, ProjectId};
+use crate::model::ProjectId;
 use crate::paths::RepoContext;
 use crate::records::{py_repr, py_strip};
 use crate::slurm::shlex_split;
@@ -262,9 +262,9 @@ pub fn compile_fail_pattern(pattern: &str) -> std::result::Result<Regex, regex::
     Regex::new(pattern)
 }
 
-/// `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$` (Python `$`).
+/// `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$` on the whole string.
 fn wandb_name_ok(s: &str) -> bool {
-    let b = py_dollar(s).as_bytes();
+    let b = s.as_bytes();
     !b.is_empty()
         && b.len() <= 128
         && b[0].is_ascii_alphanumeric()

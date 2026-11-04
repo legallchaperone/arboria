@@ -30,7 +30,11 @@ r2 = lab.run(reason="lr 小一点", from_=r, set={"lr": 1e-4})             # 同
 lab.runs()              # 当前 idea 的 run 一览；lab.runs(raw=True) 是账本里的所有列
 lab.get("r001")         # 按 id 取一个 run 句柄
 r2.metrics(["val/loss"])                       # wandb 曲线（需要 wandb）
-lab.compare(["r001", "r002"], "val/loss")
+lab.compare(["r001", "r002"], "val/loss")    # 长表
+lab.plot(["r001", "r002"], "val/loss")       # 画在一张图上，一个 run 一条线
+lab.diff("r001", "r002")                     # 两个 run 哪里不同
+lab.spend()                                  # 各 idea 花了多少 SU / GPU 时；lab.spend(".") 逐个 run
+lab.commands()                               # 内置的和 Claude 写的所有命令
 lab.todo("把 eval 改成每 500 步一次")          # 给 Claude 留待办，显示成一行；lab.todos() 列出待办
 lab.fork("lr-warmup-cosine", from_=r, hypothesis="...", metric="...")   # 从 r 的快照分出新 idea
 lab.conf("prelim")      # 改置信度；lab.metric("...") 改指标
@@ -41,6 +45,16 @@ lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
 - **重复执行 cell 是安全的**：同一个 idea 里已经有审核单哈希相同、且没被拒绝/取消/失败的 run 时，直接返回它。
 - **有意重复跑**（例如看种子方差）：`lab.run(..., repeat=True)` 每次都建一个新 run，审核单上写“⚠ 重复运行”。注意带 `repeat=True` 的 cell 每执行一次就多一个待批准的 run。
 - `lab` 里没有任何批准函数。待办、置信度、指标、`prune` 记的是**你**的记录，在 Claude Code 里调用会被拒绝。它们在 cell 重跑时不会重复：值没变就什么都不写，一模一样的未完成待办直接返回已有的那个。
+
+### 内置分析
+
+几条常用的分析是现成的，不花 token，也不用等 Claude：
+
+- `lab.plot(runs, key, log=False)`：一个 wandb 指标随 step 的曲线，一个 run 一条线，图例一个 run 一项；没有 wandb 数据的 run 写在图下面。`.data` 是长表。不用新的依赖，图是内联 SVG。
+- `lab.diff(a, b)`：只列不同的地方：命令和 `--set`、资源、代码（两个快照之间的 `git diff --stat`，只读，不碰你的分支和工作区）、拉回来的 config 逐个键。
+- `lab.spend(idea=None)`：账本里各 idea 用了多少 SU 和 GPU 时，对照 `arboria.toml` 的预算，另有待批准的 run 最多还要多少；`lab.spend("exp1")` 或 `lab.spend(".")`（当前 idea）逐个 run。
+
+更多的分析是你的命令库，见 [自定义命令](/guides/commands/)。
 
 ### 当前 idea 怎么确定
 

@@ -32,6 +32,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterable, Mapping
 
+from . import analysis
 from . import commands as _commands
 from . import ideas, notebooks, records, sessions, slurm, submission, tasks
 from . import seeds as _seeds
@@ -592,6 +593,52 @@ def compare(run_ids: Iterable[str | Run], key: str | Iterable[str]) -> Any:
         handle = r if isinstance(r, Run) else get(r)
         rows += [{"run": handle.id, **row} for row in handle.history(key)]
     return _table(rows)
+
+
+def _handles(runs: str | Run | Iterable[str | Run]) -> list[Run]:
+    items = [runs] if isinstance(runs, (str, Run)) else list(runs)
+    return [r if isinstance(r, Run) else get(r) for r in items]
+
+
+def plot(runs: str | Run | Iterable[str | Run], key: str, *, log: bool = False
+         ) -> analysis.Plot:
+    """One wandb metric over steps for several runs, one line each (`log=True`: log
+    scale). Runs without wandb data are listed under the chart. `.data` is the long table."""
+    if not isinstance(key, str) or not key:
+        raise ArbError("key 是一个 wandb 指标名，例如 \"val/loss\"")
+    histories: list[tuple[str, Any]] = []
+    for handle in _handles(runs):
+        try:
+            histories.append((handle.id, handle.history([key, "_step"])))
+        except ArbError as exc:
+            histories.append((handle.id, exc))
+    return analysis.make_plot(key, histories, log=log)
+
+
+def diff(a: str | Run, b: str | Run) -> analysis.RunDiff:
+    """What differs between two runs: command and `--set` overrides, resources, code
+    (snapshot and the diff stat between the two snapshot commits, read-only) and the
+    fetched config, key by key."""
+    t, ledger, _idea = _open()
+    with ledger:
+        ra = records.get_run(ledger, a.id if isinstance(a, Run) else a)
+        rb = records.get_run(ledger, b.id if isinstance(b, Run) else b)
+    return analysis.run_diff(t.ctx.main, ra, rb)
+
+
+def spend(idea: str | None = None) -> analysis.Spend:
+    """SU and GPU hours per idea of this project, against the budget in arboria.toml;
+    `spend("<idea>")` (or `spend(".")` for this one) lists that idea's runs instead."""
+    t = resolve()
+    if isinstance(t, SeedTarget):
+        raise _seed_error(t)
+    ctx = t.ctx.require_initialized()
+    with Ledger(ctx.state_dir) as ledger:
+        row = None
+        if idea is not None:
+            row = ideas.get_idea(ledger, t.idea if idea == "." else idea)
+        return analysis.spend(ledger, budget=project_config(ctx).total_su, idea=row,
+                              status_label=status_label)
 
 
 # ---------------------------------------------------------------- the human's records

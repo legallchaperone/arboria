@@ -315,7 +315,8 @@ def test_dashboard_imports_no_write_path() -> None:
                          env={**os.environ, "PYTHONPATH": str(SRC)})
     loaded = set(json.loads(res.stdout.replace("'", '"')))
     for bad in ("db", "records", "submission", "monitor", "backends", "tasks", "lessons",
-                "ideas", "claudemd", "human", "notebooks", "commands", "state", "snapshot"):
+                "ideas", "claudemd", "human", "notebooks", "commands", "state", "snapshot",
+                "analysis", "lab"):
         assert f"arboria.{bad}" not in loaded, bad
 
 

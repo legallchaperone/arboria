@@ -1139,10 +1139,19 @@ fn constants() {
     });
 }
 
+#[test]
+fn command_name() {
+    run("command_name", |i| match s(i, "name") {
+        None => Got::Skip("non-string name"),
+        Some(n) => got(arboria_core::commands::validate_name(n, false).map(|()| n.to_string())),
+    });
+}
+
 // ---------------------------------------------------------------- not wired yet
 
 /// Wired above.
 const WIRED: &[&str] = &[
+    "command_name",
     "canonical_json",
     "validate_text",
     "validate_name",
@@ -1246,7 +1255,6 @@ macro_rules! pending {
 
 pending!(
     check_mermaid,
-    command_name,
     inspect_check_path,
     inspect_validate_result,
     machine_propose,

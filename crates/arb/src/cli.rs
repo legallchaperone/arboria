@@ -1217,16 +1217,67 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                     .map(|c| c.state_dir());
                 let rows = commands::discover(state.as_deref())?;
                 emit(json, &rows, |rows| {
-                    rows.iter()
-                        .map(|r| format!("{}  {}  {}", r.signature, r.version, r.description))
-                        .collect::<Vec<_>>()
-                        .join("\n")
+                    let names: Vec<&str> = commands::BUILTINS.iter().map(|(n, _)| *n).collect();
+                    let builtins = format!(
+                        "built-in (内置, signatures in lab.commands()): {}",
+                        names.join(", ")
+                    );
+                    if rows.is_empty() {
+                        return format!(
+                            "no commands yet (a notebook call lab.<name>(..., ask=\"...\") asks Claude to write one)\n{builtins}"
+                        );
+                    }
+                    let width = rows
+                        .iter()
+                        .map(|r| r.signature.chars().count())
+                        .max()
+                        .unwrap_or(0)
+                        .min(48);
+                    let mut out: Vec<String> = rows
+                        .iter()
+                        .map(|r| {
+                            let mark = if r.active {
+                                ""
+                            } else {
+                                "  (shadowed by the project's)"
+                            };
+                            let problem = r
+                                .problem
+                                .as_ref()
+                                .map(|p| format!("  ⚠ {p}"))
+                                .unwrap_or_default();
+                            format!(
+                                "{:<width$}  {}  v{}  {}{mark}{problem}",
+                                r.signature,
+                                r.scope.label(),
+                                r.version,
+                                r.description
+                            )
+                        })
+                        .collect();
+                    out.push(builtins);
+                    out.join("\n")
                 })?;
             }
             CommandsCmd::Promote { name, force } => {
                 let (_ctx, mut ledger) = open()?;
-                let row = commands::promote(&mut ledger, &name, force)?;
-                println!("promoted {} → {}", row.name, row.path);
+                let res = commands::promote(&mut ledger, &name, force)?;
+                if !res.changed {
+                    println!(
+                        "{name} v{} 已经是全局命令库里的版本（{}）",
+                        res.version, res.path
+                    );
+                } else {
+                    let replaced = res
+                        .replaced
+                        .as_ref()
+                        .map(|r| format!("，替换了 v{r}"))
+                        .unwrap_or_default();
+                    println!(
+                        "promoted {name} v{} → {}{replaced}\n项目里的 {name} 仍然优先；别的项目和种子里 lab.{name}(...) 用全局的这份。",
+                        res.version, res.path
+                    );
+                }
             }
         },
         Cmd::Inspect(cmd) => {

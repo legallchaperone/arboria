@@ -78,7 +78,7 @@ impl db::LedgerRow for TaskView {
 }
 
 /// A seed row (no branch: live or dropped before planting) rather than an idea.
-fn is_seed(owner: &Idea) -> bool {
+pub fn is_seed(owner: &Idea) -> bool {
     owner.stage == IdeaStage::Seed || owner.branch.is_none()
 }
 

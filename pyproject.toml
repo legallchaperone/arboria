@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "AI-native ML research workflow: a local ledger of ideas, runs and notes, a marimo notebook per idea, and human-approved Slurm runs for working with Claude Code"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MIT"
-license-files = ["LICENSE"]
+license = "MIT AND OFL-1.1"
+license-files = ["LICENSE", "src/arboria/ui/fonts/OFL.txt"]
 authors = [{ name = "legallchaperone" }]
 keywords = [
     "machine-learning",

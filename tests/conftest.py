@@ -70,6 +70,19 @@ def isolated_home(tmp_path_factory: pytest.TempPathFactory,
     return home.resolve()
 
 
+SMALL_FONT_FACE = '@font-face { font-family: "Maple Mono CN"; src: local("test"); }'
+
+
+@pytest.fixture(autouse=True)
+def small_font(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every notebook stylesheet would carry ~15 MB of embedded font: tests get a one-line
+    stand-in (tests/test_style.py checks the real one), and a private cache dir."""
+    from arboria import style
+
+    monkeypatch.setattr(style, "font_face", lambda: SMALL_FONT_FACE)
+    monkeypatch.setenv("ARBORIA_CACHE_DIR", str(tmp_path_factory.mktemp("arboria-cache")))
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     """A main worktree `proj` with one commit, a .gitignore and some files."""

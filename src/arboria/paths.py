@@ -142,6 +142,19 @@ def home() -> Home:
     return Home(home_root())
 
 
+CACHE_ENV = "ARBORIA_CACHE_DIR"
+
+
+def cache_dir() -> Path:
+    """Per-user files arb can always regenerate (`$ARBORIA_CACHE_DIR`, else
+    `$XDG_CACHE_HOME/arboria`, else `~/.cache/arboria`): the dashboard's stylesheet."""
+    env = os.environ.get(CACHE_ENV)
+    if env:
+        return Path(env).expanduser()
+    xdg = os.environ.get("XDG_CACHE_HOME")
+    return (Path(xdg).expanduser() if xdg else Path.home() / ".cache") / "arboria"
+
+
 def seed_of_notebook(path: Path | str) -> tuple[Home, str] | None:
     """(home, seed name) if `path` is `<home>/seeds/<name>.py` of an initialized home
     (any home: the notebook's own location decides, not $ARBORIA_HOME)."""

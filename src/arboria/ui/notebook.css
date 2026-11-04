@@ -1,0 +1,49 @@
+/* Arboria notebook typography: one typeface, Maple Mono CN, for prose, headings, code
+   and Chinese text, in every idea / seed notebook and in the dashboard.
+
+   arb writes this file, after the @font-face rules of the font (embedded as data: URIs,
+   see arboria/style.py), into the `arboria.css` next to each notebook; marimo inlines
+   that file into the page (App(css_file="arboria.css")), so nothing is fetched and it
+   works offline. The fallbacks after "Maple Mono CN" only matter if the font fails to
+   load. "cv01" makes @ $ & % Q => -> plain; ligatures ("calt") stay on. */
+
+:root {
+  --arboria-font: "Maple Mono CN", ui-monospace, "SF Mono", Menlo, Consolas,
+    "Noto Sans Mono CJK SC", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei",
+    monospace;
+  --arboria-features: "calt" 1, "cv01" 1;
+  --marimo-text-font: var(--arboria-font);
+  --marimo-heading-font: var(--arboria-font);
+  --marimo-monospace-font: var(--arboria-font);
+  --font-sans: var(--arboria-font);
+  --font-mono: var(--arboria-font);
+  --default-font-family: var(--arboria-font);
+  --default-mono-font-family: var(--arboria-font);
+  --default-font-feature-settings: var(--arboria-features);
+}
+
+html, body, code, kbd, pre, samp, .markdown, .prose, .cm-editor, .cm-content,
+.cm-gutters, .font-prose, .font-code, .font-mono, .font-heading {
+  font-feature-settings: var(--arboria-features);
+}
+
+/* calm prose: 15px, line height 1.6; headings in the same face, bold, no serif */
+.markdown, .mo-markdown-renderer, .prose {
+  font-size: 15px;
+  line-height: 1.6;
+}
+:is(.markdown, .mo-markdown-renderer) :is(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--arboria-font);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+:is(.markdown, .mo-markdown-renderer) :is(h3, h4, h5, h6) {
+  font-weight: 600;
+}
+
+/* code: 13px (overrides marimo's display.code_editor_font_size, the same for everyone) */
+.cm-editor, .cm-lineNumbers, .marimo-cell .cm-editor .cm-content {
+  font-family: var(--arboria-font);
+  font-size: 13px;
+  line-height: 1.6;
+}

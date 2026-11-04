@@ -1,0 +1,20 @@
+[arboria] idea `warmup-long` — status open, confidence prelim, branch idea/warmup-long
+Hypothesis: 4k warmup 能消掉前 2k 步的 loss spike
+Metric: 前 2k 步没有 spike，val/loss 不变差
+命令待办：svd（t001）——按 `arb commands guide` 的约定写，详情见 `arb todo list --json`
+Runs (3):
+- r001 [succeeded] baseline：warmup 1k @c462b93c05
+    jobs: fake/ghx4 4 GPU 12h; s1 1001 completed; 40.00 SU（估计上限 48.00）
+    summary: 前 2k 步 4 次 spike，val/loss 2.912
+- r002 [succeeded] 4k warmup @c462b93c05
+    jobs: fake/ghx4 4 GPU 12h; s1 1002 completed; 40.00 SU（估计上限 48.00）
+    summary: 前 2k 步没有 spike，val/loss 2.913
+- r003 [awaiting_approval] β2=0.95 @c462b93c05
+    jobs: fake/ghx4 4 GPU 12h; 0 SU（估计上限 48.00）
+Recent notes:
+- 2026-11-04 (run r001) [confidence→prelim]: baseline 有 spike，和预期一致
+Open decisions:
+- d003 (run r003): 批准这个 run 上集群吗？
+待你批准的 run：1 个（`arb card RUN` 看审核单，由你运行 `arb approve RUN`）
+看板：arb ui
+Ledger rules: experiment state lives in the arboria ledger, written only by `arb`. Work comes from the todos: finish one with `arb todo done tNNN --result "..."`; for a command todo read `arb commands guide` first; `notebook.py` is the human's notebook: read it, never edit it; `arb note` is human-only. Use `arb status`, `arb run summary RUN "..."`, `arb submit --reason "..." --gpus N --time T [-- CMD]`; never edit .arboria/ by hand. Approval happens only in the human's own terminal: you cannot run `arb approve` or `arb lesson accept`. Read cluster logs with `arb logs RUN` / `arb remote ls RUN`, not ssh. Propose reusable pitfalls with `arb lesson propose "..."`.

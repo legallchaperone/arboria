@@ -590,6 +590,106 @@ fn check_override() {
     });
 }
 
+fn override_of(v: &Value) -> Option<OverrideValue> {
+    Some(match v {
+        Value::String(v) => OverrideValue::Str(v.clone()),
+        Value::Bool(b) => OverrideValue::Bool(*b),
+        Value::Null => OverrideValue::Null,
+        Value::Number(n) if n.is_f64() => OverrideValue::Float(n.as_f64().unwrap()),
+        Value::Number(n) => OverrideValue::Int(n.as_i64().unwrap()),
+        _ => return None,
+    })
+}
+
+#[test]
+fn build_command() {
+    run("build_command", |i| {
+        let mut table = toml::Table::new();
+        let mut run_t = toml::Table::new();
+        let cmd = s(i, "config_command").unwrap();
+        if !cmd.is_empty() {
+            run_t.insert("command".into(), cmd.into());
+        }
+        run_t.insert(
+            "override_style".into(),
+            s(i, "override_style").unwrap().into(),
+        );
+        table.insert("run".into(), run_t.into());
+        let cfg = config::parse_project_config(&table, Path::new("/repo/arboria.toml")).unwrap();
+        let mut overrides = Vec::new();
+        for kv in i["overrides"].as_array().unwrap() {
+            let (Some(k), Some(v)) = (kv[0].as_str(), override_of(&kv[1])) else {
+                return Got::Skip("non-string key or list value");
+            };
+            match slurm::check_override(k, &v) {
+                Ok(pair) => overrides.push(pair),
+                Err(e) => return Got::Err(e),
+            }
+        }
+        let explicit: Option<Vec<String>> = serde_json::from_value(i["explicit"].clone()).unwrap();
+        let parent = (!i["parent_request"].is_null()).then(|| i["parent_request"].clone());
+        match arboria_core::submission::build_command(
+            &cfg,
+            explicit.as_deref(),
+            &overrides,
+            parent.as_ref(),
+        ) {
+            Ok(spec) => Got::Out(json!({
+                "command": spec.command,
+                "base": spec.base,
+                "source": spec.source,
+                "overrides": spec.overrides.iter().map(|(k, v)| json!([k, v])).collect::<Vec<_>>(),
+                "style": spec.style,
+                "request_extra": spec.request_extra(),
+            })),
+            Err(e) => Got::Err(e),
+        }
+    });
+}
+
+#[test]
+fn derive_status() {
+    use arboria_core::model::{JobState, RunStatus};
+    run("derive_status", |i| {
+        let states: Vec<JobState> = serde_json::from_value(i["states"].clone()).unwrap();
+        let current: RunStatus = serde_json::from_value(i["current"].clone()).unwrap();
+        let n = i["n_segments"].as_u64().unwrap() as usize;
+        Got::Out(
+            arboria_core::monitor::derive_status(&states, n, current)
+                .as_str()
+                .into(),
+        )
+    });
+}
+
+#[test]
+fn billed_su() {
+    run("billed_su", |i| {
+        Got::Out(json!(arboria_core::monitor::billed_su(
+            &i["request"],
+            i["elapsed"].as_u64(),
+            i["reported"].as_f64()
+        )))
+    });
+}
+
+#[test]
+fn first_hit() {
+    run("first_hit", |i| {
+        let patterns: Vec<String> = match &i["patterns"] {
+            Value::Null => config::DEFAULT_FAIL_PATTERNS
+                .iter()
+                .map(|p| p.to_string())
+                .collect(),
+            v => serde_json::from_value(v.clone()).unwrap(),
+        };
+        match arboria_core::monitor::first_hit(s(i, "text").unwrap(), &patterns) {
+            Ok(hit) => Got::Out(json!(hit.map(|(p, l)| json!([p, l])))),
+            Err(e) => Got::Err(e),
+        }
+    });
+}
+
 #[test]
 fn parse_override() {
     run("parse_override", |i| {
@@ -1055,6 +1155,10 @@ const WIRED: &[&str] = &[
     "restrict_path",
     "sacct_poll",
     "su_from_billing",
+    "billed_su",
+    "build_command",
+    "derive_status",
+    "first_hit",
     "check_job_ids",
     "constants",
     "billed_gpus",
@@ -1141,12 +1245,8 @@ macro_rules! pending {
 }
 
 pending!(
-    billed_su,
-    build_command,
     check_mermaid,
     command_name,
-    derive_status,
-    first_hit,
     inspect_check_path,
     inspect_validate_result,
     machine_propose,

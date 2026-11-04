@@ -204,6 +204,13 @@ pub fn py_round2(x: f64) -> f64 {
     format!("{x:.2}").parse().expect("formatted float parses")
 }
 
+/// Python's `round(x, digits)`, as [`py_round2`].
+pub fn py_round(x: f64, digits: usize) -> f64 {
+    format!("{x:.digits$}")
+        .parse()
+        .expect("formatted float parses")
+}
+
 // ---------------------------------------------------------------- request plan
 
 /// What the submitter asked for (stored as is in `request_json` `ask`; the plan is

@@ -170,3 +170,21 @@ fn no_automatic_approval() {
         assert!(hits.is_empty(), "{file} mentions \"human\": {hits:?}");
     }
 }
+
+#[test]
+fn only_the_human_check_confirms() {
+    // human::Confirmed (what approve needs) is built only in human.rs; its test-only
+    // constructor is used only inside #[cfg(test)] modules.
+    for (file, text) in sources() {
+        if file != "human.rs" {
+            assert!(
+                code_hits(&text, "Confirmed {").is_empty(),
+                "{file} builds human::Confirmed"
+            );
+        }
+        let tests_at = text.find("#[cfg(test)]\nmod tests").unwrap_or(text.len());
+        for (i, _) in text.match_indices("Confirmed::for_tests") {
+            assert!(i > tests_at, "{file} uses Confirmed::for_tests outside its test module");
+        }
+    }
+}

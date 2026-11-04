@@ -356,39 +356,48 @@ pub fn row_map(row: &rusqlite::Row<'_>) -> rusqlite::Result<serde_json::Map<Stri
 }
 
 /// A ledger table row type read with `SELECT *` (Python `Ledger.one` / `Ledger.all`).
-pub trait LedgerRow: serde::de::DeserializeOwned {
-    /// Adjust the column map before deserializing (e.g. decode a JSON column).
-    fn fix(map: &mut serde_json::Map<String, Value>) -> Result<()> {
-        let _ = map;
-        Ok(())
-    }
-
-    /// Deserialize one row.
-    fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
-        let mut map = row_map(row)?;
-        Self::fix(&mut map)?;
-        Ok(serde_json::from_value(Value::Object(map))?)
-    }
+pub trait LedgerRow: Sized {
+    /// Read one row.
+    fn from_row(row: &rusqlite::Row<'_>) -> Result<Self>;
 }
 
-impl LedgerRow for crate::model::Idea {}
-impl LedgerRow for crate::model::Run {}
-impl LedgerRow for crate::model::Job {}
-impl LedgerRow for crate::model::Note {}
-impl LedgerRow for crate::model::Lesson {}
-impl LedgerRow for crate::model::Task {}
-impl LedgerRow for crate::model::Event {}
-impl LedgerRow for crate::model::Planting {}
-impl LedgerRow for crate::model::Inspection {}
+/// [`row_map`] deserialized with serde (the model structs name their fields after the
+/// columns).
+pub fn from_map<T: serde::de::DeserializeOwned>(map: serde_json::Map<String, Value>) -> Result<T> {
+    Ok(serde_json::from_value(Value::Object(map))?)
+}
+
+macro_rules! serde_row {
+    ($($t:ty),+) => {$(
+        impl LedgerRow for $t {
+            fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+                from_map(row_map(row)?)
+            }
+        }
+    )+};
+}
+serde_row!(
+    crate::model::Idea,
+    crate::model::Run,
+    crate::model::Job,
+    crate::model::Note,
+    crate::model::Lesson,
+    crate::model::Task,
+    crate::model::Event,
+    crate::model::Planting,
+    crate::model::Inspection
+);
+
 impl LedgerRow for crate::model::Decision {
     /// `options_json` → `options`.
-    fn fix(map: &mut serde_json::Map<String, Value>) -> Result<()> {
+    fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        let mut map = row_map(row)?;
         let options = match map.remove("options_json") {
             Some(Value::String(s)) if !s.is_empty() => serde_json::from_str(&s)?,
             _ => Value::Array(Vec::new()),
         };
         map.insert("options".into(), options);
-        Ok(())
+        from_map(map)
     }
 }
 

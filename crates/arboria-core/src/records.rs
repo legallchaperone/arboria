@@ -261,6 +261,11 @@ pub fn validate_name(name: &str, what: &str) -> Result<()> {
     })
 }
 
+/// `author` of text the human wrote (notes, todos, seeds) in rows and event payloads.
+/// Authorship only: it never decides anything (decisions use `decided_by`, set after
+/// [`crate::human`]'s checks).
+pub const AUTHOR_HUMAN: &str = "human";
+
 // ---------------------------------------------------------------- runs
 
 /// The hidden ref anchoring a run's snapshot commit: `refs/arboria/runs/<id>`.

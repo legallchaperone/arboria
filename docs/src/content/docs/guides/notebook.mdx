@@ -1,0 +1,69 @@
+---
+title: idea notebook 与 lab API
+description: 每个 idea 一个 marimo notebook：它放在哪里、怎么打开，以及 notebook 里的 lab API 和待办。
+---
+
+import Shot from '../../../components/Shot.astro';
+import nbTop from '../../../assets/shots/nb-top.webp';
+import nbBottom from '../../../assets/shots/nb-bottom.webp';
+
+每个 idea 有一个 [marimo](https://marimo.io) notebook。你在里面整理思路、发起实验、分析结果，就像普通 notebook；Claude 能读，不能改，它的活来自你在 notebook 里留下的待办。
+
+<Shot src={nbTop} alt="idea warmup-long 的 notebook：假设、指标、动机，lab.runs() 的表格列出 r001、r002 两个成功的 run" caption="notebook 开头：idea 的假设和指标、你的动机，lab.runs() 列出这个 idea 的 run（演示数据）。" />
+
+## 放在哪里
+
+- `arb idea new`（或 `arb seed plant`、`lab.fork`）同时创建 `.arboria/notebooks/<idea>.py`，worktree 里的 `notebook.py` 是指向它的符号链接。模板只在新建时写入，以后不会改你的 notebook。
+- `notebook.py` 写进了 `.git/info/exclude`，**快照永远不包含它**：改 notebook 不会让快照变化，合并时也不会冲突。仓库里本来就有被跟踪的 `notebook.py` 时，arb 不覆盖它，只提示你直接打开 `.arboria/notebooks/<idea>.py`。
+- 关闭 idea 时只删掉符号链接，notebook 本身保留；备份仓库每次提交都带上 `notebooks/*.py`。
+- `arb install-claude` 禁止 Claude 用 Edit/Write/MultiEdit/NotebookEdit 改 `**/notebook.py` 和 `.arboria/notebooks/**`，读不受限。
+- 旧的 idea 没有 notebook（或者你删了它）：`arb idea notebook [NAME]` 补建；已经有了就什么都不改。
+
+## lab API
+
+```python
+from arboria import lab
+
+r = lab.run(reason="warmup 1k", gpus=4, time="12h", set={"lr": 3e-4})   # 只生成审核单
+r                       # 一行状态 + 一行提示；审核单折叠在下面
+r2 = lab.run(reason="lr 小一点", from_=r, set={"lr": 1e-4})             # 同一快照，只改参数
+lab.runs()              # 当前 idea 的 run 一览；lab.runs(raw=True) 是账本里的所有列
+lab.get("r001")         # 按 id 取一个 run 句柄
+r2.metrics(["val/loss"])                       # wandb 曲线（需要 wandb）
+lab.compare(["r001", "r002"], "val/loss")
+lab.todo("把 eval 改成每 500 步一次")          # 给 Claude 留待办，显示成一行；lab.todos() 列出待办
+lab.fork("lr-warmup-cosine", from_=r, hypothesis="...", metric="...")   # 从 r 的快照分出新 idea
+lab.conf("prelim")      # 改置信度；lab.metric("...") 改指标
+lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
+```
+
+- `lab.run(reason, from_=None, set=None, gpus=None, time=None, partition=None, nodes=None, machine=None, command=None)` 和 `arb submit` 完全一样：只在本地生成快照（或复用 `from_` 的快照）和审核单，**绝不批准**。命令默认取 `arboria.toml` 的 `[run] command`，`set` 按 `[run] override_style` 接在后面。
+- **重复执行 cell 是安全的**：同一个 idea 里已经有审核单哈希相同、且没被拒绝/取消/失败的 run 时，直接返回它。
+- **有意重复跑**（例如看种子方差）：`lab.run(..., repeat=True)` 每次都建一个新 run，审核单上写“⚠ 重复运行”。注意带 `repeat=True` 的 cell 每执行一次就多一个待批准的 run。
+- `lab` 里没有任何批准函数。待办、置信度、指标、`prune` 记的是**你**的记录，在 Claude Code 里调用会被拒绝。它们在 cell 重跑时不会重复：值没变就什么都不写，一模一样的未完成待办直接返回已有的那个。
+
+### 当前 idea 怎么确定
+
+按顺序：`lab.use("<idea>")` 手动指定 → 调用者的 `__file__`（marimo 里就是 notebook 文件）→ 正在运行的 marimo app → 当前目录所在的 idea worktree。都不行就报错，提示你 `lab.use(...)`。
+
+### Run 句柄
+
+`.id`、`.status()`、`.card()`、`.jobs()`、`.wandb_url`、`.metrics(keys)`、`.local_out`（拉回来的 `ARBORIA_OUT`）、`.config`（解析后的 config）。
+
+在 notebook 里，一个 run 显示成两行：第一行是 `r003 · 待批准 · 原因 · 来自 r002`；第二行随状态变化：待批准时是 `arb approve r003`，运行中是已运行多久（分段时是第几段），成功时是用时、SU 和 wandb 链接，失败时是失败原因（`arb watch` 记下的那一行日志）。审核单、作业表和 run 总结折叠在下面。
+
+<Shot src={nbBottom} alt="notebook 下半部分：初步结论，lab.run 生成的 r003 待批准和 arb approve r003 提示，以及 lab.svd 命令还不存在、已交给 Claude（t001）" caption="写下结论，发起下一个 run；还不存在的命令 lab.svd 交给了 Claude（演示数据）。" />
+
+### lab.runs() 的列
+
+run、状态、父 run、原因、资源（`4 GPU × 12h`）、SU（结束后是实际花费，之前是 `≤ 估计上限`）、创建时间。有 pandas 时是 DataFrame，否则是 dict 的列表。要账本里的全部列用 `lab.runs(raw=True)`。
+
+## 待办
+
+- 你在 notebook 里写 `lab.todo("...")`；SessionStart hook 在当前 idea 的状态里列出未完成的待办，Claude 据此干活。
+- 在 notebook 里，`lab.todo("...")` 显示成一行：`已交给 Claude（t001）：<待办>`；cell 重跑时找到同一个未完成的待办是 `已在待办里（t001）：<待办>`；做完的是 `已完成（t001）：<待办> → <结果>`。
+- `lab.todos(include_closed=False)` 是一行一个待办的简短列表：`t001 · 等 Claude · <待办> · 3 分钟前`（状态：等 Claude、已完成、已放弃）。文字一律转义，太长的截短，悬停看全文。
+- 返回值照旧能当数据用：`t.id`、`t.text`、`t.status`、`t.result`、`t.existed`（是不是复用的），`t["id"]` 也行，`t.data` 是完整的 dict；`lab.todos()` 可以遍历、取下标，`.data` 是 dict 的列表（要 DataFrame 就 `pd.DataFrame(lab.todos().data)`）。
+- 命令行：`arb todo list [--all] [--json]` 在 idea worktree 里列这个 idea 的待办，在主 worktree 里列所有 open idea 的。
+- Claude 做完后 `arb todo done tNNN --result "..."`（≤600 字符）；不做了 `arb todo drop tNNN [--reason "..."]`。
+- `arb note` 只由你写；Claude 的结论写进待办结果或 `arb run summary RUN "..."`。

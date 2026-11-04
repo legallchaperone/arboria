@@ -1,0 +1,43 @@
+---
+title: 看板
+description: arb ui：只读的总览，什么在等你、idea 怎么随时间分叉、算力花在了哪里。
+---
+
+import Shot from '../../../components/Shot.astro';
+import light from '../../../assets/shots/dashboard-light.webp';
+import dark from '../../../assets/shots/dashboard-dark.webp';
+
+每个 idea 的 notebook 是你干活的地方；看板是总览。**它只读，什么都不改。**
+
+```bash
+arb ui                    # 在主 worktree 或任一 idea worktree 里；浏览器自动打开
+arb ui --idea lr-warmup   # 预先选中某个 idea
+arb ui --port 2718
+arb ui --home             # 种子园（在任何仓库之外，这是默认）
+```
+
+<Shot src={light} dark={dark} alt="Arboria 看板：顶部四个数字，左边待你处理（待批准的 run、新结束的 run、待确认的经验、等 Claude 的待办、最近通知），右边 idea 树和 idea 详情" caption="看板（演示数据）。跟随 marimo 的浅色/深色主题。" />
+
+## 怎么运行
+
+- 需要 marimo，而且要装在 arb 自己的环境里：`uv tool install --force '.[ui]'`。没装时 `arb ui` 会告诉你怎么装。
+- `arb ui` 在 `127.0.0.1` 上运行包里自带的 marimo app（`marimo run`，带 marimo 的会话 token）。Ctrl-C 结束。
+- 每 30 秒重读一次账本（右上角可改间隔）；顶部的“更新于 HH:MM:SS”是最后一次读账本的时间。
+
+## 只读
+
+- 账本用 SQLite 的只读模式打开（`file:…?mode=ro`），看板的代码不 import 任何写入路径。
+- 不联网、不 ssh、不调 wandb API。集群状态是 `arb watch` / `arb poll` 最后写进账本的样子。
+- 没有会动手的按钮：批准、接受经验、取消都留在你的终端里，看板只把命令显示成可以一键选中复制的文本，例如 `arb approve r014`。
+- 账本里的文字一律 HTML 转义。样式在包里，不用网络字体，离线可用。
+
+## 看什么
+
+1. **待你处理**：待批准的 run（带 `arb approve` 命令，审核单全文收在“审核单”里，配置变了会标“审核单已变化”）；新结束的 run（你上次给那个 idea 写笔记之后结束的）；待确认的经验；等 Claude 的待办；最近的 watch 通知。
+2. **idea 树**：横轴是时间，每个 idea 一行，从父 idea（或某个 run 的快照）连出来；行尾是置信度。run 是行上的小竖条，只有失败（红）和待批准（琥珀色）有颜色。已放弃的行变淡，可以隐藏。
+3. **idea 详情**：假设、指标、置信度、notebook 的 `vscode://` 链接和 `marimo edit` 命令；runs 表（相对父 run 的改动 `k: 旧 → 新`、GPU × 时长、SU、wandb），点开看拉回的输出文件；最新的笔记、run 总结和未完成的待办。
+4. **算力与预算**：已用 / 总预算和剩余、各 idea 已用 SU、累计花费曲线、活跃作业，已结束 run 的估计 vs 实际。
+
+宽屏（≥1100px）是两栏，窄屏变成一列。先给简短的版本，细节都在可以点开的折叠里。
+
+有东西在等你（待批准的 run、待确认的经验、你还没看过的已结束 run）时，`arb status` 和 SessionStart hook 会多一行“看板：arb ui”。种子园里有在思考中的种子时，项目看板标题下多一行灰字“种子园：N 个在思考中 · arb ui --home”。种子园看板见[种子园](/guides/seeds/#种子园看板)。

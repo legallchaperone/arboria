@@ -1,0 +1,132 @@
+---
+// How the concepts relate: seed → idea → run → 审核单 → your approval; todos to
+// Claude, lessons back through you; everything recorded in the ledger.
+---
+
+<figure class="arb-diagram concept-map">
+	<svg viewBox="0 0 760 380" role="img" aria-labelledby="concept-map-title">
+		<title id="concept-map-title">种子种下成为 idea；idea 里发起 run，run 生成审核单，由你批准；notebook 的待办交给 Claude，Claude 提出的经验由你接受；这些都记在账本里</title>
+		<defs>
+			<marker id="cm-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+				<path class="head" d="M0 0L10 5L0 10z"></path>
+			</marker>
+		</defs>
+
+		<!-- row 1: seed → idea → run → card -->
+		<rect class="box" x="16" y="24" width="140" height="64" rx="10"></rect>
+		<text class="t1" x="32" y="50">种子</text>
+		<text class="t3" x="32" y="70">种子园 · notebook</text>
+
+		<rect class="box main" x="214" y="24" width="160" height="64" rx="10"></rect>
+		<text class="t1" x="230" y="50">idea</text>
+		<text class="t3" x="230" y="70">分支 · worktree</text>
+
+		<rect class="box" x="432" y="24" width="140" height="64" rx="10"></rect>
+		<text class="t1" x="448" y="50">run</text>
+		<text class="t3" x="448" y="70">快照 + 请求</text>
+
+		<rect class="box" x="616" y="24" width="128" height="64" rx="10"></rect>
+		<text class="t1" x="632" y="50">审核单</text>
+		<text class="t3" x="632" y="70">哈希绑定</text>
+
+		<path class="ln" d="M156 56 H 212" marker-end="url(#cm-head)"></path>
+		<text class="t3" x="185" y="46" text-anchor="middle">种下</text>
+		<path class="ln" d="M374 56 H 430" marker-end="url(#cm-head)"></path>
+		<text class="t3" x="402" y="46" text-anchor="middle">lab.run</text>
+		<path class="ln" d="M572 56 H 614" marker-end="url(#cm-head)"></path>
+
+		<!-- approval -->
+		<rect class="box you" x="616" y="150" width="128" height="64" rx="10"></rect>
+		<text class="t1 you-text" x="632" y="176">你批准</text>
+		<text class="t3 mono" x="632" y="196">arb approve</text>
+		<path class="ln" d="M680 88 V 148" marker-end="url(#cm-head)"></path>
+		<text class="t3" x="688" y="124">你的终端</text>
+		<path class="ln" d="M616 182 H 562" marker-end="url(#cm-head)"></path>
+		<text class="t3" x="589" y="172" text-anchor="middle">Slurm</text>
+		<rect class="box" x="432" y="150" width="128" height="64" rx="10"></rect>
+		<text class="t1" x="448" y="176">集群作业</text>
+		<text class="t3" x="448" y="196">watch · 拉回</text>
+
+		<!-- todos and Claude -->
+		<rect class="box" x="214" y="150" width="160" height="64" rx="10"></rect>
+		<text class="t1" x="230" y="176">待办</text>
+		<text class="t3" x="230" y="196">lab.todo · 命令待办</text>
+		<path class="ln" d="M294 88 V 148" marker-end="url(#cm-head)"></path>
+
+		<rect class="box dashed" x="214" y="262" width="160" height="64" rx="10"></rect>
+		<text class="t1" x="230" y="288">Claude Code</text>
+		<text class="t3" x="230" y="308">代码 · notebook 命令</text>
+		<path class="ln dashed" d="M294 214 V 260" marker-end="url(#cm-head)"></path>
+
+		<rect class="box" x="16" y="262" width="140" height="64" rx="10"></rect>
+		<text class="t1" x="32" y="288">经验</text>
+		<text class="t3" x="32" y="308">你接受 → CLAUDE.md</text>
+		<path class="ln dashed" d="M214 294 H 158" marker-end="url(#cm-head)"></path>
+		<text class="t3" x="186" y="284" text-anchor="middle">提出</text>
+
+		<!-- ledger -->
+		<rect class="ledger" x="432" y="262" width="312" height="64" rx="10"></rect>
+		<text class="t1" x="448" y="288">账本 .arboria/ledger.db</text>
+		<text class="t3" x="448" y="308">以上全部记在这里，只经 arb 写入</text>
+
+		<text class="t3" x="16" y="364">实线：你和程序的路径。虚线：Claude 那一侧，碰不到批准。</text>
+	</svg>
+</figure>
+
+<style>
+	.concept-map svg {
+		font-family: var(--__sl-font);
+	}
+	.box {
+		fill: var(--arb-surface);
+		stroke: var(--arb-line);
+		stroke-width: 1.25;
+	}
+	.box.main {
+		stroke: var(--arb-accent);
+		stroke-width: 1.75;
+	}
+	.box.you {
+		fill: var(--arb-accent-soft);
+		stroke: var(--arb-accent);
+		stroke-width: 1.75;
+	}
+	.box.dashed {
+		fill: none;
+		stroke: var(--arb-faint);
+		stroke-dasharray: 4 4;
+	}
+	.ledger {
+		fill: var(--arb-sunken);
+		stroke: var(--arb-line);
+		stroke-width: 1.25;
+	}
+	.ln {
+		fill: none;
+		stroke: var(--arb-faint);
+		stroke-width: 1.4;
+	}
+	.ln.dashed {
+		stroke-dasharray: 4 4;
+	}
+	.head {
+		fill: var(--arb-faint);
+	}
+	text {
+		fill: var(--arb-ink);
+	}
+	.t1 {
+		font-size: 14px;
+		font-weight: 600;
+	}
+	.you-text {
+		fill: var(--arb-accent);
+	}
+	.t3 {
+		font-size: 12px;
+		fill: var(--arb-muted);
+	}
+	.mono {
+		font-family: var(--__sl-font-mono);
+	}
+</style>

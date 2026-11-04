@@ -1,0 +1,49 @@
+---
+title: 核心概念
+description: 种子、idea、run、审核单、待办、经验和账本：一页讲清它们是什么、谁来写、怎么连在一起。
+---
+
+import ConceptMap from '../../../components/ConceptMap.astro';
+
+Arboria 是一个本地命令行工具 `arb`，配合 Claude Code 做 ML 研究。核心想法只有一句：**Claude Code 的会话是一次性的，实验的状态不该活在对话里。** 所以状态都记在会话之外的账本里，只经 `arb` 写入。
+
+<ConceptMap />
+
+## 七个概念
+
+| 概念 | 是什么 | 谁来写 |
+| --- | --- | --- |
+| **种子** | 还没有仓库的想法：名字、一句话想法、可选的假设和指标，加一个 marimo notebook（`~/arboria/seeds/NAME.py`）。 | 你 |
+| **idea** | 一个可检验的假设。对应分支 `idea/NAME`、同级的 worktree 文件夹和一个 notebook；有指标和置信度（`guess`、`prelim`、`confirmed`、`rejected`）。 | 你（`arb idea new`、`arb seed plant`、`lab.fork`） |
+| **run** | 一次实验：worktree 当前状态的快照（`refs/arboria/runs/<id>`，不动你的分支和暂存区）、请求的资源、改动原因，以及集群上的作业和花费。 | 你或 Claude 发起；状态由程序写 |
+| **审核单** | run 上集群之前的清单：检查、资源、估计、预算。批准绑定在它的哈希上，任何一项变了旧批准就作废。 | 程序生成，你批准 |
+| **待办** | 你在 notebook 里留给 Claude 的活：普通待办（`lab.todo`），或“写一个命令”“改一个命令”。Claude 做完写一句结果。 | 你写，Claude 完成 |
+| **经验** | 一句话的可复用教训。Claude 提出，你接受后进入 `CLAUDE.md` 里由 arb 管理的区块。 | Claude 提出，你接受 |
+| **账本** | `.arboria/ledger.db`（SQLite），记下以上全部，加上笔记和决定（Decision）。所有 worktree 共用一份；`.arboria/` 本身是一个只做备份的小 git 仓库。 | 只有 `arb` |
+
+## 谁做什么
+
+- **你**：写种子和 notebook，发起和批准 run，写笔记，接受经验。批准和接受经验**只在你自己的终端里**。
+- **Claude**：按待办改代码、写 notebook 命令，写 run 总结、待办结果，提出经验。它能读你的 notebook，不能改。
+- **程序**：快照、审核单、分段、计费、提交、跟踪、拉回结果、记账。能用代码算的都不交给 LLM。
+
+## LLM 能写的只有几个字段
+
+假设、指标、改动原因、run 总结、经验、待办结果，都有长度限制：
+
+| 字段 | 上限 |
+| --- | --- |
+| hypothesis / 种子的一句话想法 / change reason | 300 字符 |
+| metric | 200 字符 |
+| note（只由你写） | 1000 字符 |
+| run summary | 10 行且 1500 字符 |
+| lesson | 200 字符，单行 |
+| 待办 / 待办结果 | 1000 / 600 字符 |
+
+其余字段全部由代码生成和校验。“会话随开随清”能成立，靠的就是这一条。
+
+## 一次 run 的生命周期
+
+`草稿 → 待批准 → 已批准 → 排队中 → 运行中 → 成功 / 失败 / 已取消`，被你拒绝的是“已拒绝”。notebook、`arb status` 和看板用的是同一套中文状态名。
+
+快照前会检查未跟踪文件：单个文件超过 50 MB 或合计超过 200 MB 时拒绝，除非加 `--allow-large`。数据和 checkpoint 请放进 `.gitignore`。

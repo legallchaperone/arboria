@@ -103,7 +103,8 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     # reading stays allowed, and the rest of .arboria/ (notably commands/) too
     assert not any(r.startswith("Read(") for r in deny)
     assert not any("**/.arboria/**" in r or "commands" in r for r in deny)
-    assert len(deny) == 9 + 4 * 6 + len(install.SEED_RULES)
+    assert len(deny) == 9 + 4 * 6 + len(install.SEED_RULES) + len(install.NOTEBOOK_RULES)
+    assert "Bash(arb idea style:*)" in deny  # rewrites the human's notebooks
     # seed-only commands are denied in a project too (`arb idea plant` runs inside one)
     for rule in ("Bash(arb idea plant:*)", "Bash(arb idea set:*)", "Bash(arb idea revive:*)",
                  "Bash(arb seed plant:*)", "Bash(arb seed new:*)"):

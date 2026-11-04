@@ -352,6 +352,32 @@ def idea_notebook(
         typer.echo(f"{idea['name']} already has a notebook: {path} (left as is)")
 
 
+STYLE_RESULT = {"added": "加上了 Arboria 字体", "already": "已经有了",
+                "own": "有自己的 css_file，没动", "unknown": "找不到 marimo.App(...)，没动"}
+
+
+@idea_app.command("style")
+@handle_errors
+def idea_style() -> None:
+    """Give older notebooks the Arboria font (Maple Mono CN).
+
+    In a repo: every idea notebook; outside any repo: every seed notebook. Refreshes
+    the arboria.css next to them and adds css_file="arboria.css" to marimo.App(...)
+    where it is missing; no cell is touched. Idempotent. Yours only: refused inside
+    Claude Code (it writes the notebooks)."""
+    seeds_mod.require_human("arb idea style", "会改 notebook 文件")
+    ctx = _idea_route()
+    if ctx is None:
+        results = seeds_mod.restyle(seeds_mod.ensure_home(_info))
+    else:
+        with Ledger(ctx.state_dir) as ledger:
+            results = ideas_mod.restyle(ctx, ledger, warn=_warn)
+    if not results:
+        typer.echo("没有 notebook")
+    for path, what in results:
+        typer.echo(f"{path.stem}: {STYLE_RESULT[what]}")
+
+
 @idea_app.command("close")
 @handle_errors
 def idea_close(

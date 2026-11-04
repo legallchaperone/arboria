@@ -31,7 +31,7 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
      "在没有 `arb init` 的仓库里会报错，不会悄悄记成种子。`arb idea plant` 在目标仓库里运行，"
      "把种子种成 idea。旧写法 `arb seed …` 仍然可用，是同一组种子命令的别名。", [
         "idea new", "idea list", "idea show", "idea set", "idea drop", "idea revive",
-        "idea plant", "idea notebook", "idea close",
+        "idea plant", "idea notebook", "idea style", "idea close",
     ]),
     ("项目、run 与笔记", "在实验代码仓库里：初始化、run 的结果、笔记和概览。", [
         "init", "run summary", "note", "status", "export",

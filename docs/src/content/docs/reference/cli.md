@@ -27,6 +27,7 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb idea revive`](#arb-idea-revive) | (Human only) bring a dropped seed back to thinking (outside any repo). |
 | [`arb idea plant`](#arb-idea-plant) | (Human only) plant a seed into this repo as a new idea, whose notebook links back. |
 | [`arb idea notebook`](#arb-idea-notebook) | Create the notebook (and notebook.py link) of an idea that has none. |
+| [`arb idea style`](#arb-idea-style) | Give older notebooks the Arboria font (Maple Mono CN). |
 | [`arb idea close`](#arb-idea-close) | Close an idea with --merge or --drop; removes its worktree and branch. |
 | [`arb init`](#arb-init) | Set up arboria for this repository (idempotent). |
 | [`arb run summary`](#arb-run-summary) | Set a run's result summary (run must belong to the current idea). |
@@ -190,6 +191,16 @@ arb idea notebook [OPTIONS] [name]
 | 参数 | 说明 | 默认 |
 | --- | --- | --- |
 | `name` | Defaults to the idea of the current directory. |  |
+
+### arb idea style
+
+Give older notebooks the Arboria font (Maple Mono CN).
+
+In a repo: every idea notebook; outside any repo: every seed notebook. Refreshes the arboria.css next to them and adds css\_file="arboria.css" to marimo.App(...) where it is missing; no cell is touched. Idempotent. Yours only: refused inside Claude Code (it writes the notebooks).
+
+```text
+arb idea style [OPTIONS]
+```
 
 ### arb idea close
 

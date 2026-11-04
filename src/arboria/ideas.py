@@ -153,6 +153,21 @@ def ensure_notebook(ctx: RepoContext, ledger: Ledger, name: str | None,
     return idea, path, True
 
 
+def restyle(ctx: RepoContext, ledger: Ledger,
+            warn: Callable[[str], None] | None = None) -> list[tuple[Path, str]]:
+    """Give every idea notebook of the repo the Arboria font: refresh
+    `.arboria/notebooks/arboria.css`, link it into each open idea's worktree, and add
+    `css_file="arboria.css"` to notebooks that lack it (only that line changes; see
+    notebooks.add_style). Idempotent. Returns (notebook, what happened) per notebook."""
+    directory = notebooks.notebooks_dir(ctx.state_dir)
+    if not directory.is_dir():
+        return []
+    notebooks.ensure_style(directory, warn)
+    for idea in ledger.all("SELECT worktree_path FROM ideas WHERE status = 'open' ORDER BY id"):
+        notebooks.link_style(ctx, Path(idea["worktree_path"]), warn)
+    return [(p, notebooks.restyle(p)) for p in sorted(directory.glob("*.py")) if p.is_file()]
+
+
 def list_ideas(ledger: Ledger) -> list[dict[str, Any]]:
     return ledger.all(
         "SELECT i.*, p.name AS parent_name,"

@@ -30,14 +30,18 @@ FILE_RULES = [f"{tool}({path})" for path in PROTECTED_PATHS for tool in EDIT_TOO
 SEED_RULES = ["Bash(arb seed new:*)", "Bash(arb seed set:*)", "Bash(arb seed drop:*)",
               "Bash(arb seed revive:*)", "Bash(arb seed plant:*)",
               "Bash(arb idea set:*)", "Bash(arb idea revive:*)", "Bash(arb idea plant:*)"]
-DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES, *SEED_RULES]
+# `arb idea style` rewrites the App(...) line of the human's notebooks: refused inside
+# Claude Code in code, and denied here too.
+NOTEBOOK_RULES = ["Bash(arb idea style:*)"]
+DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES, *SEED_RULES, *NOTEBOOK_RULES]
 # The seed home (`arb install-claude --home`): the seed notebooks and the whole state dir
 # are the human's (its commands are the global ones, outside the home). There `arb idea
 # new/drop` act on seeds too (in a repo they are the agent's to use), so they are denied
 # in the home as well.
 HOME_IDEA_RULES = ["Bash(arb idea new:*)", "Bash(arb idea drop:*)"]
 HOME_PROTECTED_PATHS = ["**/seeds/**", "**/.arboria/**"]
-HOME_DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *SEED_RULES, *HOME_IDEA_RULES,
+HOME_DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *SEED_RULES, *NOTEBOOK_RULES,
+                   *HOME_IDEA_RULES,
                    *(f"{tool}({path})" for path in HOME_PROTECTED_PATHS for tool in EDIT_TOOLS)]
 SETTINGS_NAME = "settings.json"
 LOCAL_NAME = "settings.local.json"  # per machine, not committed

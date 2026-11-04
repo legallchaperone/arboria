@@ -142,6 +142,7 @@ def new_seed(h: Home, ledger: Ledger, name: str, gist: str | None = None,
         row = ledger.one("SELECT * FROM seeds WHERE id = ?", (cur.lastrowid,))
         if not existed:
             notebooks.write_new(path, notebooks.render_seed(row))
+        notebooks.ensure_style(h.seeds_dir)
         ledger.event("seed_new", name, {"notebook": str(path.relative_to(h.root)),
                                         "kept_existing_notebook": existed})
     return show(h, ledger, name) | {"kept_existing_notebook": existed}
@@ -256,6 +257,15 @@ def plant(h: Home, home_ledger: Ledger, name: str, ctx: RepoContext, *,
             warn(f"idea {target} was created, but recording the planting in {h.state_dir} "
                  f"failed: {exc}")
     return idea | {"seed": name, "markdown_cells": len(markdown)}
+
+
+def restyle(h: Home) -> list[tuple[Path, str]]:
+    """Give every seed notebook the Arboria font: refresh `seeds/arboria.css` and add
+    `css_file="arboria.css"` where it is missing (see notebooks.add_style). Idempotent."""
+    if not h.seeds_dir.is_dir():
+        return []
+    notebooks.ensure_style(h.seeds_dir)
+    return [(p, notebooks.restyle(p)) for p in sorted(h.seeds_dir.glob("*.py")) if p.is_file()]
 
 
 def counts(ledger: Ledger) -> dict[str, int]:

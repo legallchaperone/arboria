@@ -9,17 +9,23 @@ which `info/exclude` keeps out of every snapshot. marimo is not needed to create
 from __future__ import annotations
 
 import ast
+import os
 import textwrap
 from pathlib import Path
 from typing import Any, Callable
 
+from . import style
 from .errors import ArbError
 from .paths import STATE_DIR_NAME, RepoContext, ensure_excluded
+from .style import STYLE_NAME
 
 NOTEBOOKS_DIR = "notebooks"
 LINK_NAME = "notebook.py"
 EXCLUDE_PATTERN = f"/{LINK_NAME}"
 EXCLUDE_COMMENT = "arboria: notebook.py links to the idea's notebook in .arboria/ (never snapshotted)"
+STYLE_EXCLUDE_PATTERN = f"/{STYLE_NAME}"
+STYLE_EXCLUDE_COMMENT = ("arboria: arboria.css links to the notebooks' stylesheet (the font) "
+                         "in .arboria/ (never snapshotted)")
 # The marimo file format the template follows (checked with `marimo check --strict`).
 MARIMO_FORMAT_VERSION = "0.25.2"
 
@@ -116,7 +122,7 @@ def render(idea: dict[str, Any], parent: str | None = None,
     return f'''import marimo
 
 __generated_with = "{_generated_with()}"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", css_file="{STYLE_NAME}")
 
 
 @app.cell(hide_code=True)
@@ -159,11 +165,14 @@ def create(ctx: RepoContext, idea: dict[str, Any], parent: str | None = None,
            from_run: dict[str, Any] | None = None,
            warn: Callable[[str], None] | None = None, *, link: bool = True,
            seed: dict[str, Any] | None = None) -> Path:
-    """Write the idea's notebook (never overwriting one) and link it into the worktree."""
+    """Write the idea's notebook (never overwriting one) and its stylesheet, and link
+    both into the worktree."""
     path = notebook_path(ctx.state_dir, idea["name"])
     write_new(path, render(idea, parent, from_run, seed))
+    ensure_style(path.parent, warn)
     if not link:
         return path
+    link_style(ctx, Path(idea["worktree_path"]), warn)
     ensure_excluded(ctx.common_dir, EXCLUDE_PATTERN, EXCLUDE_COMMENT)
     link = Path(idea["worktree_path"]) / LINK_NAME
     if link.is_symlink() and link.resolve() == path.resolve():
@@ -178,6 +187,101 @@ def create(ctx: RepoContext, idea: dict[str, Any], parent: str | None = None,
     except OSError as exc:
         raise ArbError(f"cannot link {link} -> {path}: {exc}") from exc
     return path
+
+
+# ---------------------------------------------------------------- the stylesheet
+
+
+def ensure_style(directory: Path, warn: Callable[[str], None] | None = None) -> Path | None:
+    """`arboria.css` (the font and typography, see arboria.style) next to the notebooks in
+    `directory`. A failure only costs the font: warned, never raised."""
+    try:
+        return style.ensure_notebook_style(directory)
+    except OSError as exc:
+        if warn:
+            warn(f"cannot write the notebook stylesheet in {directory}: {exc}")
+        return None
+
+
+def link_style(ctx: RepoContext, worktree: Path,
+               warn: Callable[[str], None] | None = None) -> bool:
+    """Link `<worktree>/arboria.css` to the notebooks' stylesheet: marimo reads css_file
+    next to the path it opened (`notebook.py`, the link), not next to the link's target."""
+    target = notebooks_dir(ctx.state_dir) / STYLE_NAME
+    if not worktree.is_dir():
+        return False
+    ensure_excluded(ctx.common_dir, STYLE_EXCLUDE_PATTERN, STYLE_EXCLUDE_COMMENT)
+    try:
+        if style.link(worktree / STYLE_NAME, target):
+            return True
+    except OSError:
+        pass
+    if warn:
+        warn(f"{worktree / STYLE_NAME} already exists; not linking the notebook stylesheet")
+    return False
+
+
+CSS_KEYWORD = f'css_file="{STYLE_NAME}"'
+
+
+def _app_call(tree: ast.Module) -> ast.Call | None:
+    """The `app = marimo.App(...)` call at module level."""
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "app"
+                and isinstance(node.value, ast.Call)):
+            f = node.value.func
+            if (isinstance(f, ast.Attribute) and f.attr == "App"
+                    and isinstance(f.value, ast.Name) and f.value.id == "marimo"):
+                return node.value
+    return None
+
+
+def add_style(source: str) -> tuple[str, str]:
+    """`source` with `css_file="arboria.css"` added to its `marimo.App(...)`, and what
+    happened: "added", "already" (it names arboria.css), "own" (another css_file: left
+    alone), "unknown" (no marimo.App call found, or not Python). Only the App call
+    changes; every cell stays byte-identical. Parsed with `ast`, never executed."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return source, "unknown"
+    call = _app_call(tree)
+    if call is None or call.end_lineno is None or call.end_col_offset is None:
+        return source, "unknown"
+    for kw in call.keywords:
+        if kw.arg == "css_file":
+            ok = isinstance(kw.value, ast.Constant) and kw.value.value == STYLE_NAME
+            return source, "already" if ok else "own"
+    lines = source.splitlines(keepends=True)
+    line = lines[call.end_lineno - 1]
+    # ast offsets count UTF-8 bytes; the call ends with its ")"
+    close = len(line.encode("utf-8")[:call.end_col_offset - 1].decode("utf-8"))
+    if line[close:close + 1] != ")":
+        return source, "unknown"
+    offset = sum(len(l) for l in lines[:call.end_lineno - 1]) + close
+    head = source[:offset]
+    stripped = head.rstrip()
+    sep = "" if stripped.endswith("(") else " " if stripped.endswith(",") else ", "
+    return stripped + sep + CSS_KEYWORD + head[len(stripped):] + source[offset:], "added"
+
+
+def restyle(path: Path) -> str:
+    """Add the stylesheet to the notebook file at `path` (see `add_style`); returns what
+    happened. Writes only when something was added (atomic, keeps the file mode; a
+    link is followed, the file it points at is written)."""
+    path = Path(path).resolve()
+    text = path.read_text(encoding="utf-8")
+    new, what = add_style(text)
+    if what == "added":
+        tmp = path.with_name(f".{path.name}.arboria-tmp")
+        tmp.write_text(new, encoding="utf-8")
+        try:
+            os.chmod(tmp, path.stat().st_mode & 0o7777)
+        except OSError:
+            pass
+        tmp.replace(path)
+    return what
 
 
 # ---------------------------------------------------------------- seeds
@@ -203,7 +307,7 @@ def render_seed(seed: dict[str, Any]) -> str:
     return f'''import marimo
 
 __generated_with = "{_generated_with()}"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", css_file="{STYLE_NAME}")
 
 
 @app.cell(hide_code=True)

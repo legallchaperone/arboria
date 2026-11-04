@@ -37,7 +37,7 @@ def test_render_block_content() -> None:
     assert lines[0] == BEGIN and lines[-1] == END and block.endswith(END + "\n")
     assert "## 研究工作流（Arboria）" in lines and "## 经验（已确认）" in lines
     assert lines[-2] == "- 暂无"
-    for needle in ("`arb status`", "arb note", "arb run new --reason", "arb approve",
+    for needle in ("`arb status`", "arb note", "arb approve",
                    "arb submit --reason", "[-- CMD]", "--from rNNN --set k=v",
                    "批准只能由人在自己的终端里做", "arb lesson accept", "arb logs RUN",
                    "arb remote ls RUN", "不用 ssh", "arb lesson propose",
@@ -47,6 +47,7 @@ def test_render_block_content() -> None:
                    "`arb note` 只由人写", "arb run summary"):
         assert needle in block, needle
     assert "ARBORIA_RUN_ID" not in block  # wandb ids are namespaced by project now
+    assert "arb run new" not in block  # superseded by `arb submit` (hidden, still works)
     assert len(lines) <= claudemd.MAX_BLOCK_LINES
 
     block = claudemd.render_block([_lesson("b", day="2026-11-02"), _lesson("a", None)])

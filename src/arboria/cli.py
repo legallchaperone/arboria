@@ -46,7 +46,7 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
 )
 idea_app = typer.Typer(help="Create, list and close research ideas.", no_args_is_help=True)
-run_app = typer.Typer(help="Record experiment runs.", no_args_is_help=True)
+run_app = typer.Typer(help="Runs: the result summary of a finished run.", no_args_is_help=True)
 hook_app = typer.Typer(help="Claude Code hooks.", no_args_is_help=True)
 claudemd_app = typer.Typer(help="The arb-managed block in the main CLAUDE.md.", no_args_is_help=True)
 lesson_app = typer.Typer(help="Reusable project lessons (proposed by Claude, accepted by you).",
@@ -366,7 +366,7 @@ def seed_plant(
 # ---------------------------------------------------------------- runs
 
 
-@run_app.command("new")
+@run_app.command("new", hidden=True)
 @handle_errors
 def run_new(
     reason: Annotated[str, typer.Option("--reason", help="What changed vs. the previous run and why (≤300 chars).")],

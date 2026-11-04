@@ -28,7 +28,7 @@ PAGE = ROOT / "docs" / "src" / "content" / "docs" / "reference" / "cli.md"
 SECTIONS: list[tuple[str, str, list[str]]] = [
     ("项目与 idea", "在实验代码仓库里：初始化、idea 的生命周期、本地 run、笔记和概览。", [
         "init", "idea new", "idea list", "idea notebook", "idea close",
-        "run new", "run summary", "note", "status", "export",
+        "run summary", "note", "status", "export",
     ]),
     ("种子", "还没有仓库的想法，放在种子园（默认 `~/arboria`）。任何目录下都能用。", [
         "seed new", "seed list", "seed show", "seed set", "seed drop", "seed revive",
@@ -76,6 +76,8 @@ def walk(group: Command, prefix: str = "") -> dict[str, Command]:
     out: dict[str, Command] = {}
     for name, cmd in group.commands.items():
         path = f"{prefix}{name}"
+        if getattr(cmd, "hidden", False):  # aliases and superseded commands
+            continue
         if hasattr(cmd, "commands"):
             out.update(walk(cmd, path + " "))
         else:

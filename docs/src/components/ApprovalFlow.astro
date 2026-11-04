@@ -1,6 +1,6 @@
 ---
-// notebook → 审核单 → your terminal (arb approve) → Slurm → results back; Claude on
-// the side: writes code and commands, cannot approve. Inline SVG, theme tokens.
+// notebook → the slip (审核单) → your terminal (arb approve) → Slurm → results back;
+// the agent on the side: writes code and commands, cannot approve. Inline SVG, theme tokens.
 interface Props {
 	lang?: 'zh' | 'en';
 }
@@ -10,11 +10,11 @@ const t =
 		? {
 				title: 'Only you approve: the path from a notebook to the cluster',
 				nb: ['Notebook', 'lab.run(…)'],
-				card: ['Review card', 'snapshot · resources · hash'],
+				card: ['A slip to sign', 'code · resources · cost'],
 				term: ['Your terminal', 'arb approve r014'],
 				slurm: ['Slurm', 'sbatch, segments'],
-				back: 'arb watch: state, SU, ARBORIA_OUT pulled back',
-				claude: ['Claude Code', 'code and commands'],
+				back: 'arb watch: state and cost, results pulled back',
+				claude: ['agent', 'writes code and commands'],
 				todo: 'todos ⇄ code',
 				no: 'cannot approve',
 				onlyLocal: 'local only',
@@ -22,11 +22,11 @@ const t =
 		: {
 				title: '只有你能批准：从 notebook 到集群的路径',
 				nb: ['notebook', 'lab.run(…)'],
-				card: ['审核单', '快照 · 资源 · 哈希'],
+				card: ['单子', '代码 · 资源 · 花费'],
 				term: ['你的终端', 'arb approve r014'],
 				slurm: ['Slurm', 'sbatch · 分段'],
-				back: 'arb watch：状态、花费，拉回 ARBORIA_OUT',
-				claude: ['Claude Code', '写代码和命令'],
+				back: 'arb watch：状态、花费，结果拉回来',
+				claude: ['agent', '写代码和命令'],
 				todo: '待办 ⇄ 代码',
 				no: '不能批准',
 				onlyLocal: '只在本地',
@@ -42,7 +42,7 @@ const t =
 			</marker>
 		</defs>
 
-		<!-- Claude, above -->
+		<!-- the agent, above -->
 		<rect class="box dashed" x="20" y="14" width="150" height="52" rx="10"></rect>
 		<text class="t1" x="36" y="37">{t.claude[0]}</text>
 		<text class="t3" x="36" y="55">{t.claude[1]}</text>

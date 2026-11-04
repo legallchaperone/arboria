@@ -15,7 +15,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 推送到 Claude 会话（`sessions`）：只发给 SessionStart hook 记下的会话（`.arboria/sessions/*.json`，0600），绝不读进程环境里的 socket；不存不发 `CLAUDE_CODE_MESSAGING_TOKEN`（notebook 不是那个会话的子进程）；消息只由校验过的字段拼成；任何失败静默跳过。测试绝不能碰真会话：`tests/conftest.py` 清掉 `CLAUDE_CODE_MESSAGING_*` 并把 `ARBORIA_CONFIG_DIR` 指到临时目录，消息测试只用假 Unix socket。
 
 ## 代码结构
-`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）、human（只在人的终端里批准）、notebooks、tasks（待办）、lab（notebook API）、commands（notebook 命令库、命令待办、给 Claude 的 guide）、seeds（种子园：种子的增改、种下）、sessions（会话 socket 的记录与推送）、cards（审核单，纯读；submission 再导出）、`ui/`（看板：data 只读加载账本、views 出 HTML/内联 SVG、dashboard.py 是包里自带的 marimo app、garden.py 是种子园的 marimo app，launch 起 `marimo run`）。`tests/` 使用临时 git 仓库；`tests/test_marimo.py` 用真的 marimo（dev 依赖）跑 `marimo check --strict`、`marimo export html` 和真 kernel 里的自动重跑（`tests/marimo_session.py`，用了 marimo 私有接口，接口变了就 skip）。
+`src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）、human（只在人的终端里批准）、notebooks、tasks（待办）、lab（notebook API）、commands（notebook 命令库、命令待办、给 Claude 的 guide）、analysis（内置分析 plot/diff/spend，只读）、seeds（种子园：种子的增改、种下）、sessions（会话 socket 的记录与推送）、cards（审核单，纯读；submission 再导出）、`ui/`（看板：data 只读加载账本、views 出 HTML/内联 SVG、dashboard.py 是包里自带的 marimo app、garden.py 是种子园的 marimo app，launch 起 `marimo run`）。`tests/` 使用临时 git 仓库；`tests/test_marimo.py` 用真的 marimo（dev 依赖）跑 `marimo check --strict`、`marimo export html` 和真 kernel 里的自动重跑（`tests/marimo_session.py`，用了 marimo 私有接口，接口变了就 skip）。
 
 ## 开发
 - `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
@@ -53,6 +53,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 已完成文档网站（分支 `site`）：https://arboria.cwx.world，Astro 7.3.8 + Starlight 0.42.6（`docs/`，依赖用 `npm install --before` 锁到至少几周前的版本，锁文件提交），中文为主、`/en/` 是简短的英文首页；Pagefind 中文搜索；`docs/guide.md` 拆成入门 / 指南 / 参考 / 项目各页后删除；CLI 参考由 `docs/scripts/gen_cli.py` 生成；`.github/workflows/docs.yml` 构建并检查；Cloudflare Pages 部署（`docs/DEPLOY.md`），`pages.yml` 是关着的 GitHub Pages 备选。网站不加载外部资源。
 
 - 已完成 CLI 整理（分支 `cli-tidy`）：用户面对的概念只有 idea、run、待办，加上批准和记录。`arb --help` 分成四组（`cli.HELP_PANELS`：你做的 / 集群 / agent 做的 / 安装与内部；`tests/test_cli_help.py` 要求每个可见的顶层命令恰好在一组里，新命令要加进去）；`arb run new` 隐藏（被 `arb submit` 取代，测试仍在用），不再写进 CLAUDE.md 规则；种子并进 `arb idea`（new/list/show/set/drop/revive/plant，去向规则见上面的种子园约束），`arb idea show`、`arb idea drop`（= `close --drop`）也给 idea 用；`arb seed …` 是隐藏的别名；deny 规则加上只写种子的 `arb idea set/revive/plant`（项目里也加，plant 在仓库里运行），`--home` 再加 `arb idea new/drop`；`gen_cli.py` 跳过隐藏命令。
+- 已完成命令库为中心（分支 `commands-center`）：`lab.commands()` 一张表（内置 / 项目 / 全局 · 签名 · 版本 · 说明；内置清单是 `commands.BUILTINS`，种子里只列 todo/todos/metric），自定义命令的签名由 `commands.describe` 用 `ast` 读；只写 `lab.svd` 显示帮助（`lab.Help`）。`ask="…"` 是 lab 自己消费的第一次说明（和 `scope=` 同为 `RESERVED_KWARGS`），旧写法末尾的位置字符串在签名放不下时由 `commands.fit_args` 去掉。内置分析 `lab.plot`（内联 SVG，不加依赖）、`lab.diff`（只读的 `git diff --stat`）、`lab.spend` 在 `analysis.py`（只读、不联网，看板不 import 它）。`arb commands promote NAME [--force]` 复制到全局命令库，`command_promote` 事件触发备份。托管 CLAUDE.md 区块多一条：反复出现的分析写成命令。
 
 ## 使用 arboria 的训练代码要遵守的约定
 1. 启动时把完整的解析后配置导出为 `$ARBORIA_OUT/config.yaml`（`poll` 拉回后存进 `runs.config_json`）。

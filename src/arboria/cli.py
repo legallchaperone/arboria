@@ -962,14 +962,37 @@ def commands_list(as_json: JsonOpt = False) -> None:
     if as_json:
         _echo_json(rows)
         return
+    builtins = ("built-in (内置, signatures in lab.commands()): "
+                + ", ".join(commands_mod.BUILTINS))
     if not rows:
-        typer.echo("no commands yet (a notebook call lab.<name>(...) asks Claude to write one)")
+        typer.echo("no commands yet (a notebook call lab.<name>(..., ask=\"...\") asks Claude "
+                   f"to write one)\n{builtins}")
         return
+    width = min(max(len(r["signature"]) for r in rows), 48)
     for r in rows:
         mark = "" if r["active"] else "  (shadowed by the project's)"
         problem = f"  ⚠ {r['problem']}" if r["problem"] else ""
-        typer.echo(f"{r['name']:<20} {commands_mod.SCOPE_LABELS[r['scope']]:<3} v{r['version']}  "
-                   f"{r['description']}{mark}{problem}")
+        typer.echo(f"{r['signature']:<{width}}  {commands_mod.SCOPE_LABELS[r['scope']]}  "
+                   f"v{r['version']}  {r['description']}{mark}{problem}")
+    typer.echo(builtins)
+
+
+@commands_app.command("promote")
+@handle_errors
+def commands_promote(
+    name: Annotated[str, typer.Argument(help="The project command to copy.")],
+    force: Annotated[bool, typer.Option("--force", help="Replace a different global one.")] = False,
+) -> None:
+    """Copy a project command into the global library (~/.config/arboria/commands)."""
+    _, ledger = _open()
+    with ledger:
+        res = commands_mod.promote(ledger, name, force=force)
+    if not res["changed"]:
+        typer.echo(f"{name} v{res['version']} 已经是全局命令库里的版本（{res['path']}）")
+        return
+    replaced = f"，替换了 v{res['replaced']}" if res["replaced"] else ""
+    typer.echo(f"promoted {name} v{res['version']} → {res['path']}{replaced}\n"
+               f"项目里的 {name} 仍然优先；别的项目和种子里 lab.{name}(...) 用全局的这份。")
 
 
 # ---------------------------------------------------------------- notes / status / export

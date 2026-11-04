@@ -25,7 +25,7 @@
 - **一个 idea 一个 notebook。** 每个 idea 有自己的分支、worktree 和 marimo notebook；每次 run 都是工作区的快照，不动你的分支和暂存区。
 - **上集群的每个 run 都由你批准。** Claude 和 notebook 只能生成审核单；只有你在自己的终端里运行 `arb approve`，作业才会提交到 Slurm。
 - **算力层被封装起来。** 分段、计费（含 DeltaAI 的计费规则）、预算、Duo 登录、日志观察和失败自动取消都由 `arb` 处理，不用手写 `sbatch`、不用 ssh。
-- **Claude 写代码和命令，你写 notebook。** 你在 notebook 里写 `lab.svd(r, "画奇异值")`，命令还不存在时交给 Claude 去写；写好后 cell 自动重跑，之后每次都直接运行存下来的函数。
+- **Claude 写代码和命令，你写 notebook。** 你在 notebook 里写 `lab.svd(r, ask="画奇异值")`，命令还不存在时交给 Claude 去写；写好后 cell 自动重跑，之后每次都直接运行存下来的函数。
 
 ## 工作方式
 
@@ -74,9 +74,9 @@ r = lab.run(reason="warmup 1k", gpus=4, time="12h", set={"lr": 3e-4})  # 只生�
 r                                   # r001 · 待批准 · warmup 1k，下面一行是 arb approve r001
 
 r.metrics(["val/loss"])             # wandb 曲线
-lab.compare(["r001", "r002"], "val/loss")
+lab.plot(["r001", "r002"], "val/loss")                     # 内置分析：plot / diff / spend
 lab.todo("把 eval 改成每 500 步一次")                      # 留给 Claude 的待办
-lab.svd(r, "对 attention 权重做 SVD，画前 20 个奇异值")    # 自定义命令：第一次交给 Claude 写
+lab.svd(r, ask="对 attention 权重做 SVD，画前 20 个奇异值")  # 自定义命令：第一次交给 Claude 写
 ```
 
 然后在你自己的终端里：

@@ -139,7 +139,7 @@ def test_global_commands_in_a_seed_notebook(home: Home, tmp_path: Path, monkeypa
     with pytest.raises(ArbError, match="只能用全局命令"):
         _in_cell(nb, 'lab.svd("x", scope="project")')
     names = [r["name"] for r in _in_cell(nb, "c = lab.commands()")["c"]]
-    assert names == ["wordcount"]
+    assert names == ["todo", "todos", "metric", "wordcount"]  # no run built-ins in a seed
 
 
 def test_command_todo_is_pushed_to_the_home_session(home: Home, tmp_path: Path,

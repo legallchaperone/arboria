@@ -25,7 +25,7 @@ import reprlib
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 from . import clusters, tasks
 from .db import LIMITS, Ledger
@@ -36,8 +36,9 @@ SCOPES = ("project", "global")
 SCOPE_LABELS = {"project": "项目", "global": "全局"}
 COMMANDS_DIR = "commands"
 CACHE_DIR = "cache"
-# Keyword arguments `lab` consumes itself; they never reach the command function.
-RESERVED_KWARGS = ("scope",)
+# Keyword arguments `lab` consumes itself; they never reach the command function:
+# `scope=` picks where a new command goes, `ask=` is the first-time description.
+RESERVED_KWARGS = ("scope", "ask")
 
 
 def global_dir() -> Path:
@@ -131,19 +132,111 @@ def fingerprint(name: str, state_dir: Path | None) -> tuple[str, str] | None:
     return None if found is None else (str(found.path), found.sha256)
 
 
-def describe(path: Path, name: str) -> tuple[str | None, str | None]:
-    """(description, problem) from the source, without running it."""
+@dataclass(frozen=True)
+class Param:
+    """One parameter of a command function, read from the source (never executed)."""
+
+    name: str
+    kind: str  # positional | vararg | keyword | varkw (positional covers positional-only)
+    default: str | None = None  # source text of the default, None when it has none
+
+
+@dataclass(frozen=True)
+class Described:
+    """What the source says about a command, without running it."""
+
+    description: str | None  # the docstring (full; its first line is the summary)
+    problem: str | None
+    params: tuple[Param, ...] | None = None  # after `ctx`; None when there is no def
+
+    @property
+    def summary(self) -> str:
+        return self.description.strip().splitlines()[0] if self.description else ""
+
+    def signature(self, name: str, limit: int | None = None) -> str:
+        if self.params is None:
+            return f"{name}(…)"
+        return format_signature(name, self.params, limit)
+
+    def accepts_positional(self, n: int) -> bool:
+        """Whether a call with `n` positional arguments (after ctx) fits; True if unknown."""
+        if self.params is None:
+            return True
+        if any(p.kind == "vararg" for p in self.params):
+            return True
+        return n <= sum(1 for p in self.params if p.kind == "positional")
+
+
+DEFAULT_CLIP = 24  # a long default value is shown clipped in signatures
+
+
+def format_signature(name: str, params: Iterable[Param], limit: int | None = None) -> str:
+    """`svd(run, *, k=20, log=False)`: no annotations, defaults as written. With `limit`,
+    trailing parameters that do not fit become `…`."""
+    parts: list[str] = []
+    star = False
+    for p in params:
+        if p.kind == "vararg":
+            parts.append(f"*{p.name}")
+            star = True
+            continue
+        if p.kind == "varkw":
+            parts.append(f"**{p.name}")
+            continue
+        if p.kind == "keyword" and not star:
+            parts.append("*")
+            star = True
+        default = p.default
+        if default is not None and len(default) > DEFAULT_CLIP:
+            default = default[: DEFAULT_CLIP - 1] + "…"
+        parts.append(p.name if default is None else f"{p.name}={default}")
+    full = f"{name}({', '.join(parts)})"
+    if limit is None or len(full) <= limit:
+        return full
+    kept: list[str] = []
+    for part in parts:
+        if len(f"{name}({', '.join([*kept, part, '…'])})") > limit:
+            break
+        kept.append(part)
+    return f"{name}({', '.join([*kept, '…'])})"
+
+
+def _params(fn: ast.FunctionDef) -> tuple[Param, ...]:
+    a = fn.args
+    positional = [*a.posonlyargs, *a.args]
+    defaults = [None] * (len(positional) - len(a.defaults)) + list(a.defaults)
+    out = [Param(arg.arg, "positional", None if d is None else ast.unparse(d))
+           for arg, d in zip(positional, defaults)]
+    if a.vararg is not None:
+        out.append(Param(a.vararg.arg, "vararg"))
+    out += [Param(arg.arg, "keyword", None if d is None else ast.unparse(d))
+            for arg, d in zip(a.kwonlyargs, a.kw_defaults)]
+    if a.kwarg is not None:
+        out.append(Param(a.kwarg.arg, "varkw"))
+    return tuple(out[1:]) if out and out[0].kind == "positional" else tuple(out)
+
+
+def describe(path: Path, name: str) -> Described:
+    """Docstring, signature and problems from the source, without running it."""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except (OSError, UnicodeDecodeError, SyntaxError) as exc:
-        return None, f"cannot parse: {exc}"
+        return Described(None, f"cannot parse: {exc}")
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == name:
-            if isinstance(node, ast.AsyncFunctionDef):
-                return ast.get_docstring(node), f"{name} must be a plain def, not async def"
             doc = ast.get_docstring(node)
-            return doc, None if doc else "no docstring"
-    return ast.get_docstring(tree), f"no top-level `def {name}(ctx, ...)`"
+            if isinstance(node, ast.AsyncFunctionDef):
+                return Described(doc, f"{name} must be a plain def, not async def")
+            params = _params(node)
+            problem = None if doc else "no docstring"
+            if not (node.args.posonlyargs or node.args.args):
+                problem = f"{name} must take ctx as its first argument"
+            clash = [p.name for p in params if p.name in RESERVED_KWARGS]
+            if clash:
+                problem = (f"parameter {clash[0]!r} is lab's own (it never reaches the "
+                           "command); rename it")
+            return Described(doc, problem, params)
+    return Described(ast.get_docstring(tree), f"no top-level `def {name}(ctx, ...)`")
 
 
 def discover(state_dir: Path | None) -> list[dict[str, Any]]:
@@ -165,16 +258,69 @@ def discover(state_dir: Path | None) -> list[dict[str, Any]]:
                 sha = _sha(path)
             except OSError:
                 continue
-            doc, problem = describe(path, name)
-            if name in reserved:
-                problem = f"shadowed by lab.{name}; rename it"
+            d = describe(path, name)
+            problem = f"shadowed by lab.{name}; rename it" if name in reserved else d.problem
             rows.append({"name": name, "scope": scope, "version": sha[:8], "path": str(path),
-                         "description": (doc or "").strip().splitlines()[0] if doc else "",
+                         "signature": d.signature(name), "description": d.summary,
                          "problem": problem})
     names = {r["name"] for r in rows if r["scope"] == "project"}
     for r in rows:
         r["active"] = r["scope"] == "project" or r["name"] not in names
     return sorted(rows, key=lambda r: (r["name"], r["scope"] != "project"))
+
+
+# ---------------------------------------------------------------- built-ins
+
+# The functions `lab` itself offers, in the order `lab.commands()` lists them, with the
+# one line shown there (lab adds their signatures). Helpers and internals are left out.
+BUILTINS: dict[str, str] = {
+    "runs": "这个 idea 的 run 一览",
+    "get": "按 id 取一个 run",
+    "compare": "几个 run 的 wandb 曲线（长表）",
+    "plot": "几个 run 的一条 wandb 曲线画在一起",
+    "diff": "两个 run 哪里不同：命令、资源、代码、config",
+    "spend": "各 idea 用了多少 SU 和 GPU 时；给 idea 就逐个 run",
+    "run": "生成快照和审核单（不批准）",
+    "fork": "从这个 idea 分出新 idea",
+    "todo": "给 Claude 留一条待办",
+    "todos": "待办列表",
+    "conf": "改置信度",
+    "metric": "改指标",
+    "prune": "放弃这个 idea",
+}
+KIND_LABELS = {"builtin": "内置", **SCOPE_LABELS}
+
+
+# ---------------------------------------------------------------- promote
+
+
+def promote(ledger: Ledger, name: str, *, force: bool = False) -> dict[str, Any]:
+    """Copy the project command `name` into the global library. Refuses to replace a
+    different global file unless `force`; the project file stays (and still wins here)."""
+    validate_name(name)
+    src = _file(name, "project", ledger.state_dir)
+    if src is None:
+        raise ArbError(f"no project command {name!r} ({project_dir(ledger.state_dir)}/{name}.py)")
+    dest = global_dir() / f"{name}.py"
+    old = _file(name, "global", None)
+    if old is not None and old.sha256 == src.sha256:
+        return {"name": name, "version": src.version, "path": str(dest), "changed": False,
+                "replaced": None}
+    if old is not None and not force:
+        raise ArbError(f"the global library already has {name} (v{old.version}, {dest}); "
+                       "pass --force to replace it")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    data = src.path.read_bytes()
+    version = hashlib.sha256(data).hexdigest()[:8]
+    tmp = dest.with_name(f".{name}.py.tmp")
+    tmp.write_bytes(data)
+    tmp.replace(dest)
+    replaced = old.version if old is not None else None
+    with ledger.write():
+        ledger.event("command_promote", name, {"version": version, "from": str(src.path),
+                                               "to": str(dest), "replaced": replaced})
+    return {"name": name, "version": version, "path": str(dest), "changed": True,
+            "replaced": replaced}
 
 
 # ---------------------------------------------------------------- loading (human's kernel only)
@@ -244,11 +390,24 @@ def _all_safe(value: Any, depth: int = 0) -> bool:
 
 
 def description_of(args: tuple, kwargs: dict[str, Any]) -> str | None:
-    """The call's description: the last positional string argument (lab.svd(r, "做 SVD …"))."""
+    """The call's first-time description: `ask="…"`, else (older notebooks) the last
+    positional string argument (`lab.svd(r, "做 SVD …")`)."""
+    ask = kwargs.get("ask")
+    if isinstance(ask, str) and ask.strip():
+        return ask.strip()
     for a in reversed(args):
         if isinstance(a, str) and a.strip():
             return a.strip()
     return None
+
+
+def fit_args(described: Described, args: tuple) -> tuple:
+    """`args` for an existing command: a trailing string the signature has no room for is
+    the description of an older call (`lab.svd(r, "做 SVD")`) and is dropped."""
+    if (args and isinstance(args[-1], str) and not described.accepts_positional(len(args))
+            and described.accepts_positional(len(args) - 1)):
+        return args[:-1]
+    return args
 
 
 def call_text(name: str, args: list[str], kwargs: dict[str, str]) -> str:
@@ -319,27 +478,36 @@ def push_text(task: dict[str, Any]) -> str:
 GUIDE = """\
 # notebook 命令：给 Claude 的约定
 
-人在 marimo notebook 里调用 `lab.<名字>(...)`；命令不存在时会生成一个命令待办
-（`arb todo list --json` 里 kind 是 command_new / command_revise，payload 里有
+人在 marimo notebook 里调用 `lab.<名字>(..., ask="想要什么")`；命令不存在时会生成一个
+命令待办（`arb todo list --json` 里 kind 是 command_new / command_revise，payload 里有
 name、scope、调用的参数 args/kwargs、说明 description、idea 和要写的文件 path）。
 你的活就是写好这个文件。notebook 是人的：读它，绝不修改。
+
+先看 `arb commands list`：内置的（runs、compare、plot、diff、spend…）和已有的命令
+能做的，不要再写一个。
 
 ## 文件
 - 项目范围：{project}/<名字>.py；全局：{global_}/<名字>.py（项目里的同名文件优先）。
   写到待办 payload 的 path；修改（command_revise）就改现有的那个文件。
 - 名字 ^[a-z][a-z0-9_]{{0,40}}$，不能和 lab 已有的函数重名。
-- 文件里定义同名函数，docstring 第一行是描述（`arb commands list` 显示它）：
+- 文件里定义同名函数，第一个参数是 ctx。docstring 第一行是描述（命令表里显示它），
+  后面几行说明参数；人在 notebook 里输入 `lab.<名字>` 看到的帮助就是签名加 docstring：
 
 ```python
-def svd(ctx, run, note=None, *, k=20, log=False):
-    \"\"\"对 run 的 attention 权重做 SVD，画前 k 个奇异值。\"\"\"
+def svd(ctx, run, *, k=20, log=False):
+    \"\"\"对 run 的 attention 权重做 SVD，画前 k 个奇异值。
+
+    k：画几个奇异值；log：纵轴用对数。
+    \"\"\"
     r = ctx.run(run)
     ...
     return fig
 ```
 
-- 函数要能接受第一次调用的形状（payload 里的 args/kwargs）：说明文字本身也作为
-  位置参数传进来，接住它就行（上例的 note）。`scope=` 是 lab 自己用的，不会传进来。
+- 函数要能接受第一次调用的形状（payload 里的 args/kwargs）。说明（`ask=`）只是给你
+  看的，不会传进来，不要为它留参数；旧 notebook 里说明写成末尾的位置字符串时，lab
+  发现签名放不下它就会去掉。`scope=`、`ask=` 是 lab 自己用的，不能当参数名。
+- 好的项目命令以后可以 `arb commands promote <名字>` 复制进全局命令库（人决定）。
 
 ## ctx
 - `ctx.run(run_or_id)`：run 句柄（`lab.Run`）。`.id`、`.status()`、`.row()`、

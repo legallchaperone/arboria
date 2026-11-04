@@ -16,8 +16,10 @@ refuses with a pointer to `arb idea plant`; `todo` / `todos` work on the home's 
 Nothing here approves anything: `run()` only creates the card, like `arb submit`.
 Records written from here (todos, notes, confidence, metric) are the human's.
 
-Any other lowercase attribute is a notebook command (`lab.svd(r, "…")`, see commands.py
-and the "commands" section below): Claude writes the library, the human calls it here.
+Any other lowercase attribute is a notebook command (`lab.svd(r, ask="…")`, see
+commands.py and the "commands" section below): Claude writes the library, the human calls
+it here. `lab.commands()` lists the built-ins (`plot`, `diff`, `spend`, … from
+analysis.py) and the library together; `lab.svd` on its own shows that command's help.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterable, Mapping
 
+from . import analysis
 from . import commands as _commands
 from . import ideas, notebooks, records, sessions, slurm, submission, tasks
 from . import seeds as _seeds
@@ -594,6 +597,52 @@ def compare(run_ids: Iterable[str | Run], key: str | Iterable[str]) -> Any:
     return _table(rows)
 
 
+def _handles(runs: str | Run | Iterable[str | Run]) -> list[Run]:
+    items = [runs] if isinstance(runs, (str, Run)) else list(runs)
+    return [r if isinstance(r, Run) else get(r) for r in items]
+
+
+def plot(runs: str | Run | Iterable[str | Run], key: str, *, log: bool = False
+         ) -> analysis.Plot:
+    """One wandb metric over steps for several runs, one line each (`log=True`: log
+    scale). Runs without wandb data are listed under the chart. `.data` is the long table."""
+    if not isinstance(key, str) or not key:
+        raise ArbError("key 是一个 wandb 指标名，例如 \"val/loss\"")
+    histories: list[tuple[str, Any]] = []
+    for handle in _handles(runs):
+        try:
+            histories.append((handle.id, handle.history([key, "_step"])))
+        except ArbError as exc:
+            histories.append((handle.id, exc))
+    return analysis.make_plot(key, histories, log=log)
+
+
+def diff(a: str | Run, b: str | Run) -> analysis.RunDiff:
+    """What differs between two runs: command and `--set` overrides, resources, code
+    (snapshot and the diff stat between the two snapshot commits, read-only) and the
+    fetched config, key by key."""
+    t, ledger, _idea = _open()
+    with ledger:
+        ra = records.get_run(ledger, a.id if isinstance(a, Run) else a)
+        rb = records.get_run(ledger, b.id if isinstance(b, Run) else b)
+    return analysis.run_diff(t.ctx.main, ra, rb)
+
+
+def spend(idea: str | None = None) -> analysis.Spend:
+    """SU and GPU hours per idea of this project, against the budget in arboria.toml;
+    `spend("<idea>")` (or `spend(".")` for this one) lists that idea's runs instead."""
+    t = resolve()
+    if isinstance(t, SeedTarget):
+        raise _seed_error(t)
+    ctx = t.ctx.require_initialized()
+    with Ledger(ctx.state_dir) as ledger:
+        row = None
+        if idea is not None:
+            row = ideas.get_idea(ledger, t.idea if idea == "." else idea)
+        return analysis.spend(ledger, budget=project_config(ctx).total_su, idea=row,
+                              status_label=status_label)
+
+
 # ---------------------------------------------------------------- the human's records
 
 
@@ -1153,6 +1202,9 @@ def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
     scope = kwargs.pop("scope", None)
     if scope is not None:
         _commands.validate_scope(scope)
+    ask = kwargs.pop("ask", None)
+    if ask is not None and not isinstance(ask, str):
+        raise ArbError(f"ask= 是一句说明（给 Claude 看的文字），不是 {type(ask).__name__}")
     t = resolve()
     seed = isinstance(t, SeedTarget)
     if seed and scope == "project":
@@ -1163,9 +1215,10 @@ def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
     watching = _watch(name, state_dir, seen)  # armed first: a broken file is fixed later
     if found is None:
         return _request(t, "command_new", name, scope or ("global" if seed else "project"),
-                        _commands.description_of(args, kwargs), args, kwargs,
+                        _commands.description_of(args, {"ask": ask}), args, kwargs,
                         watching=watching)
     func = _commands.load(found)
+    args = _commands.fit_args(_commands.describe(found.path, found.name), args)
     with Ledger(t.state_dir) as ledger:
         idea = _owner(t, ledger)
     from .human import running_command
@@ -1180,8 +1233,73 @@ def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
     return Result(value, found) if _in_marimo_notebook() else value
 
 
+NO_COMMAND_YET = ("lab.{name} 还不存在：调用 lab.{name}(..., ask=\"想要什么\")，"
+                  "就会交给 Claude 写进命令库")
+SIG_CLIP = 46  # signatures in the command table; the full one is in the tooltip
+SEED_BUILTINS = ("todo", "todos", "metric")  # what works in a seed's notebook
+
+
+class Help(_abc.Mapping):
+    """A command's short help: signature, where it lives, version, docstring."""
+
+    def __init__(self, name: str, found: _commands.CommandFile | None,
+                 described: _commands.Described | None = None):
+        self.name, self.found, self.d = name, found, described
+
+    def _data(self) -> dict[str, Any]:
+        if self.found is None or self.d is None:
+            return {"name": self.name, "exists": False}
+        return {"name": self.name, "exists": True, "scope": self.found.scope,
+                "version": self.found.version, "path": str(self.found.path),
+                "signature": self.d.signature(self.name), "description": self.d.description,
+                "problem": self.d.problem}
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data()[key]
+
+    def __iter__(self) -> Any:
+        return iter(self._data())
+
+    def __len__(self) -> int:
+        return len(self._data())
+
+    def _meta(self) -> str:
+        assert self.found is not None
+        return f"{_commands.SCOPE_LABELS[self.found.scope]} · v{self.found.version}"
+
+    def __str__(self) -> str:
+        if self.found is None or self.d is None:
+            return NO_COMMAND_YET.format(name=self.name)
+        lines = [f"lab.{self.d.signature(self.name)}", f"{self._meta()} · {self.found.path}"]
+        if self.d.problem:
+            lines.append(f"⚠ {self.d.problem}")
+        if self.d.description:
+            lines += ["", self.d.description.strip()]
+        return "\n".join(lines)
+
+    __repr__ = __str__
+
+    def _repr_html_(self) -> str:
+        if self.found is None or self.d is None:
+            return (f'<div class="arb-help" style="{MUTED}">'
+                    f"{_esc(NO_COMMAND_YET.format(name=self.name))}</div>")
+        out = [f'<div><code style="{CODE}">lab.{_esc(self.d.signature(self.name))}</code>'
+               f' <span style="{MUTED};font-size:.9em" title="{_esc(self.found.path)}">'
+               f"{_esc(self._meta())}</span></div>"]
+        if self.d.problem:
+            out.append(f'<div style="color:#c53030">⚠ {_esc(self.d.problem)}</div>')
+        if self.d.description:
+            out.append(f'<div style="white-space:pre-wrap;margin-top:4px">'
+                       f"{_esc(self.d.description.strip())}</div>")
+        out.append(f'<div style="{MUTED};font-size:.85em;margin-top:4px">'
+                   f"lab.{_esc(self.name)}.source() 看代码 · "
+                   f"lab.{_esc(self.name)}.revise(\"…\") 请 Claude 改</div>")
+        return '<div class="arb-help" style="line-height:1.7">' + "".join(out) + "</div>"
+
+
 class Command:
-    """`lab.<name>`: call it to run the command; `.revise(...)`, `.source()`, `.info()`."""
+    """`lab.<name>`: call it to run the command; `.revise(...)`, `.source()`, `.info()`.
+    Shown on its own (`lab.svd` in a cell) it is the command's short help."""
 
     def __init__(self, name: str):
         self.name = _commands.validate_name(name)
@@ -1214,46 +1332,109 @@ class Command:
         t, found = self._found()
         if found is None:
             return None
-        doc, problem = _commands.describe(found.path, found.name)
+        d = _commands.describe(found.path, found.name)
         return {"name": found.name, "scope": found.scope, "version": found.version,
-                "path": str(found.path), "description": doc, "problem": problem}
+                "path": str(found.path), "signature": d.signature(found.name),
+                "description": d.description, "problem": d.problem}
 
-    def __repr__(self) -> str:
-        return f"lab.{self.name}"
+    def help(self) -> Help:
+        """Signature, scope, version and docstring (read with ast, not run)."""
+        try:
+            state_dir = _project_dir(resolve())
+        except Exception:  # outside an idea: the global library still answers
+            state_dir = None
+        try:
+            found = _commands.find(self.name, state_dir)
+        except Exception:
+            found = None
+        return Help(self.name, found,
+                    None if found is None else _commands.describe(found.path, found.name))
+
+    def __str__(self) -> str:
+        return str(self.help())
+
+    __repr__ = __str__
+
+    def _repr_html_(self) -> str:
+        return self.help()._repr_html_()
 
 
-class CommandList(list):
-    """`lab.commands()` outside marimo: the rows, printed one command per line."""
+def _builtin_signature(name: str, limit: int | None = None) -> str:
+    import inspect
 
-    def __repr__(self) -> str:
-        if not self:
-            return "还没有命令（在 notebook 里调用 lab.<名字>(...) 就会交给 Claude 写）"
-        width = max(len(r["name"]) for r in self)
-        lines = []
-        for r in self:
-            line = (f"{r['name']:<{width}}  {_commands.SCOPE_LABELS[r['scope']]} · "
-                    f"v{r['version']}" + (f" · {r['description']}" if r["description"] else ""))
-            lines.append(line + (f"  ⚠ {r['problem']}" if r["problem"] else ""))
-        return "\n".join(lines)
-
-    __str__ = __repr__
+    kinds = {inspect.Parameter.POSITIONAL_ONLY: "positional",
+             inspect.Parameter.POSITIONAL_OR_KEYWORD: "positional",
+             inspect.Parameter.VAR_POSITIONAL: "vararg",
+             inspect.Parameter.KEYWORD_ONLY: "keyword",
+             inspect.Parameter.VAR_KEYWORD: "varkw"}
+    params = [_commands.Param(p.name, kinds[p.kind],
+                              None if p.default is p.empty else repr(p.default))
+              for p in inspect.signature(globals()[name]).parameters.values()]
+    return _commands.format_signature(name, params, limit)
 
 
-def commands() -> Any:
-    """The command library: name, scope, version, description. In marimo a table, else
-    a list of dicts that prints one command per line."""
+class CommandTable(_abc.Sequence):
+    """What `lab.commands()` returns: every command `lab` can run, one line each:
+    kind (内置 / 项目 / 全局) · signature · version · description. Items are dicts
+    (name, kind, scope, signature, version, description, problem); `.data` is the list."""
+
+    def __init__(self, rows: list[dict[str, Any]]):
+        self.items = rows
+
+    def __getitem__(self, i: Any) -> Any:
+        return self.items[i]
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    @property
+    def data(self) -> list[dict[str, Any]]:
+        return self.items
+
+    def view(self) -> analysis.View:
+        rows, tips = [], []
+        for r in self.items:
+            text = r["description"] + (f"  ⚠ {r['problem']}" if r["problem"] else "")
+            rows.append((_commands.KIND_LABELS[r["kind"]], r["short"],
+                         f"v{r['version']}" if r["version"] else "", _clip(text, 60)))
+            tips.append(("", r["signature"], r.get("path") or "", text))
+        foot = [] if any(r["kind"] != "builtin" for r in self.items) else [
+            "还没有自定义命令：写 lab.<名字>(..., ask=\"想要什么\")，Claude 会把它写进命令库"]
+        return analysis.View(None, rows, styles=("muted", "code", "muted", ""), group=True,
+                             titles=tips, foot=foot, css_class="arb-commands")
+
+    def _repr_html_(self) -> str:
+        return self.view().html()
+
+    def __str__(self) -> str:
+        return self.view().text()
+
+    __repr__ = __str__
+
+
+def commands() -> CommandTable:
+    """Every command `lab` can run: the built-ins, then this project's and the global
+    library's commands (a project command shadows a global one of the same name)."""
+    seed = False
     try:
-        state_dir: Path | None = _project_dir(resolve())
+        target = resolve()
+        seed = isinstance(target, SeedTarget)
+        state_dir: Path | None = _project_dir(target)
     except ArbError:
         state_dir = None
-    rows = [{k: r[k] for k in ("name", "scope", "version", "description", "problem")}
-            for r in _commands.discover(state_dir) if r["active"]]
-    if not _in_marimo_notebook():
-        return CommandList(rows)
-    problems = any(r["problem"] for r in rows)
-    return _table([{"命令": r["name"], "范围": _commands.SCOPE_LABELS[r["scope"]],
-                    "版本": r["version"], "说明": r["description"]}
-                   | ({"问题": r["problem"] or ""} if problems else {}) for r in rows])
+    rows = [{"name": n, "kind": "builtin", "scope": None, "signature": _builtin_signature(n),
+             "short": _builtin_signature(n, SIG_CLIP), "version": None, "description": text,
+             "problem": None} for n, text in _commands.BUILTINS.items()
+            if not seed or n in SEED_BUILTINS]
+    library = sorted((r for r in _commands.discover(state_dir) if r["active"]),
+                     key=lambda r: (r["scope"] != "project", r["name"]))
+    for r in library:
+        d = _commands.describe(Path(r["path"]), r["name"])
+        rows.append({"name": r["name"], "kind": r["scope"], "scope": r["scope"],
+                     "signature": r["signature"], "short": d.signature(r["name"], SIG_CLIP),
+                     "version": r["version"], "description": r["description"],
+                     "problem": r["problem"], "path": r["path"]})
+    return CommandTable(rows)
 
 
 def __getattr__(name: str) -> Command:

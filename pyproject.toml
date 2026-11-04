@@ -40,7 +40,7 @@ dependencies = [
 Homepage = "https://github.com/legallchaperone/arboria"
 Repository = "https://github.com/legallchaperone/arboria"
 Issues = "https://github.com/legallchaperone/arboria/issues"
-Documentation = "https://github.com/legallchaperone/arboria/blob/main/docs/guide.md"
+Documentation = "https://arboria.cwx.world"
 
 [project.optional-dependencies]
 # The idea notebooks (`.arboria/notebooks/<idea>.py`) are marimo notebooks.

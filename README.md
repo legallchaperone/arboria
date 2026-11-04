@@ -2,12 +2,14 @@
 
 **把算力层封装起来的 AI 原生 ML 研究工作流**
 
+**文档：[arboria.cwx.world](https://arboria.cwx.world)**
+
 [![tests](https://github.com/legallchaperone/arboria/actions/workflows/tests.yml/badge.svg)](https://github.com/legallchaperone/arboria/actions/workflows/tests.yml)
 ![Python ≥3.11](https://img.shields.io/badge/python-%E2%89%A53.11-3776ab)
 ![status: personal research tool](https://img.shields.io/badge/status-personal%20research%20tool-lightgrey)
 [![License: MIT](https://img.shields.io/badge/license-MIT-007ec6)](LICENSE)
 
-> **In English.** Arboria (`arb`) keeps the state of ML research — ideas, runs, notes, decisions — in a local SQLite ledger outside the Claude Code chat, and gives every idea its own git worktree and [marimo](https://marimo.io) notebook. Claude writes the code and reusable analysis commands; you write the notebook, and every Slurm job (with NCSA DeltaAI billing built in) needs your approval, typed in your own terminal, of a hash-bound review card. A read-only dashboard shows what is waiting for you, how ideas branched, and where the compute went. The docs are in Chinese; the full reference is [docs/guide.md](docs/guide.md).
+> **In English.** Arboria (`arb`) keeps the state of ML research — ideas, runs, notes, decisions — in a local SQLite ledger outside the Claude Code chat, and gives every idea its own git worktree and [marimo](https://marimo.io) notebook. Claude writes the code and reusable analysis commands; you write the notebook, and every Slurm job (with NCSA DeltaAI billing built in) needs your approval, typed in your own terminal, of a hash-bound review card. A read-only dashboard shows what is waiting for you, how ideas branched, and where the compute went. The docs are in Chinese, with a short English overview at [arboria.cwx.world/en](https://arboria.cwx.world/en/).
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/dashboard-dark.png">
@@ -87,7 +89,7 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 
 ## 种子：还没有仓库的想法
 
-还在酝酿、不属于任何仓库的想法记成**种子**：在任何目录下 `arb seed new NAME "一句话想法"`，它在 `~/arboria/seeds/NAME.py` 有自己的 marimo notebook。想清楚了，在目标仓库里 `arb seed plant NAME`：它变成一个普通 idea，notebook 开头链接回种子，并带上种子里的 markdown 思路。种子只由你写，Claude 只读；`arb ui` 在仓库外打开种子园，`arb install-claude --home` 让 Claude Code 在 `~/arboria` 里也有 hook 和规则。见 [docs/guide.md · 种子](docs/guide.md#种子还没有仓库的想法)。
+还在酝酿、不属于任何仓库的想法记成**种子**：在任何目录下 `arb seed new NAME "一句话想法"`，它在 `~/arboria/seeds/NAME.py` 有自己的 marimo notebook。想清楚了，在目标仓库里 `arb seed plant NAME`：它变成一个普通 idea，notebook 开头链接回种子，并带上种子里的 markdown 思路。种子只由你写，Claude 只读；`arb ui` 在仓库外打开种子园，`arb install-claude --home` 让 Claude Code 在 `~/arboria` 里也有 hook 和规则。见[文档 · 种子园](https://arboria.cwx.world/guides/seeds/)。
 
 ## 常用命令
 
@@ -113,7 +115,7 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 | `arb seed drop NAME` / `revive NAME` | 放弃一个种子 / 让它回到思考中（只由你） |
 | `arb doctor [NAME]` | 只读检查机器配置、ssh 和集群 |
 
-每个命令和参数见 [docs/guide.md](docs/guide.md#命令参考)。
+每个命令和参数见 [CLI 命令参考](https://arboria.cwx.world/reference/cli/)。
 
 ## 安全模型
 
@@ -123,7 +125,7 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 - **看板只读**：账本以只读模式打开，不起进程、不联网，没有会动手的按钮，批准等操作只显示成可复制的命令。
 - **这些是护栏，不是沙箱。** 它们防的是 Claude “顺手照做”（被一句话、一段日志或一个文件带着去提交、批准），不防同一台机器上以你的身份运行的蓄意对手。notebook 命令由 Claude 写、在你的 kernel 里以你的权限运行，用之前先看 diff。
 
-细节见 [docs/guide.md · 安全模型](docs/guide.md#安全模型)。
+细节见[文档 · 安全模型](https://arboria.cwx.world/reference/security/)。
 
 ## 状态
 
@@ -136,7 +138,7 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 
 ## 文档
 
-- [docs/guide.md](docs/guide.md)：中文完整说明（每个命令、配置项、notebook API、命令库、看板、安全模型、DeltaAI 说明）。
+- [arboria.cwx.world](https://arboria.cwx.world)：中文文档（入门、指南、每个命令和配置项、安全模型、DeltaAI 说明），源码在 [`docs/`](docs/)。
 - [设计说明](https://claude.ai/artifact/NCqpKzbhDfAXSURgGTc1zn)（中文网页；可能是私有链接）。
 - [CLAUDE.md](CLAUDE.md)：给开发这个工具的 Claude 看的约束和进度。
 

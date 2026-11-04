@@ -20,7 +20,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 ## 开发
 - `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
 - CI：`.github/workflows/tests.yml` 在 Python 3.11 和 3.13 上跑 `uv sync --all-extras --dev` + `uv run pytest`（包括真的 marimo）。
-- 用户文档：`README.md` 只放概览和快速开始，完整说明（每个命令、配置、notebook API、命令库、看板、安全模型、DeltaAI）在 `docs/guide.md`；改了命令或行为要同步 guide。
+- 用户文档：`README.md` 只放概览和快速开始，完整说明在文档网站 https://arboria.cwx.world（Astro + Starlight，源码在 `docs/`：页面在 `docs/src/content/docs/`，入门 / 指南 / 参考 / 项目）；改了命令或行为要同步对应页面。CLI 参考页 `reference/cli.md` 由 `uv run python docs/scripts/gen_cli.py` 生成，`tests/test_docs_cli.py` 和 docs CI 检查它是最新的；新命令要在脚本的 `SECTIONS` 里归类。本地预览 `cd docs && npm ci && npm run dev`；部署见 `docs/DEPLOY.md`。
 - commit 要小、逻辑清楚。
 - 本机（macOS）会给整个 `.venv` 加 `hidden` 标志，Python 3.13 跳过 hidden 的 `.pth`，editable 安装就失效（`No module named 'arboria'`）。所以 pytest 配了 `pythonpath = ["src"]`，起子进程的测试要自己传 `PYTHONPATH`。
 
@@ -49,6 +49,8 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 
 - 已完成种子（分支 `seeds`）：schema v6（`seeds`、`plantings`；`tasks` 重建为 idea_id 或 seed_id 二选一）；`arb seed new/list/show/set/drop/plant`，任何目录可用、第一次用时建好种子园；种下的 idea notebook 开头“来自种子”并带折叠的“种子里的思路”（marimo `/// details`）；`lab` 认得种子 notebook（`SeedTarget`：run/fork/prune 报错指向 `arb seed plant`，todo/todos/metric 可用，只能用全局命令，`ctx.seed`）；种子园里的 hook / `arb status` / `arb todo`；`arb install-claude --home`；种子园看板 `arb ui --home`（仓库外默认），项目看板标题下有思考中的种子数。
 - 已完成小修（分支 `small-fixes`）：`arb seed revive NAME`（已放弃 → 思考中，`seed_revive` 事件触发备份，只由人；种子园看板“已放弃”里每个旁边是这条命令的文本）；`lab.todo` 返回 `lab.Todo`（Mapping，`.id`/`.data`/`.existed`，显示成一行“已交给 Claude（t001）：…”），`lab.todos()` 返回 `lab.TodoList`（一行一个：id · 状态 · 文字 · 多久前），不再是 dict/DataFrame 的 JSON 树。
+
+- 已完成文档网站（分支 `site`）：https://arboria.cwx.world，Astro 7.3.8 + Starlight 0.42.6（`docs/`，依赖用 `npm install --before` 锁到至少几周前的版本，锁文件提交），中文为主、`/en/` 是简短的英文首页；Pagefind 中文搜索；`docs/guide.md` 拆成入门 / 指南 / 参考 / 项目各页后删除；CLI 参考由 `docs/scripts/gen_cli.py` 生成；`.github/workflows/docs.yml` 构建并检查；Cloudflare Pages 部署（`docs/DEPLOY.md`），`pages.yml` 是关着的 GitHub Pages 备选。网站不加载外部资源。
 
 ## 使用 arboria 的训练代码要遵守的约定
 1. 启动时把完整的解析后配置导出为 `$ARBORIA_OUT/config.yaml`（`poll` 拉回后存进 `runs.config_json`）。

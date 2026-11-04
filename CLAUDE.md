@@ -3,7 +3,7 @@
 Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：idea、run、note、decision 都存在 SQLite 账本里，只有 `arb` 能写。设计说明（中文网页）：https://claude.ai/artifact/NCqpKzbhDfAXSURgGTc1zn
 
 ## 不能破坏的约束
-- LLM 能写的字段只有：hypothesis、metric、change_reason、note、run summary、lesson、todo result（≤600），以及以后的 review。（note 在 Claude Code 里默认拒绝，只由人写。）其余字段全部由代码写入并校验。长度校验不能删。种子（gist ≤300、hypothesis、metric）只由人写：所有改种子的 `arb seed` 命令和 `lab.metric`/`lab.todo` 在 Claude Code 里拒绝。
+- LLM 能写的字段只有：hypothesis、metric、change_reason、note、run summary、lesson、todo result（≤600），以及以后的 review。（note 在 Claude Code 里默认拒绝，只由人写。）其余字段全部由代码写入并校验。长度校验不能删。种子（gist ≤300、hypothesis、metric）只由人写：所有写种子的命令（作用于种子时的 `arb idea new/set/drop/revive`、`arb idea plant`，以及别名 `arb seed …`）和 `lab.metric`/`lab.todo` 在 Claude Code 里拒绝。这一条靠代码（`seeds.require_human`），不能只靠前缀 deny 规则：`arb idea new/drop` 在仓库里是 Claude 可以用的。
 - 账本写入一律走 `db` 里的加锁写入（fcntl + `BEGIN IMMEDIATE`）。备份 commit 只在指定的事件类型后触发，心跳类更新不触发。
 - 快照绝不能动用户的分支、index 和工作区。`tests/test_snapshot.py` 就是这条约束的契约。
 - `arb hook session-start` 绝不能失败，也不能输出多余内容：出任何错都 exit 0、不输出。
@@ -11,7 +11,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 1a 的代码路径里不发网络请求。远端操作放在后端接口后面。
 - 看板（`arb ui`）只读：账本用 `file:…?mode=ro` 打开；`ui/data.py`、`views.py`、`dashboard.py`、`garden.py` 只能 import cards/config/errors/paths/slurm，不起进程、不联网；不加会动手的控件（批准、接受经验、取消只显示成命令文本）。`tests/test_ui.py` 用源码扫描和 spy（写入函数、后端、subprocess、socket）守住。ledger 里的文字一律 HTML 转义。
 - notebook 命令（`commands`）：arb 的命令行绝不执行命令代码（`arb commands list` 只用 `ast` 读）；只有人的 kernel 里 `lab.<名字>(...)` 才 import 并运行它。命令运行期间 `human.require_terminal` 拒绝（批准不能从 Claude 写的代码里发起）。命令待办的 kind/payload 由代码写，文字长度照常校验。
-- 种子园（`seeds`、`paths.Home`，默认 `~/arboria`，`ARBORIA_HOME`）：不是 git 仓库，`.arboria/` 复用项目的 Ledger 和备份仓库（同一个 schema）。种子 notebook 是 `seeds/<名字>.py` 普通文件，备份提交前复制进 `.arboria/seeds/`（`db.mirror_seeds`；这个目录也是种子园的标记）。种下只在人的终端里（会建分支和 worktree），走 `ideas.new_idea`，只复制种子 notebook 的 markdown cell（用 `ast` 读，不执行）。`arb install-claude --home` 禁止 Claude 编辑 `seeds/**` 和 `.arboria/**`。测试绝不碰真的 `~/arboria`：`tests/conftest.py` 把 `ARBORIA_HOME` 指到临时目录。
+- 种子园（`seeds`、`paths.Home`，默认 `~/arboria`，`ARBORIA_HOME`）：不是 git 仓库，`.arboria/` 复用项目的 Ledger 和备份仓库（同一个 schema）。种子 notebook 是 `seeds/<名字>.py` 普通文件，备份提交前复制进 `.arboria/seeds/`（`db.mirror_seeds`；这个目录也是种子园的标记）。种子就是还没有仓库的 idea，命令都在 `arb idea` 下，去向固定（`cli._idea_route`）：在种子园里或不在任何 git 仓库里 → 种子；在没有 `arb init` 的仓库里 → 照旧报错，绝不悄悄记成种子；在初始化过的仓库里 → idea。`arb idea plant` 在目标仓库里运行。种下只在人的终端里（会建分支和 worktree），走 `ideas.new_idea`，只复制种子 notebook 的 markdown cell（用 `ast` 读，不执行）。`arb install-claude --home` 禁止 Claude 编辑 `seeds/**` 和 `.arboria/**`。测试绝不碰真的 `~/arboria`：`tests/conftest.py` 把 `ARBORIA_HOME` 指到临时目录。
 - 推送到 Claude 会话（`sessions`）：只发给 SessionStart hook 记下的会话（`.arboria/sessions/*.json`，0600），绝不读进程环境里的 socket；不存不发 `CLAUDE_CODE_MESSAGING_TOKEN`（notebook 不是那个会话的子进程）；消息只由校验过的字段拼成；任何失败静默跳过。测试绝不能碰真会话：`tests/conftest.py` 清掉 `CLAUDE_CODE_MESSAGING_*` 并把 `ARBORIA_CONFIG_DIR` 指到临时目录，消息测试只用假 Unix socket。
 
 ## 代码结构
@@ -51,6 +51,8 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 已完成小修（分支 `small-fixes`）：`arb seed revive NAME`（已放弃 → 思考中，`seed_revive` 事件触发备份，只由人；种子园看板“已放弃”里每个旁边是这条命令的文本）；`lab.todo` 返回 `lab.Todo`（Mapping，`.id`/`.data`/`.existed`，显示成一行“已交给 Claude（t001）：…”），`lab.todos()` 返回 `lab.TodoList`（一行一个：id · 状态 · 文字 · 多久前），不再是 dict/DataFrame 的 JSON 树。
 
 - 已完成文档网站（分支 `site`）：https://arboria.cwx.world，Astro 7.3.8 + Starlight 0.42.6（`docs/`，依赖用 `npm install --before` 锁到至少几周前的版本，锁文件提交），中文为主、`/en/` 是简短的英文首页；Pagefind 中文搜索；`docs/guide.md` 拆成入门 / 指南 / 参考 / 项目各页后删除；CLI 参考由 `docs/scripts/gen_cli.py` 生成；`.github/workflows/docs.yml` 构建并检查；Cloudflare Pages 部署（`docs/DEPLOY.md`），`pages.yml` 是关着的 GitHub Pages 备选。网站不加载外部资源。
+
+- 已完成 CLI 整理（分支 `cli-tidy`）：用户面对的概念只有 idea、run、待办，加上批准和记录。`arb --help` 分成四组（`cli.HELP_PANELS`：你做的 / 集群 / agent 做的 / 安装与内部；`tests/test_cli_help.py` 要求每个可见的顶层命令恰好在一组里，新命令要加进去）；`arb run new` 隐藏（被 `arb submit` 取代，测试仍在用），不再写进 CLAUDE.md 规则；种子并进 `arb idea`（new/list/show/set/drop/revive/plant，去向规则见上面的种子园约束），`arb idea show`、`arb idea drop`（= `close --drop`）也给 idea 用；`arb seed …` 是隐藏的别名；deny 规则加上只写种子的 `arb idea set/revive/plant`（项目里也加，plant 在仓库里运行），`--home` 再加 `arb idea new/drop`；`gen_cli.py` 跳过隐藏命令。
 
 ## 使用 arboria 的训练代码要遵守的约定
 1. 启动时把完整的解析后配置导出为 `$ARBORIA_OUT/config.yaml`（`poll` 拉回后存进 `runs.config_json`）。

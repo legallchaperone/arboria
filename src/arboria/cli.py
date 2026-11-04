@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any, Callable, Optional
 
 import typer
+import typer.core
 
 from . import claudemd, human, slurm
 from . import commands as commands_mod
@@ -26,9 +27,20 @@ from .errors import ArbError, NotARepoError
 from .paths import RepoContext, ensure_excluded, locate
 from .state import init_state
 
+class _PanelOrder(typer.core.TyperGroup):
+    """Lists the top-level commands in the order of HELP_PANELS (see the end of the file),
+    so `arb --help` shows the panels, and the commands in each, in that order."""
+
+    def list_commands(self, ctx: Any) -> list[str]:
+        order = [n for names in HELP_PANELS.values() for n in names]
+        return sorted(super().list_commands(ctx),
+                      key=lambda n: order.index(n) if n in order else len(order))
+
+
 app = typer.Typer(
     name="arb",
     help="Arboria: local ledger of ML research ideas, runs and notes.",
+    cls=_PanelOrder,
     no_args_is_help=True,
     add_completion=False,
     pretty_exceptions_enable=False,
@@ -411,9 +423,10 @@ def submit(
     repeat: Annotated[bool, typer.Option("--repeat", help="Always a new run, even if identical to an earlier one (e.g. seed variance).")] = False,
     as_json: JsonOpt = False,
 ) -> None:
-    """Snapshot the idea worktree (or reuse --from's) and ask the human to approve a
-    cluster run (local only). An identical earlier run is returned instead of a new one,
-    unless --repeat."""
+    """Ask the human to approve a cluster run (local only: snapshot + approval card).
+
+    Snapshots the idea worktree (or reuses --from's). An identical earlier run is
+    returned instead of a new one, unless --repeat."""
     ctx, ledger = _open()
     with ledger:
         idea = ideas_mod.require_current_idea(ctx, ledger)
@@ -530,10 +543,12 @@ def poll(
 def watch(
     once: Annotated[bool, typer.Option("--once", help="One pass, then exit.")] = False,
     interval: Annotated[int, typer.Option("--interval", help="Seconds between passes.")] = 60,
-    window: Annotated[Optional[int], typer.Option("--window", help="Observation window after a job starts, in minutes (default: arboria.toml [watch] observation_minutes).")] = None,
+    window: Annotated[Optional[int], typer.Option("--window", help="Observation window after a job starts, in minutes (default: watch.observation_minutes in arboria.toml).")] = None,
 ) -> None:
-    """Keep polling active runs; in the observation window cancel on crash or a log line
-    matching arboria.toml [watch] fail_patterns (default: loss NaN, CUDA OOM)."""
+    """Keep polling active runs; cancel a run that crashes or logs a failure early on.
+
+    In the observation window a run is cancelled on a crash or a log line matching
+    watch.fail_patterns in arboria.toml (default: loss NaN, CUDA OOM)."""
     if interval < 10:
         raise ArbError("--interval must be at least 10 seconds")
     if window is not None and window < 1:
@@ -789,8 +804,10 @@ def status(
     as_json: JsonOpt = False,
     brief: Annotated[bool, typer.Option("--brief", help="Compact text (as used by the hook).")] = False,
 ) -> None:
-    """Current idea (inside an idea worktree), an overview of open ideas, or (in the seed
-    home) the seeds."""
+    """Where things stand: the current idea, the open ideas, or the seeds.
+
+    Inside an idea worktree, that idea; elsewhere in a repo, an overview of its open
+    ideas; in the seed home, the seeds."""
     h = seeds_mod.home_of()
     if h is not None and h.initialized:
         with Ledger(h.state_dir) as ledger:
@@ -833,10 +850,10 @@ def ui(
     port: Annotated[Optional[int], typer.Option("--port", help="Port (default: marimo picks a free one).")] = None,
     home: Annotated[bool, typer.Option("--home", help="The seed home (种子园) instead; the default outside any repo.")] = False,
 ) -> None:
-    """Open the read-only dashboard (看板): what needs you, the idea tree, SU budget; or,
-    outside any repo (or with --home), the seed home (种子园).
+    """Open the read-only dashboard (看板).
 
-    Runs `marimo run` on 127.0.0.1; it reads the ledger and never changes anything."""
+    In a repo: what needs you, the idea tree, SU budget; outside any repo (or with
+    --home), the seed home (种子园). Runs `marimo run` on 127.0.0.1; it reads the ledger and never changes anything."""
     from .ui import launch
 
     if not home:
@@ -1000,3 +1017,28 @@ def claudemd_sync(
         result = claudemd.sync(ctx, ledger, commit=not no_commit)
     for line in result.messages():
         typer.echo(line)
+
+
+# ---------------------------------------------------------------- `arb --help` panels
+#
+# The top-level commands and groups, grouped for `arb --help` (Typer's rich_help_panel).
+# Kept in one table so the grouping reads at a glance; tests/test_cli_help.py checks that
+# every visible command is in exactly one panel.
+HELP_PANELS: dict[str, list[str]] = {
+    "你做的": ["idea", "submit", "card", "approve", "reject", "note", "status", "ui", "seed"],
+    "集群": ["watch", "poll", "cancel", "logs", "remote", "machine", "doctor"],
+    "agent 做的": ["todo", "commands", "run", "lesson"],
+    "安装与内部": ["init", "install-claude", "hook", "claudemd", "export"],
+}
+
+
+def _set_help_panels() -> None:
+    panel_of = {name: panel for panel, names in HELP_PANELS.items() for name in names}
+    for info in app.registered_commands:
+        name = info.name or info.callback.__name__.lower().replace("_", "-")
+        info.rich_help_panel = panel_of.get(name)
+    for info in app.registered_groups:
+        info.rich_help_panel = panel_of.get(info.name)
+
+
+_set_help_panels()

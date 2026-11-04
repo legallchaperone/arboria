@@ -511,3 +511,24 @@ fn probe_results_and_enabled_hash() {
         1
     );
 }
+
+/// `tests/fixtures/migration_v8.sql` (the Python tests build v8 ledgers with it) is
+/// `schema::MIGRATION_V8`; `ARBORIA_REGEN_FIXTURES=1` rewrites it.
+#[test]
+fn python_tests_have_the_v8_migration() {
+    let path = common::repo_root().join("tests/fixtures/migration_v8.sql");
+    let want = format!(
+        "-- schema::MIGRATION_V8 of crates/arboria-core/src/schema.rs, verbatim (regenerate: \
+         ARBORIA_REGEN_FIXTURES=1 cargo test -p arboria-core --test schema)\n{}\n",
+        schema::MIGRATION_V8.trim_end()
+    );
+    if std::env::var_os("ARBORIA_REGEN_FIXTURES").is_some() {
+        std::fs::write(&path, &want).unwrap();
+    }
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap_or_default(),
+        want,
+        "{} is stale: ARBORIA_REGEN_FIXTURES=1 cargo test -p arboria-core --test schema",
+        path.display()
+    );
+}

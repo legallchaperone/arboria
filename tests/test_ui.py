@@ -47,6 +47,7 @@ def _has_cmd(html: str, text: str) -> bool:
 
 def test_constants_match_the_ledger() -> None:
     assert data.SCHEMA_VERSION == db.SCHEMA_VERSION
+    assert data.READ_ONLY_VERSIONS == db.READ_ONLY_VERSIONS
     assert data.RUN_FINAL == db.RUN_FINAL and data.RUN_ACTIVE == db.RUN_ACTIVE
     assert data.JOB_TERMINAL == db.JOB_TERMINAL
     assert set(views.RUN_STATUS) == set(db.RUN_STATUS)

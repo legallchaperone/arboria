@@ -24,6 +24,8 @@ from ..paths import CONFIG_NAME, DB_NAME, STATE_DIR_NAME, Home, RepoContext, hom
 # Copies of db constants (importing db would import the ledger's write path);
 # tests/test_ui.py checks they match.
 SCHEMA_VERSION = 7
+READ_ONLY_VERSIONS = (8,)  # written by arb-rs; read here like v7 (see _seed_queries)
+READABLE = (SCHEMA_VERSION, *READ_ONLY_VERSIONS)
 RUN_FINAL = ("succeeded", "failed", "cancelled")
 RUN_ACTIVE = ("approved", "queued", "running")
 JOB_TERMINAL = ("completed", "failed", "cancelled", "timeout")
@@ -258,7 +260,7 @@ def load(root: Path | str, now: datetime | None = None) -> Board:
         board.config_error = f"{CONFIG_NAME}: {exc}"
     with ReadOnlyLedger(board.state_dir) as ledger:
         version = ledger.version()
-        if version != SCHEMA_VERSION:
+        if version not in READABLE:
             raise ArbError(f"ledger schema v{version}, the dashboard reads v{SCHEMA_VERSION}: "
                            "run any arb command (e.g. `arb status`) once to upgrade it, or "
                            "upgrade arb")
@@ -329,12 +331,37 @@ class Garden:
         return len(self.with_status(status))
 
 
-def _check_version(ledger: ReadOnlyLedger) -> None:
+def _check_version(ledger: ReadOnlyLedger) -> int:
     version = ledger.version()
-    if version != SCHEMA_VERSION:
+    if version not in READABLE:
         raise ArbError(f"ledger schema v{version}, the dashboard reads v{SCHEMA_VERSION}: "
                        "run any arb command (e.g. `arb idea list`) once to upgrade it, or "
                        "upgrade arb")
+    return version
+
+
+# The seeds as v7 rows. In v8 (arb-rs) a seed is an ideas row without a branch: `seeds` is
+# frozen, plantings point at `seed_idea_id`, todos at `idea_id`, and planted is derived.
+_SEEDS_V8 = (
+    "SELECT i.id, i.name, i.gist, i.hypothesis, i.metric,"
+    " CASE WHEN i.stage = 'dropped' THEN 'dropped'"
+    "      WHEN EXISTS (SELECT 1 FROM plantings p WHERE p.seed_idea_id = i.id) THEN 'planted'"
+    "      ELSE 'thinking' END AS status, i.created_at, i.updated_at"
+    " FROM ideas i WHERE i.branch IS NULL")
+
+
+def _seed_queries(version: int) -> tuple[str, str, str]:
+    """(seeds, plantings with `seed_id` = the seed's id, open todos of live seeds)."""
+    if version == SCHEMA_VERSION:
+        return ("SELECT * FROM seeds ORDER BY id",
+                "SELECT * FROM plantings ORDER BY id",
+                "SELECT t.*, s.name AS seed FROM tasks t JOIN seeds s ON s.id = t.seed_id"
+                " WHERE t.status = 'open' AND s.status != 'dropped' ORDER BY t.id")
+    return (_SEEDS_V8 + " ORDER BY i.id",
+            "SELECT p.*, p.seed_idea_id AS seed_id FROM plantings p ORDER BY p.id",
+            "SELECT t.*, s.name AS seed FROM tasks t JOIN ideas s ON s.id = t.idea_id"
+            " WHERE t.status = 'open' AND s.branch IS NULL AND s.stage != 'dropped'"
+            " ORDER BY t.id")
 
 
 def load_home(root: Path | str, now: datetime | None = None) -> Garden:
@@ -342,14 +369,12 @@ def load_home(root: Path | str, now: datetime | None = None) -> Garden:
     h = Home(Path(root).resolve())
     garden = Garden(root=h.root, loaded_at=now or datetime.now(timezone.utc))
     with ReadOnlyLedger(h.state_dir) as ledger:
-        _check_version(ledger)
+        seeds_sql, plantings_sql, todos_sql = _seed_queries(_check_version(ledger))
         planted: dict[int, list[dict[str, Any]]] = {}
-        for p in ledger.all("SELECT * FROM plantings ORDER BY id"):
+        for p in ledger.all(plantings_sql):
             planted.setdefault(p["seed_id"], []).append(p)
-        seeds = ledger.all("SELECT * FROM seeds ORDER BY id")
-        garden.todos = ledger.all(
-            "SELECT t.*, s.name AS seed FROM tasks t JOIN seeds s ON s.id = t.seed_id"
-            " WHERE t.status = 'open' AND s.status != 'dropped' ORDER BY t.id")
+        seeds = ledger.all(seeds_sql)
+        garden.todos = ledger.all(todos_sql)
     for s in seeds:
         nb = h.notebook(s["name"])
         try:
@@ -369,8 +394,10 @@ def home_thinking(h: Home) -> int | None:
         return None
     try:
         with ReadOnlyLedger(h.state_dir) as ledger:
-            if ledger.version() != SCHEMA_VERSION:
+            version = ledger.version()
+            if version not in READABLE:
                 return None
-            return ledger.one("SELECT COUNT(*) AS n FROM seeds WHERE status = 'thinking'")["n"]
+            seeds = "seeds" if version == SCHEMA_VERSION else f"({_SEEDS_V8})"
+            return ledger.one(f"SELECT COUNT(*) AS n FROM {seeds} WHERE status = 'thinking'")["n"]
     except (ArbError, sqlite3.Error, OSError):
         return None

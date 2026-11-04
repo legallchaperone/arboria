@@ -348,6 +348,11 @@ CREATE INDEX inspections_key ON inspections(idea_id, question, view, target);
 MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5,
                          MIGRATION_V6, MIGRATION_V7]
 SCHEMA_VERSION = len(MIGRATIONS)
+# Versions the Rust arb (arb-rs, docs/adr/0002-rust-contract.md) writes. This arb opens
+# them read-only (`PRAGMA query_only`, `Ledger.write` refuses) and never migrates them.
+READ_ONLY_VERSIONS = (8,)
+READ_ONLY_MESSAGE = ("{path} is a schema v{version} ledger, written by the Rust arb (arb-rs); "
+                     "this arb only reads it: make changes with arb-rs")
 
 
 def now() -> str:
@@ -415,8 +420,11 @@ def connect(path: Path) -> sqlite3.Connection:
 
 
 def migrate(conn: sqlite3.Connection) -> int:
-    """Apply pending migrations; return the resulting schema version."""
+    """Apply pending migrations; return the resulting schema version. A version in
+    READ_ONLY_VERSIONS is returned as is (the caller opens it read-only)."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
+    if version in READ_ONLY_VERSIONS:
+        return version
     if version > SCHEMA_VERSION:
         raise ArbError(
             f"ledger schema version {version} is newer than this arb ({SCHEMA_VERSION}); upgrade arb"
@@ -467,7 +475,14 @@ class Ledger:
         self._in_write = False
         with self._lock():
             self.conn = connect(self.path)
-            migrate(self.conn)
+            self.version = migrate(self.conn)
+        self.read_only = self.version in READ_ONLY_VERSIONS
+        if self.read_only:
+            self.conn.execute("PRAGMA query_only = ON")
+
+    def _refuse_if_read_only(self) -> None:
+        if self.read_only:
+            raise ArbError(READ_ONLY_MESSAGE.format(path=self.path, version=self.version))
 
     def close(self) -> None:
         self.conn.close()
@@ -495,6 +510,7 @@ class Ledger:
         """Exclusive file lock + IMMEDIATE transaction; backup afterwards if needed."""
         if self._in_write:
             raise RuntimeError("nested Ledger.write()")
+        self._refuse_if_read_only()
         with self._lock():
             self._in_write = True
             self._pending = []
@@ -537,6 +553,7 @@ class Ledger:
 
     def backup(self, message: str) -> bool:
         """Dump the db to backup/ledger.sql and commit it in the state-dir repo."""
+        self._refuse_if_read_only()
         backup_dir = self.state_dir / "backup"
         backup_dir.mkdir(exist_ok=True)
         version = self.conn.execute("PRAGMA user_version").fetchone()[0]

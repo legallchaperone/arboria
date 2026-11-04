@@ -65,3 +65,8 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 2. `wandb.init(id=ARBORIA_WANDB_ID, group=ARBORIA_IDEA)`（`ARBORIA_WANDB_ID` = `<项目 id>-<run id>`，几个仓库共用一个 wandb project 也不冲突）。
 3. 路径只从 `ARBORIA_*` 角色变量读取。
 4. checkpoint 存到 `ARBORIA_CKPT_DIR`，并且可以续训。
+
+- **Rust 重写（进行中，2026-11-04 起）**。决定在 `docs/adr/`：0001（Mac app + Rust 核心）、0002（第 1 期契约：crate / 模块对照、schema v8、哪些已实现）、0003（扩展：第 1 期只有 probe）。第 0 期的试验和结论在 `spikes/`（编辑器 markdown 往返、Rust 驱动 kernel、本地意图模型 Qwen3.5-4B + KV 缓存）。设计：Arboria 设计系统 https://claude.ai/artifact/LeSPASKLSUE39HtVTiiGfk 、主界面画布 https://claude.ai/artifact/DGQD3R9dMC8s8ErYq5Rqd6 、编辑器原型 https://claude.ai/artifact/KNTafPRmEDfoQJZBQMwcWn 、方案 https://claude.ai/artifact/AbJrewmFfKDfNtoPotL2zm 。
+  - 已合并：跨语言测试向量（`tests/vectors/`，59 个文件 1215 个用例）、Rust 工作区骨架（`crates/arboria-core`、`crates/arb` → `arb-rs`），真实实现的有 canonical、model、schema v8 + 迁移、db、records、human、probe 头部解析与结果校验；其余 `todo!()`，51 个向量测试 `#[ignore]` 等着接。
+  - 下一步按顺序移植（每接一个模块就去掉对应向量测试的 `#[ignore]`）：slurm + cards（要 sha2）→ config / clusters / paths → db 上的 records / tasks / ideas → gitutil / snapshot（调 git 命令）→ backend：FakeSlurm、SshSlurm、monitor（sacct 解析、计费）→ submission（唯一提交点）→ CLI 接线和 `--json`。还要选 regex 库（`fail_patterns` 是 Python `re` 语法）。Python 版要小改一处：能只读打开 v8 账本。
+  - 省 token 的规矩（用户定的）：任务需要的并行 subagent 少于 5 个就不开 subagent，自己做。

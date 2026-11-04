@@ -21,11 +21,12 @@ const { lang = 'zh' } = Astro.props;
 const zh = lang === 'zh';
 const docs = (p: string) => `/${p}/`; // the docs themselves are Chinese only
 
-// the long rules paragraph at the end is cut to its first sentence
-const hookLines = sessionStart
-	.trimEnd()
-	.split('\n')
-	.map((line) => (line.startsWith('Ledger rules:') ? line.slice(0, line.indexOf('`arb`.') + 6) + ' …' : line));
+// an excerpt: the idea, its open todo and the runs (one line each); what follows fades out
+const allLines = sessionStart.trimEnd().split('\n');
+const runsAt = allLines.findIndex((line) => line.startsWith('Runs'));
+const lastRun = allLines.findIndex((line) => line.includes('[awaiting_approval]'));
+const hookLines = allLines.filter((line, i) => i <= lastRun && !(i > runsAt && /^\s/.test(line)));
+const fadeLines = allLines.slice(lastRun + 1).filter((line) => !/^\s/.test(line)).slice(0, 2);
 const lineClass = (line: string) =>
 	line.startsWith('[arboria]')
 		? 'h'
@@ -42,7 +43,7 @@ const c = zh
 			bench: {
 				kicker: '你的工作台',
 				title: '常用的分析，写一行就有',
-				body: '对比曲线、看两个 run 差在哪、算力花在了哪，都是 notebook 里的一行，结果就在下面。',
+				body: '对比曲线、看两个 run 差在哪、查算力花在了哪，在 notebook 里都只要一行，结果就显示在它下面。',
 				plot: '一行画出几个 run 的同一条曲线。',
 				table: '内置的分析，lab.commands() 列出全部。',
 				link: ['notebook 与 lab', 'guides/notebook'],
@@ -50,8 +51,8 @@ const c = zh
 			mine: {
 				kicker: '你的命令',
 				title: '缺一个分析？也写一行',
-				body: '没有的命令交给 agent：它写一次，cell 自动重跑；之后它就是你的命令，不花 token，也不用再解释。',
-				diff: '别的 notebook AI 改你的 cell；这里 agent 不碰 notebook，交给你的是一个函数。',
+				body: '还没有的命令会交给 agent 去写，写好后这个 cell 自动重跑，从此它就是你随时能调用的命令，不再花 token，也不用再解释一遍。',
+				diff: '别的 notebook AI 直接改你的 cell，这里的 agent 从不碰你的 notebook，交给你的是一个函数。',
 				first: '第一次：命令还不存在，交给 agent。',
 				after: '之后：agent 写好的命令带着版本，和内置的一样调用。',
 				link: ['自定义命令', 'guides/commands'],
@@ -59,31 +60,31 @@ const c = zh
 			resume: {
 				kicker: '换会话',
 				title: '不用重讲一遍',
-				body: '换一个会话，idea、run 和待办都还在，agent 一开始就看得到。等你处理的事，一屏看完。',
+				body: '换一个会话时，idea、run 和待办都还在，agent 一开始就知道进展到了哪里，等你处理的事也在一屏里看得完。',
 				term: '新会话开头，agent 自动收到这一屏',
-				termCap: '演示项目的真实输出，最后一段规则从略。',
+				termCap: '演示项目的真实输出（节选）。',
 				dash: 'arb ui：等你处理的事、idea 怎么分叉、算力花在哪。只读。',
 				link: ['新会话收到什么', 'guides/claude-code'],
 			},
 			approve: {
 				kicker: '批准',
 				title: '上集群，你说了算',
-				body: '一行发起，先拿到一张单子；你在自己的终端里签了字，作业才提交。之后排队、计费、分段、出错提前取消，都不用你管。',
+				body: '一行发起的作业会先给你一张单子，你在自己的终端里签了字才会提交，之后的排队、计费、分段和出错时提前取消都不用你管。',
 				card: 'lab.run 只给你一张单子：代码、资源、估计花费、预算。',
 				link: ['提交与批准', 'guides/submit'],
 			},
 			foot: {
 				seed: {
 					title: '还没有仓库？先记成种子',
-					body: '在仓库外运行 arb idea new，想法连同一个 notebook 先放在 ~/arboria；想清楚了再种进仓库。',
+					body: '在仓库外运行 arb idea new，想法会连同一个 notebook 先放在 ~/arboria，等想清楚了再种进仓库。',
 					link: ['种子园', 'guides/seeds'],
 				},
 				not: {
 					title: '它不是什么',
 					items: [
-						['不是 wandb', '曲线还在 wandb。arb 记的是为什么跑、用的哪版代码、谁批准的、花了多少，并链到那个 wandb run。'],
-						['不是 MLflow 一类的追踪器', '它不存指标和模型，管的是从想法到上集群的这一段。'],
-						['不是 Jupyter AI 一类', '那些让 AI 改你的 cell；这里 agent 从不碰 notebook。'],
+						['不是 wandb', '曲线照样在 wandb 里看，arb 给每个 run 一个固定的 wandb id，用它把两边连起来。'],
+						['不是 MLflow 一类的追踪器', '指标和模型还在原来的地方（wandb、checkpoint 目录），arb 记的是为什么跑、跑的哪版代码、谁批准的、花了多少。'],
+						['不是 Jupyter AI 一类', '那些工具让 AI 改你的 cell，这里的 agent 从不碰 notebook。'],
 					],
 				},
 				guard: {
@@ -100,7 +101,7 @@ const c = zh
 			bench: {
 				kicker: 'Your bench',
 				title: 'Common analyses are one line',
-				body: 'Compare curves, see how two runs differ, see where the compute went: each is one line in the notebook, with the result right below.',
+				body: 'Comparing curves, seeing how two runs differ or checking where the compute went each takes one line in the notebook, with the result right below it.',
 				plot: 'One line draws the same curve for several runs.',
 				table: 'Built-in analyses; lab.commands() lists them all.',
 				link: ['Notebook and lab (Chinese)', 'guides/notebook'],
@@ -108,8 +109,8 @@ const c = zh
 			mine: {
 				kicker: 'Your commands',
 				title: 'Missing an analysis? One line too',
-				body: 'A command that does not exist goes to the agent: it writes it once and the cell re-runs. From then on it is your command: no tokens, no re-explaining.',
-				diff: 'Other notebook AIs edit your cells; here the agent never touches the notebook. It hands you a function.',
+				body: 'A command that does not exist yet goes to the agent, and once it is written the cell re-runs and the command is yours to call any time, with no tokens spent and nothing to explain again.',
+				diff: 'Other notebook AIs edit your cells, while here the agent never touches your notebook and hands you a function instead.',
 				first: 'The first call: no such command yet, so it goes to the agent.',
 				after: 'Afterwards: the agent’s commands carry a version and are called like the built-in ones.',
 				link: ['Custom commands (Chinese)', 'guides/commands'],
@@ -117,31 +118,31 @@ const c = zh
 			resume: {
 				kicker: 'New session',
 				title: 'No re-explaining',
-				body: 'Switch sessions and the ideas, runs and todos are still there; the agent sees them from the start. What waits for you fits on one screen.',
+				body: 'When you switch sessions the ideas, runs and todos are still there, so the agent starts out knowing where things stand, and what waits for you fits on one screen.',
 				term: 'What a new agent session is handed',
-				termCap: 'Real output from a demo project; the closing rules are cut.',
+				termCap: 'Real output from a demo project (excerpt).',
 				dash: 'arb ui: what waits for you, how ideas branched, where the compute went. Read-only.',
 				link: ['What a new session gets (Chinese)', 'guides/claude-code'],
 			},
 			approve: {
 				kicker: 'Approval',
 				title: 'On the cluster, you decide',
-				body: 'One line starts it and you get a slip; the job is submitted only after you sign it in your own terminal. Queueing, billing, segments and cancelling on errors are handled from there.',
+				body: 'A job started with one line first gives you a slip, it is submitted only after you sign it in your own terminal, and queueing, billing, segments and cancelling on errors are handled from there.',
 				card: 'lab.run only gives you a slip: code, resources, estimated cost, budget.',
 				link: ['Submitting and approving (Chinese)', 'guides/submit'],
 			},
 			foot: {
 				seed: {
 					title: 'No repo yet? Keep it as a seed',
-					body: 'Run arb idea new outside a repo: the idea and a notebook wait in ~/arboria until you plant it in a repo.',
+					body: 'Run arb idea new outside a repo and the idea waits in ~/arboria with its own notebook until you plant it in a repo.',
 					link: ['Seeds (Chinese)', 'guides/seeds'],
 				},
 				not: {
 					title: 'What it is not',
 					items: [
-						['Not wandb', 'Curves stay in wandb. arb records why a run happened, which code, who approved it and what it cost, and links the wandb run.'],
-						['Not an MLflow-style tracker', 'It stores no metrics or models; it covers the way from an idea to the cluster.'],
-						['Not Jupyter AI and the like', 'Those let the AI edit your cells; here the agent never touches the notebook.'],
+						['Not wandb', 'You still look at curves in wandb, and arb gives every run a fixed wandb id that ties the two together.'],
+						['Not an MLflow-style tracker', 'Metrics and models stay where they are (wandb, the checkpoint directory), while arb records why a run happened, which code it ran, who approved it and what it cost.'],
+						['Not Jupyter AI and the like', 'Those let the AI edit your cells, while here the agent never touches the notebook.'],
 					],
 				},
 				guard: {
@@ -217,7 +218,10 @@ const col = '(min-width: 72rem) 40rem, (min-width: 60rem) 56vw, 94vw';
 		<div class="figs">
 			<figure class="term">
 				<div class="term-bar"><span class="dots"><i></i><i></i><i></i></span><span>{c.resume.term}</span></div>
-				<pre>{hookLines.map((line) => <span class={lineClass(line)}>{line + '\n'}</span>)}</pre>
+				<div class="term-body">
+					<pre>{hookLines.map((line) => <span class={lineClass(line)}>{line + '\n'}</span>)}<span class="fade" aria-hidden="true">{fadeLines.join('\n')}</span></pre>
+					<p class="more-lines" aria-hidden="true">…</p>
+				</div>
 				<figcaption>{c.resume.termCap}</figcaption>
 			</figure>
 		</div>
@@ -433,15 +437,19 @@ const col = '(min-width: 72rem) 40rem, (min-width: 60rem) 56vw, 94vw';
 		border-radius: 50%;
 		background: var(--arb-line);
 	}
-	.term pre {
-		margin: 0;
-		padding: 0.9rem 1rem;
+	.term-body {
+		padding: 1.1rem 1.25rem 0.6rem;
 		border: 1px solid var(--arb-line);
 		border-radius: 0 0 0.6rem 0.6rem;
 		background: var(--arb-surface);
+	}
+	.term pre {
+		margin: 0;
+		padding: 0;
+		background: none;
 		font-family: var(--__sl-font-mono);
-		font-size: 0.75rem;
-		line-height: 1.7;
+		font-size: 0.875rem;
+		line-height: 1.85;
 		color: var(--arb-ink);
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
@@ -457,6 +465,17 @@ const col = '(min-width: 72rem) 40rem, (min-width: 60rem) 56vw, 94vw';
 		color: var(--arb-muted);
 	}
 	.term pre .d {
+		color: var(--arb-faint);
+	}
+	.term pre .fade {
+		display: block;
+		color: var(--arb-muted);
+		-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+		mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+	}
+	.more-lines {
+		margin: 0;
+		font-family: var(--__sl-font-mono);
 		color: var(--arb-faint);
 	}
 

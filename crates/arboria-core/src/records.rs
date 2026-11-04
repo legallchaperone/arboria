@@ -348,20 +348,10 @@ pub fn new_run(
     warn: Warn<'_>,
 ) -> Result<NewRun> {
     let reason = require_text(TextField::ChangeReason, reason)?;
-    let (run_id, snap) = ledger.write(|tx| {
-        // Python insert_run: snapshot inside the write, so the commit message's id is the
-        // run's
-        let worktree = worktree_of(idea)?;
-        let next: RunId = tx.next_id()?;
-        let snap = crate::snapshot::snapshot(
-            worktree,
-            tx,
-            &format!("arboria snapshot {next}"),
-            opts.allow_large,
-            opts.file_limit,
-            opts.total_limit,
-            warn,
-        )?;
+    // snapshot first, outside the lock (ADR 0002): git can be slow, and the lock blocks
+    // every other writer. The commit message's id is the next id at snapshot time.
+    let snap = take_snapshot(ledger, idea, opts, warn)?;
+    let run_id = ledger.write(|tx| {
         let run_id = insert_run_at(tx, idea, &reason, &snap.commit, &snap.tree, None)?;
         tx.event(
             EventKind::RunNew,
@@ -369,7 +359,7 @@ pub fn new_run(
             &json!({"idea": idea.name.as_str(), "commit": snap.commit, "tree": snap.tree,
                     "reused": snap.reused}),
         )?;
-        Ok((run_id, snap))
+        Ok(run_id)
     })?;
     Ok(NewRun {
         run: get_run(ledger, &run_id)?,

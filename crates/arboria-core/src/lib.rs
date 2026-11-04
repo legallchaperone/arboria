@@ -3,12 +3,12 @@
 //!
 //! Each module ports one Python module of `src/arboria/` and says so in its doc comment,
 //! together with the invariants it must keep. Phase 1 (ADR 0002) settles the public API;
-//! most bodies are `todo!("port of arboria.<module>.<fn>")`. Real so far: [`canonical`],
-//! the id newtypes in [`model`], [`schema`], [`db`] (open, migrations to v8, locked
-//! writes, `data_version`), the length checks in [`records`], the terminal check in
-//! [`human`], the probe header / result validation and its ledger write in [`probe`],
-//! and [`backend::check_job_ids`]. `tests/vectors.rs` runs the Python test vectors
-//! against the real parts.
+//! the rest is `todo!("port of arboria.<module>.<fn>")`. Real so far: [`canonical`],
+//! [`model`], [`schema`], [`db`] (with the backup repo), [`records`], [`snapshot`],
+//! [`gitutil`], [`tasks`], [`ideas`] (git and ledger side), [`slurm`], [`cards`],
+//! [`config`], [`clusters`], [`paths`], the terminal check in [`human`], the probe header /
+//! result validation and its ledger write in [`probe`], and [`backend::check_job_ids`].
+//! `tests/vectors.rs` runs the Python test vectors against the real parts.
 //!
 //! Rules for porting a module: one module per agent; do not change another module's
 //! public signatures without recording it in `docs/adr/0002-rust-contract.md`.

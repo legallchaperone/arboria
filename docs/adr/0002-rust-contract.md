@@ -18,16 +18,16 @@
 | `slurm` | `slurm` | **已实现**：纯函数；另有 `py_round2`、`shlex_join` |
 | `cards` | `cards`、`slurm.card_payload/card_hash` | **已实现**；`card_with_budget` 是不读 `arboria.toml` 的 `build_card`；`sha256_hex` 在这里 |
 | `schema` | `db` 的 SQL 常量 | **已实现**：v1–v7 逐字节照抄，v8 见下 |
-| `db` | `db`（连接、迁移、`Ledger`、备份仓库） | **已实现**：open、迁移到 v8、`write`（flock + `BEGIN IMMEDIATE`）、`event`、`next_id`、`data_version`、只读打开；备份仓库未实现 |
+| `db` | `db`（连接、迁移、`Ledger`、备份仓库） | **已实现**：open、迁移到 v8、`write`（flock + `BEGIN IMMEDIATE`）、`event`、`next_id`、`data_version`、只读打开、备份仓库和 `dump`；另有 `one` / `all` / `LedgerRow`（`SELECT *` 读进 model 结构体）、`next_id_in` |
 | `model` | `db` 的枚举元组 + 账本行 | **已实现**：id newtype 与校验、枚举、事件 kind、触发备份的事件 |
-| `records` | `records` + `db.validate_text/validate_name/validate_choice` | **已实现**：长度校验；写入未实现 |
-| `gitutil` / `snapshot` | 同名 | 系统 `git`；快照绝不碰用户的分支、index、工作区。gitutil 的 run / out / ok / rev_parse / ref_exists / identity_env **已实现** |
-| `ideas` | `ideas` + `seeds` + `cli._idea_route` | 种子是 stage=seed 的 idea |
+| `records` | `records` + `db.validate_text/validate_name/validate_choice` | **已实现**；另有 `get_run_in`、`get_decision_in`、`AUTHOR_HUMAN` |
+| `gitutil` / `snapshot` | 同名 | **已实现**：系统 `git`；快照绝不碰用户的分支、index、工作区（`tests/records.rs` 照 `test_snapshot.py`） |
+| `ideas` | `ideas` + `seeds` + `cli._idea_route` | **已实现** git 和账本一侧：种子是没有 branch 的 ideas 行，种下与否看 `plantings`；notebook 不写（见下） |
 | `submission` | `submission` | `SubmitPermit` 只有本模块能造，`Backend::submit` 要它 |
 | `human` | `human` | **已实现**：终端检查；输入确认、进程链未实现 |
 | `backend` | `backends/`（base、fake、ssh） | `Backend` trait；SshSlurm、本机、ssh 工作站、RunPod、Modal、FakeSlurm 都是桩；`check_job_ids` 已实现 |
 | `monitor` | `monitor` | |
-| `tasks` | `tasks` + v8 agent 队列 | |
+| `tasks` | `tasks` + v8 agent 队列 | **已实现**；队列最多 `MAX_ATTEMPTS` = 3 次（首次、`--resume` 一次、换大模型一次），之后 needs_human |
 | `commands` | `commands`（文件一侧） | 命令只在人的 kernel 里运行 |
 | `inspection` | `inspection`（账本、git、校验一侧） | 渲染归 app |
 | `report` / `hook` | 同名 | hook 不再记录会话 socket（ADR 0001） |
@@ -51,6 +51,7 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 ## 测试
 - `crates/arboria-core/tests/schema.rs`：v1–v7 与 `tests/fixtures/migrations_v1_v7.sql`（由 `gen_fixtures.py` 从 Python 生成）逐字节一致；v7 的 `sqlite_master` 与 Python 账本一致；Python 生成的 v7 账本迁移到 v8 不丢行；v8 的 CHECK；锁、回滚、`BEGIN IMMEDIATE`、`data_version`；probe 的写入和启用哈希。
 - `tests/vectors.rs`：读 `tests/vectors/<name>.json`。已接上 canonical_json、validate_text、validate_name、check_project、wandb_id、next_id、check_job_ids、constants，以及 slurm / cards / config / clusters 的 33 个文件；其余每个文件一个 `#[ignore]` 测试，`every_vector_file_is_known` 保证新文件不会被漏掉。`quirk-*` 用例照做。
+- `tests/records.rs`（快照契约、runs / notes / decisions、备份：只在备份事件后提交，`ledger.sql` 和 CPython 3.13 的 `iterdump` 逐字节比）、`tests/tasks.rs`（待办和队列）、`tests/ideas.rs`（new / close merge·drop / fork、路由、种子和种下，用真 git 仓库）、`tests/repo_config.rs`、`tests/cards.rs`。
 - `tests/guards.rs`：源码扫描（只有 submission 调 `.submit(`、`probe_results` 只有一个写入点、probe 碰不到 decisions / submit、核心不联网不异步）。
 - `crates/arb/tests/cli_tree.rs`：clap 树与 `python_commands.txt`（`gen_python_commands.py` 从 Python CLI 生成）逐行一致，帮助分组同 `cli.HELP_PANELS`；`arb probe` 是 Rust 独有的，比较时排除。CI 的 `python-snapshots` 任务重新生成这两类快照，过期就失败。
 
@@ -67,8 +68,13 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 - 向量里 Python 接受、Rust 类型表达不了的输入（非字符串、`R-1/x` 这种 run id、list 值）一律 `Got::Skip`，测试输出里列出来；只有能表达的才比较。
 - 命令的签名和 docstring 靠 Python `ast` 读（`commands.describe`）：Rust 没有现成的 Python 解析器，要么起 `python -I` 跑一个只读脚本（像 probe 宿主），要么用 tree-sitter-python。绝不 import。
 - `fail_patterns` 是 Python `re` 语法（`(?i)\b…`）：定了用 `regex` crate（线性时间，日志里的长行不会卡住）。默认的四条和常见写法都能编译；look-around、反向引用编译不了，`arboria.toml` 就报错（带 crate 的消息），不静默跳过。`\b`、`\d`、`\w` 两边都是 Unicode 语义。
-- Python 在 `ledger.write()` 里跑 git（`submit` 的快照在锁里做）；Rust 版最好先快照、再进事务。
+- Python 在 `ledger.write()` 里跑 git（`submit` 的快照在锁里做）；Rust 版先快照、再进事务（`records::new_run` 已这样，快照提交信息里的 id 是快照时的下一个 id）。
 - 行是 `dict`，`submit` 返回 `run | {"existed": …}`：Rust 用 `#[serde(flatten)]` 的结构体，`--json` 的键顺序会跟 Python 不同（内容相同）。
 - v8 里种子的 `status` 是 `open`：Python 的 `WHERE status = 'open'` 在家目录账本里会把种子算成 idea；Rust 一律按 `stage` 查。
-- `iterdump` 没有 Rust 对应物：备份的 `ledger.sql` 要自己写导出，并保持格式稳定，否则备份历史的 diff 不好读。
+- 备份的 `ledger.sql` 是 `db::dump`：逐条照抄 CPython 3.13 的 `Lib/sqlite3/dump.py`（值用 SQLite 自己的 `quote()`）。3.11 的 `iterdump` 少开头的 `foreign_key_check` 一行、`sqlite_sequence` 的位置也不同，所以和 3.11 写出的备份比，第一次会多一个格式 diff。
+- 备份在还持有账本锁时做（和 Python 一样，两个进程的备份不会在 git index 上撞车）；单独调 `Ledger::backup` / `commit_backup` 时自己拿锁。
+- 已修（2026-11-04，两边）：状态目录没有自己的 `.git` 时拒绝备份。原来 git 会退到外层的项目仓库，`diff --cached` + `commit` 会把用户暂存的改动当成 `arboria backup: …` 提交掉。
+- notebook 不在核心里（上面的“不移植”）：`ideas::new_idea` / `new_seed` 只做 git 和账本，`idea_new` 事件的 `notebook` 是 null，`notebook` 字段是 Python 一侧的路径（`.arboria/notebooks/<名字>.py`、`<home>/seeds/<名字>.py`）；`ensure_notebook`、`restyle`、`restyle_seeds` 返回错误，指回 Python 版；种下不复制种子 notebook 的文字块（`markdown_cells` 记 0）。app 的 markdown notebook 定下来后再接。
+- 签名改动（2026-11-04）：`ideas::NewIdea.seed` 是 `SeedOrigin { seed, home }`（`idea_new` 事件要种子园路径）；`CloseInfo` 加 `name`、`mode`、`merge_commit`、`final_ref`，和 Python 的 `close` 一样；`SeedView` 加 `seed_status`（v8 由 stage 和 `plantings` 推出 thinking / planted / dropped）；`db::LedgerRow` 不要求 serde（`TaskView` 自己读行）。
+- v8 的种子：放弃过又恢复的已种下种子仍是 planted（Python 恢复成 thinking；v8 里种下与否只看 `plantings`）。待办的 done / drop 在任何非终态都可以（后台尝试中的 agent 要能交付）。
 - 名字 / 项目 id / 作业 id / host / 分区 / 覆盖参数的 key 都是整串匹配，结尾换行一律拒绝（Python `fullmatch`）。

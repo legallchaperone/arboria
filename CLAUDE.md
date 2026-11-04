@@ -69,6 +69,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - **Rust 重写（进行中，2026-11-04 起）**。决定在 `docs/adr/`：0001（Mac app + Rust 核心）、0002（第 1 期契约：crate / 模块对照、schema v8、哪些已实现）、0003（扩展：第 1 期只有 probe）。第 0 期的试验和结论在 `spikes/`（编辑器 markdown 往返、Rust 驱动 kernel、本地意图模型 Qwen3.5-4B + KV 缓存）。设计：Arboria 设计系统 https://claude.ai/artifact/LeSPASKLSUE39HtVTiiGfk 、主界面画布 https://claude.ai/artifact/DGQD3R9dMC8s8ErYq5Rqd6 、编辑器原型 https://claude.ai/artifact/KNTafPRmEDfoQJZBQMwcWn 、方案 https://claude.ai/artifact/AbJrewmFfKDfNtoPotL2zm 。
   - 已合并：跨语言测试向量（`tests/vectors/`，59 个文件 1215 个用例）、Rust 工作区骨架（`crates/arboria-core`、`crates/arb` → `arb-rs`），真实实现的有 canonical、model、schema v8 + 迁移、db、records、human、probe 头部解析与结果校验；其余 `todo!()`，51 个向量测试 `#[ignore]` 等着接。
   - 已移植（分支 `rust-slurm-cards`）：slurm、cards（sha2 0.11.1）、config（`fail_patterns` 用 regex 1.13.1，编译不了的报错）、clusters（toml `preserve_order`）、paths、gitutil 的 git 调用；向量又接上 33 个文件，`tests/cards.rs` 拿审核单全文和 CPython 的输出逐字比，`tests/repo_config.rs` 测文件和真 git 仓库那一侧。
-  - 下一步按顺序移植（每接一个模块就去掉对应向量测试的 `#[ignore]`）：db 上的 records / tasks / ideas → snapshot（调 git 命令）→ backend：FakeSlurm、SshSlurm、monitor（sacct 解析、计费）→ submission（唯一提交点）→ CLI 接线和 `--json`。Python 版要小改一处：能只读打开 v8 账本。
+  - 又移植了（同一分支）：db 的备份仓库和 `dump`（照 CPython 3.13 `iterdump`）、snapshot、records、tasks（含 v8 agent 队列）、ideas（git 和账本一侧；notebook 留在 Python 一侧，见 ADR 0002）；`tests/records.rs`、`tasks.rs`、`ideas.rs` 用真 git 仓库。
+  - 下一步按顺序移植（每接一个模块就去掉对应向量测试的 `#[ignore]`）：backend：FakeSlurm、SshSlurm、monitor（sacct 解析、计费）→ submission（唯一提交点）→ CLI 接线和 `--json`。Python 版要小改一处：能只读打开 v8 账本。
   - 已修：Python 的校验正则原来用 `re.match(r"^…$")`，`$` 放过结尾换行（远程路径里的换行会进 sbatch 脚本）；现在一律 `fullmatch`，Rust 整串匹配，新的校验正则也要这样。
   - 省 token 的规矩（用户定的）：任务需要的并行 subagent 少于 5 个就不开 subagent，自己做。

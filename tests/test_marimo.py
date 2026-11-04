@@ -27,13 +27,25 @@ def _(lab):
 
 @app.cell
 def _(lab, r):
-    lab.svd(r, "对 attention 权重做 SVD，画前 20 个奇异值")
+    lab.svd(r, ask="对 attention 权重做 SVD，画前 20 个奇异值")
     return
 
 
 @app.cell
 def _(lab, r):
     lab.hello(r, "say hi")
+    return
+
+
+@app.cell
+def _(lab):
+    lab.commands()
+    return
+
+
+@app.cell
+def _(lab):
+    lab.hello
     return
 
 
@@ -92,6 +104,9 @@ def test_headless_run_resolves_idea_and_renders(idea: Path, initialized: Path, a
     # the existing command ran, with its provenance underneath
     assert "hello <strong>r001</strong> of exp1 (say hi)" in html
     assert re.search(r"命令 hello · v[0-9a-f]{8} · 项目", html)
+    # the command table and a command's help render as HTML
+    assert "arb-commands" in html and "plot(runs, key, *, log=False)" in html
+    assert "arb-help" in html and "lab.hello(run, note=None)" in html
     todos = arb(idea, "todo", "list").stdout
     assert "t001" in todos and "[command_new]" in todos
 

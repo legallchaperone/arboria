@@ -158,7 +158,7 @@ def test_names_are_validated() -> None:
         lab._private_thing  # noqa: B018
     with pytest.raises(AttributeError):
         lab.CamelCase  # noqa: B018
-    assert repr(lab.svd) == "lab.svd"
+    assert repr(lab.svd).startswith("lab.svd 还不存在")  # its help (test_builtins.py)
 
 
 def test_safe_repr() -> None:
@@ -310,11 +310,12 @@ def test_ctx_value_and_source(idea: Path, initialized: Path) -> None:
 
     FakeUI.__module__ = "marimo._plugins.ui._impl.input"
     assert lab.Ctx.value(FakeUI()) == 7 and lab.Ctx.value(3) == 3
-    rows = lab.commands()
+    rows = [r for r in lab.commands() if r["kind"] != "builtin"]
     assert [(r["name"], r["scope"]) for r in rows] == [("svd", "project")]
     # outside marimo: one readable line per command, not a truncated table
-    assert repr(rows) == f"svd  项目 · v{rows[0]['version']} · {rows[0]['description']}"
-    assert repr(lab.CommandList()).startswith("还没有命令")
+    last = repr(lab.commands()).splitlines()[-1]
+    assert last.startswith("项目  svd(run, note=None, *, k=20)")
+    assert f"v{rows[0]['version']}  {rows[0]['description']}" in last
 
 
 def test_revise_creates_command_revise_todo(idea: Path, initialized: Path, config_dir: Path) -> None:

@@ -752,14 +752,19 @@ def commands_list(as_json: JsonOpt = False) -> None:
     if as_json:
         _echo_json(rows)
         return
+    builtins = ("built-in (内置, signatures in lab.commands()): "
+                + ", ".join(commands_mod.BUILTINS))
     if not rows:
-        typer.echo("no commands yet (a notebook call lab.<name>(...) asks Claude to write one)")
+        typer.echo("no commands yet (a notebook call lab.<name>(..., ask=\"...\") asks Claude "
+                   f"to write one)\n{builtins}")
         return
+    width = min(max(len(r["signature"]) for r in rows), 48)
     for r in rows:
         mark = "" if r["active"] else "  (shadowed by the project's)"
         problem = f"  ⚠ {r['problem']}" if r["problem"] else ""
-        typer.echo(f"{r['name']:<20} {commands_mod.SCOPE_LABELS[r['scope']]:<3} v{r['version']}  "
-                   f"{r['description']}{mark}{problem}")
+        typer.echo(f"{r['signature']:<{width}}  {commands_mod.SCOPE_LABELS[r['scope']]}  "
+                   f"v{r['version']}  {r['description']}{mark}{problem}")
+    typer.echo(builtins)
 
 
 # ---------------------------------------------------------------- notes / status / export

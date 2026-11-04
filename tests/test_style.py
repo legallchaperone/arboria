@@ -1,5 +1,6 @@
-"""The Arboria typeface (Maple Mono CN): shipped in the package, embedded in the
-stylesheet next to every notebook and in the dashboard's, never in the backup repo."""
+"""The Arboria fonts (Noto Sans SC for prose, Maple Mono CN for code): shipped in the
+package, embedded in the stylesheet next to every notebook and in the dashboard's, never
+in the backup repo."""
 
 from __future__ import annotations
 
@@ -28,35 +29,48 @@ def _cells(source: str) -> list[str]:
             if isinstance(n, ast.FunctionDef)]
 
 
-# ---------------------------------------------------------------- the font
+# ---------------------------------------------------------------- the fonts
 
 
 def test_font_files_ship_in_the_package() -> None:
-    for name, _ in style.FONT_FILES:
+    for _, name, _ in style.FONT_FILES:
         data = (style.FONTS_DIR / name).read_bytes()
         assert data[:4] == b"wOF2" and len(data) > 3_000_000, name  # full CJK, not a subset
-    assert "SIL OPEN FONT LICENSE Version 1.1" in style.LICENSE_FILE.read_text()
+    for lic in style.LICENSE_FILES:
+        assert "SIL OPEN FONT LICENSE Version 1.1" in lic.read_text(), lic
+    assert "Reserved Font Name 'Source'" in style.LICENSE_FILES[0].read_text()
+    notice = style.NOTICE_FILE.read_text()
+    for name in ("Noto Sans SC 2.004", "Maple Mono CN v7.9", "OFL-NotoSansSC.txt",
+                 "OFL-MapleMono.txt"):
+        assert name in notice, name
     assert style.NOTEBOOK_CSS.is_file() and style.DASHBOARD_CSS.is_file()
 
 
-def test_font_face_embeds_both_weights_as_data_uris() -> None:
+def test_font_face_embeds_both_families_as_data_uris() -> None:
     css = REAL_FONT_FACE()
-    assert css.count("@font-face") == 2 and css.count('src: url("data:font/woff2;base64,') == 2
-    assert "font-weight: 400" in css and "font-weight: 700" in css
+    assert css.count("@font-face") == 3 and css.count('src: url("data:font/woff2;base64,') == 3
     assert css.count('font-family: "Maple Mono CN"') == 2
+    assert css.count('font-family: "Noto Sans SC"') == 1
+    assert "font-weight: 100 900" in css  # the variable Noto Sans SC: every weight
+    assert "font-weight: 400" in css and "font-weight: 700" in css
     assert "http" not in css  # nothing to fetch
 
 
-def test_stylesheets_use_the_font_with_fallbacks_and_cv01() -> None:
+def test_stylesheets_split_prose_and_code_with_fallbacks() -> None:
     for path in (style.NOTEBOOK_CSS, style.DASHBOARD_CSS):
         css = path.read_text()
+        assert '"Noto Sans SC", "PingFang SC"' in css and "sans-serif;" in css, path
         assert '"Maple Mono CN", ui-monospace' in css and "monospace;" in css, path
         assert '"calt" 1, "cv01" 1' in css and "cv65" not in css, path
         assert "url(" not in css and "@import" not in css, path
     nb = style.NOTEBOOK_CSS.read_text()
-    for var in ("--marimo-text-font", "--marimo-heading-font", "--marimo-monospace-font"):
-        assert f"{var}: var(--arboria-font)" in nb, var
-    assert ".cm-content" in nb  # the code editor gets the features too
+    for var, stack in (("--marimo-text-font", "sans"), ("--marimo-heading-font", "sans"),
+                       ("--font-sans", "sans"), ("--marimo-monospace-font", "mono")):
+        assert f"{var}: var(--arboria-{stack})" in nb, var
+    assert ".cm-content" in nb  # the code editor gets the code font and its features
+    dash = style.DASHBOARD_CSS.read_text()
+    assert "font-family: var(--arb-sans)" in dash and ".arb code.cmd" in dash
+    assert ".arb .kpi .v, .arb td.num" in dash  # numbers in the code font
 
 
 def test_ensure_writes_only_when_the_content_changes(tmp_path: Path) -> None:

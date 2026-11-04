@@ -1,0 +1,14 @@
+Fonts bundled with Arboria (used by the notebooks and the dashboard; see arboria/style.py).
+Both are under the SIL Open Font License 1.1; neither is modified other than being
+converted to WOFF2 with fontTools (every glyph and feature kept, no subsetting).
+
+MapleMono-CN-Regular.woff2, MapleMono-CN-Bold.woff2   (code)
+  Maple Mono CN v7.9, Copyright 2022 The Maple Mono Project Authors
+  https://github.com/subframe7536/maple-font/releases/download/v7.9/MapleMono-CN-unhinted.zip
+  License: OFL-MapleMono.txt
+
+NotoSansSC-VF.woff2   (prose, headings, interface text; variable weight 100-900)
+  Noto Sans SC 2.004 (Noto CJK release Sans2.004), Copyright 2014-2021 Adobe,
+  with Reserved Font Name 'Source'
+  https://raw.githubusercontent.com/notofonts/noto-cjk/Sans2.004/Sans/Variable/OTF/Subset/NotoSansSC-VF.otf
+  License: OFL-NotoSansSC.txt (https://github.com/notofonts/noto-cjk/blob/Sans2.004/LICENSE)

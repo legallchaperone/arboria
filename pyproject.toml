@@ -5,7 +5,7 @@ description = "AI-native ML research workflow: a local ledger of ideas, runs and
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT AND OFL-1.1"
-license-files = ["LICENSE", "src/arboria/ui/fonts/OFL.txt"]
+license-files = ["LICENSE", "src/arboria/ui/fonts/OFL-NotoSansSC.txt", "src/arboria/ui/fonts/OFL-MapleMono.txt"]
 authors = [{ name = "legallchaperone" }]
 keywords = [
     "machine-learning",

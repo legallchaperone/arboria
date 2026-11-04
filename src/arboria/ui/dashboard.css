@@ -1,10 +1,11 @@
 /* Arboria 看板: one stylesheet for the marimo app (App(css_file=...)) and for the
    standalone HTML of views.wrap/views.page (embedded there). Offline: nothing is fetched.
 
-   Typeface: Maple Mono CN, the same as in the notebooks. `arb ui` runs the app next to a
-   copy of this file that starts with the font itself (data: URIs) and notebook.css
+   Type, the same as in the notebooks: Noto Sans SC for text (--arb-sans); Maple Mono CN
+   for commands, ids and numbers (--arb-mono). `arb ui` runs the app next to a copy of
+   this file that starts with the fonts themselves (data: URIs) and notebook.css
    (arboria/style.py); this file loads nothing itself, so the standalone HTML and a
-   bare `marimo run dashboard.py` fall back to the system fonts of --arb-font.
+   bare `marimo run dashboard.py` fall back to the system fonts of the two stacks.
 
    Theme: light tokens by default; dark tokens when marimo puts its theme on <body>
    (class "dark" / data-theme="dark"), or, with no explicit light theme, when the
@@ -12,8 +13,10 @@
    app background, which follows the same tokens. */
 
 body {
-  --arb-font: "Maple Mono CN", ui-monospace, "SF Mono", Menlo, Consolas,
-    "Noto Sans Mono CJK SC", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", monospace;
+  --arb-sans: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", "Source Han Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --arb-mono: "Maple Mono CN", ui-monospace, "SF Mono", Menlo, Consolas,
+    "Noto Sans Mono CJK SC", monospace;
   --arb-bg: #f4f6f5;
   --arb-surface: #ffffff;
   --arb-sunken: #eef1f0;
@@ -110,8 +113,7 @@ body[data-theme] { --background: var(--arb-bg); }
   box-sizing: border-box;
 }
 .arb, .arb-page {
-  font-family: var(--arb-font);
-  font-feature-settings: "calt" 1, "cv01" 1;
+  font-family: var(--arb-sans);
   font-size: 14px; line-height: 1.55; color: var(--arb-ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -139,10 +141,13 @@ body[data-theme] { --background: var(--arb-bg); }
 .arb b { font-weight: 600; }
 .arb a { color: var(--arb-accent); text-decoration: none; }
 .arb a:hover { text-decoration: underline; text-underline-offset: 2px; }
-.arb code, .arb pre, .arb .mono {
-  font-family: var(--arb-font); font-size: 12px;
+/* code style: commands, ids, numbers (ligatures on; cv01: plain @ $ & % Q => ->) */
+.arb code, .arb pre, .arb .mono, .arb .id, .arb .proj, .arb .num, .arb .tnum, .arb .count,
+.arb .kpi .v, .arb td.num, .arb .runs .r, .arb svg .t-num {
+  font-family: var(--arb-mono); font-feature-settings: "calt" 1, "cv01" 1;
 }
-.arb .id { font-family: var(--arb-font); font-size: 13px;
+.arb code, .arb pre, .arb .mono { font-size: 12px; }
+.arb .id { font-size: 13px;
   font-weight: 600; color: var(--arb-ink); }
 
 /* ------------------------------------------------------------ cards */
@@ -171,7 +176,7 @@ body[data-theme] { --background: var(--arb-bg); }
 .arb .titlebar { display: flex; justify-content: space-between; align-items: flex-start;
   gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .arb .titlebar .meta { font-size: 12px; color: var(--arb-muted); margin-top: 2px; }
-.arb .proj { font-family: var(--arb-font); font-size: 12px;
+.arb .proj { font-size: 12px;
   font-weight: 500; color: var(--arb-muted); background: var(--arb-surface);
   border: 1px solid var(--arb-line); border-radius: 6px; padding: 1px 7px;
   vertical-align: 3px; margin-left: 6px; }

@@ -1,0 +1,21 @@
+---
+// A screenshot in a docs page: optimised responsive image, border, caption.
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+	src: ImageMetadata;
+	dark?: ImageMetadata;
+	alt: string;
+	caption?: string;
+}
+const { src, dark, alt, caption } = Astro.props;
+const widths = [640, 960, src.width].filter((w, i, a) => w <= src.width && a.indexOf(w) === i);
+const sizes = '(min-width: 72rem) 46rem, 94vw';
+---
+
+<figure class="arb-shot">
+	<Image src={src} widths={widths} sizes={sizes} alt={alt} class={dark ? 'arb-light-only' : undefined} />
+	{dark && <Image src={dark} widths={widths} sizes={sizes} alt="" class="arb-dark-only" />}
+	{caption && <figcaption>{caption}</figcaption>}
+</figure>

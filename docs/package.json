@@ -1,0 +1,21 @@
+{
+  "name": "arboria-site",
+  "private": true,
+  "type": "module",
+  "description": "Arboria 的项目主页和文档（Astro + Starlight），发布在 https://arboria.cwx.world",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "cli-ref": "cd .. && uv run python docs/scripts/gen_cli.py",
+    "cli-ref:check": "cd .. && uv run python docs/scripts/gen_cli.py --check"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.42.6",
+    "astro": "7.3.8",
+    "sharp": "0.35.5"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

@@ -1,0 +1,268 @@
+/* Arboria site theme: the dashboard's palette (cool green-grey neutrals, white
+   surfaces, indigo accent) on Starlight's custom properties. No web fonts. */
+
+:root {
+	/* dark (Starlight's default block) */
+	--sl-color-white: #f1f5f3;
+	--sl-color-gray-1: #e4ebe8;
+	--sl-color-gray-2: #c4cfcb;
+	--sl-color-gray-3: #9aa8a4;
+	--sl-color-gray-4: #6f7d79;
+	--sl-color-gray-5: #33403c;
+	--sl-color-gray-6: #1c2321;
+	--sl-color-black: #141917;
+
+	--sl-color-accent-low: #2a2c4a;
+	--sl-color-accent: #a3a8ee;
+	--sl-color-accent-high: #c9ccf6;
+
+	--sl-color-bg-nav: #171d1b;
+	--sl-color-bg-sidebar: #171d1b;
+	--sl-color-bg-inline-code: #232b29;
+	--sl-color-hairline: #29332f;
+	--sl-color-hairline-light: #29332f;
+	--sl-color-hairline-shade: #29332f;
+
+	--arb-surface: #1c2321;
+	--arb-sunken: #171d1b;
+	--arb-line: #33403c;
+	--arb-line-soft: #29332f;
+	--arb-ink: #e4ebe8;
+	--arb-muted: #9aa8a4;
+	--arb-faint: #6f7d79;
+	--arb-accent: #a3a8ee;
+	--arb-accent-soft: rgba(163, 168, 238, 0.12);
+	--arb-warn: #e3b25c;
+	--arb-warn-bg: rgba(227, 178, 92, 0.14);
+	--arb-ok: #6cc9a4;
+	--arb-ok-bg: rgba(108, 201, 164, 0.13);
+	--arb-bad: #ee8b88;
+	--arb-shot-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px -12px rgba(0, 0, 0, 0.5);
+
+	--sl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+		'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', Roboto,
+		'Helvetica Neue', Arial, sans-serif;
+	--sl-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+		monospace;
+
+	--sl-text-h1: 2rem;
+	--sl-text-h2: 1.5rem;
+	--sl-text-h3: 1.1875rem;
+	--sl-text-h4: 1.0625rem;
+	--sl-line-height: 1.8;
+	--sl-content-width: 46rem;
+}
+
+@media (min-width: 50em) {
+	:root {
+		--sl-text-h1: 2.25rem;
+		--sl-text-h2: 1.625rem;
+		--sl-text-h3: 1.25rem;
+		--sl-text-h4: 1.0625rem;
+	}
+}
+
+:root[data-theme='light'] {
+	--sl-color-white: #1d2523;
+	--sl-color-gray-1: #26302d;
+	--sl-color-gray-2: #3a4542;
+	--sl-color-gray-3: #5d6966;
+	--sl-color-gray-4: #8a9692;
+	--sl-color-gray-5: #d9dfdc;
+	--sl-color-gray-6: #eef1f0;
+	--sl-color-gray-7: #f4f6f5;
+	--sl-color-black: #ffffff;
+
+	--sl-color-accent-low: #e7e8f4;
+	--sl-color-accent: #4b4f8f;
+	--sl-color-accent-high: #34376b;
+
+	--sl-color-bg-nav: #f7f9f8;
+	--sl-color-bg-sidebar: #f7f9f8;
+	--sl-color-bg-inline-code: #eef1f0;
+	--sl-color-hairline: #e3e8e6;
+	--sl-color-hairline-light: #e7ecea;
+	--sl-color-hairline-shade: #e3e8e6;
+
+	--arb-surface: #ffffff;
+	--arb-sunken: #f4f6f5;
+	--arb-line: #d9dfdc;
+	--arb-line-soft: #e7ecea;
+	--arb-ink: #1d2523;
+	--arb-muted: #5d6966;
+	--arb-faint: #8a9692;
+	--arb-accent: #4b4f8f;
+	--arb-accent-soft: rgba(75, 79, 143, 0.08);
+	--arb-warn: #9a6200;
+	--arb-warn-bg: #fbf0d9;
+	--arb-ok: #1f7a5c;
+	--arb-ok-bg: #e2f2ec;
+	--arb-bad: #b4373b;
+	--arb-shot-shadow: 0 1px 2px rgba(29, 37, 35, 0.06), 0 14px 36px -16px rgba(29, 37, 35, 0.22);
+}
+
+/* ---------------------------------------------------------------- type */
+
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4 {
+	font-weight: 600;
+	letter-spacing: 0;
+}
+
+h1#_top {
+	font-weight: 600;
+}
+
+.sl-markdown-content h2 {
+	padding-top: 0.5rem;
+}
+
+.sl-markdown-content :not(pre) > code {
+	border-radius: 0.3rem;
+	padding: 0.1em 0.35em;
+	font-size: 0.875em;
+}
+
+.sl-markdown-content table {
+	font-size: var(--sl-text-sm);
+}
+
+.sl-markdown-content table code {
+	white-space: nowrap;
+}
+
+.sl-markdown-content th {
+	font-weight: 600;
+	color: var(--sl-color-gray-3);
+}
+
+.site-title {
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	gap: 0.5rem;
+}
+
+.site-title img {
+	height: 1.6rem;
+	width: auto;
+}
+
+/* asides: quieter than the default */
+.starlight-aside {
+	border-radius: 0.5rem;
+	border-inline-start-width: 3px;
+}
+
+/* expressive code frames: flat, hairline borders */
+.expressive-code .frame {
+	box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------------- small pieces */
+
+/* “只由你” tag (CLI reference and guides) */
+.arb-tag {
+	display: inline-block;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	font-weight: 600;
+	padding: 0 0.5rem;
+	border-radius: 999px;
+	background: var(--arb-warn-bg);
+	color: var(--arb-warn);
+	vertical-align: 0.1em;
+	white-space: nowrap;
+}
+
+/* screenshots inside docs pages */
+.arb-shot {
+	margin-block: 1.25rem;
+}
+
+.arb-shot img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--arb-line);
+	border-radius: 0.6rem;
+	box-shadow: var(--arb-shot-shadow);
+}
+
+.arb-shot figcaption {
+	margin-top: 0.5rem;
+	font-size: var(--sl-text-xs);
+	color: var(--sl-color-gray-3);
+}
+
+/* diagrams (inline SVG) */
+.arb-diagram {
+	margin-block: 1.25rem;
+	padding: 1rem;
+	border: 1px solid var(--arb-line-soft);
+	border-radius: 0.6rem;
+	background: var(--arb-sunken);
+	overflow-x: auto;
+}
+
+.arb-diagram svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	min-width: 34rem;
+}
+
+.arb-diagram figcaption {
+	margin-top: 0.5rem;
+	font-size: var(--sl-text-xs);
+	color: var(--sl-color-gray-3);
+}
+
+/* the theme picker shows light/dark screenshots */
+:root[data-theme='light'] .arb-dark-only,
+:root[data-theme='dark'] .arb-light-only {
+	display: none;
+}
+
+/* ---------------------------------------------------------------- calmer chrome */
+
+/* hero: the one-line tagline, then a quieter line */
+.hero .tagline .sub {
+	display: block;
+	margin-top: 0.75rem;
+	font-size: var(--sl-text-base);
+	line-height: 1.75;
+	color: var(--sl-color-gray-3);
+}
+
+/* the current page in the sidebar: tint, not a solid block */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+	background-color: var(--arb-accent-soft);
+	color: var(--arb-accent);
+	font-weight: 600;
+}
+
+/* asides in the dashboard's tints */
+.starlight-aside--note,
+.starlight-aside--tip {
+	--sl-color-asides-text-accent: var(--arb-accent);
+	--sl-color-asides-border: var(--arb-accent);
+	background-color: var(--arb-accent-soft);
+}
+.starlight-aside--caution {
+	--sl-color-asides-text-accent: var(--arb-warn);
+	--sl-color-asides-border: var(--arb-warn);
+	background-color: var(--arb-warn-bg);
+}
+.starlight-aside {
+	color: var(--sl-color-gray-2);
+}
+
+/* light screenshots sit a little quieter on a dark page */
+:root[data-theme='dark'] .arb-shot img:not(.arb-dark-only),
+:root[data-theme='dark'] .landing .shot img:not(.arb-dark-only) {
+	filter: brightness(0.9);
+}

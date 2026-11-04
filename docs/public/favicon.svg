@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    .m { stroke: #4b4f8f; } .d { fill: #4b4f8f; }
+    @media (prefers-color-scheme: dark) { .m { stroke: #a3a8ee; } .d { fill: #a3a8ee; } }
+  </style>
+  <g class="m" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M16 29.5V8"/>
+    <path d="M16 22.5c0-4.6 3.2-7.2 8.6-7.9"/>
+    <path d="M16 17c0-3.6-2.7-5.9-7.4-6.5"/>
+  </g>
+  <g class="d">
+    <circle cx="16" cy="6" r="3.2"/>
+    <circle cx="25.4" cy="14.4" r="2.8"/>
+    <circle cx="7.6" cy="10.3" r="2.8"/>
+  </g>
+</svg>

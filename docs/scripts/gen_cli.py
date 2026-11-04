@@ -39,9 +39,10 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
     ("提交、批准与集群", "`submit` 只在本地生成审核单；只有 `approve` 会把作业交给 Slurm。", [
         "submit", "card", "approve", "reject", "cancel", "poll", "watch", "logs", "remote ls",
     ]),
-    ("待办与 notebook 命令", "notebook 里 `lab.todo(...)` 和 `lab.<名字>(...)` 留下的活。", [
+    ("待办与 notebook 命令", "notebook 里 `lab.todo(...)`、`lab.<名字>(...)` 和 "
+     "`lab.inspect(...)` 留下的活。", [
         "todo list", "todo done", "todo drop", "commands list", "commands guide",
-        "commands promote",
+        "commands promote", "inspect guide", "inspect source", "inspect check", "inspect done",
     ]),
     ("看板", "", ["ui"]),
     ("机器", "机器配置在 `~/.config/arboria/clusters.toml`。", ["machine init", "doctor"]),

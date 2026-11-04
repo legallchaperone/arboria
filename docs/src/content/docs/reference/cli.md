@@ -49,6 +49,10 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb commands list`](#arb-commands-list) | Commands of this project and the global library (project wins on a clash). |
 | [`arb commands guide`](#arb-commands-guide) | The conventions for writing a notebook command (for the agent). |
 | [`arb commands promote`](#arb-commands-promote) | Copy a project command into the global library (~/.config/arboria/commands). |
+| [`arb inspect guide`](#arb-inspect-guide) | The conventions for answering a lab.inspect todo (for the agent). |
+| [`arb inspect source`](#arb-inspect-source) | The code a 读代码 todo is about, at its code\_ref (read from git; nothing is changed). |
+| [`arb inspect check`](#arb-inspect-check) | Validate an answer and print what the human will see; saves nothing. |
+| [`arb inspect done`](#arb-inspect-done) | Deliver the answer to a 读代码 todo: arb extracts the code, stores it, closes the todo. |
 | [`arb ui`](#arb-ui) | Open the read-only dashboard (看板). |
 | [`arb machine init`](#arb-machine-init) | Measure a Slurm machine over your ssh master (read-only) and print its profile. |
 | [`arb doctor`](#arb-doctor) | Read-only checks of a machine profile, the ssh setup and the cluster side. |
@@ -429,7 +433,7 @@ arb remote ls [OPTIONS] {run_id} [subpath]
 
 ## 待办与 notebook 命令
 
-notebook 里 `lab.todo(...)` 和 `lab.<名字>(...)` 留下的活。
+notebook 里 `lab.todo(...)`、`lab.<名字>(...)` 和 `lab.inspect(...)` 留下的活。
 
 ### arb todo list
 
@@ -502,6 +506,53 @@ arb commands promote [OPTIONS] {name}
 | --- | --- | --- |
 | `name` | The project command to copy. | 必填 |
 | `--force` | Replace a different global one. |  |
+
+### arb inspect guide
+
+The conventions for answering a lab.inspect todo (for the agent).
+
+```text
+arb inspect guide [OPTIONS]
+```
+
+### arb inspect source
+
+The code a 读代码 todo is about, at its code\_ref (read from git; nothing is changed).
+
+```text
+arb inspect source [OPTIONS] {task_id} [path]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `task_id` | Todo id, e.g. t007. | 必填 |
+| `path` | File to print with line numbers (omit to list the files). |  |
+
+### arb inspect check
+
+Validate an answer and print what the human will see; saves nothing.
+
+```text
+arb inspect check [OPTIONS] {task_id}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `task_id` | Todo id, e.g. t007. | 必填 |
+| `--file <str>` | The answer as JSON: a file, or - for stdin. | 必填 |
+
+### arb inspect done
+
+Deliver the answer to a 读代码 todo: arb extracts the code, stores it, closes the todo.
+
+```text
+arb inspect done [OPTIONS] {task_id}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `task_id` | Todo id, e.g. t007. | 必填 |
+| `--file <str>` | The answer as JSON: a file, or - for stdin. | 必填 |
 
 ## 看板
 

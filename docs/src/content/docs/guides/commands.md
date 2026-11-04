@@ -77,6 +77,10 @@ lab.commands()                    # 命令表
 
 命令行：`arb commands list [--json]`。它**不执行命令代码**，只用 `ast` 读文件（用法、版本、描述、被项目同名命令覆盖的、有问题的）。只有你 kernel 里的 `lab.<名字>(...)` 才会 import 并运行它。
 
+:::tip[讲代码]
+想看懂的是现成的代码而不是新的分析：用 [`lab.inspect`](/guides/inspect/)。agent 给出位置和批注，代码由 arb 从 git 里取。
+:::
+
 ## 两个范围
 
 | 范围 | 位置 | 说明 |

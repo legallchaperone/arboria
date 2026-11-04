@@ -51,6 +51,7 @@ export default defineConfig({
 						'guides/seeds',
 						'guides/notebook',
 						'guides/commands',
+						'guides/inspect',
 						'guides/submit',
 						'guides/monitor',
 						'guides/dashboard',

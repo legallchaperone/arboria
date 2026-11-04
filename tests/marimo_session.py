@@ -6,6 +6,9 @@ This drives marimo's own session machinery the way `marimo export html` does
 ImportError/TypeError from them exits 77 and the test is skipped rather than failed.
 
 usage: marimo_session.py NOTEBOOK COMMAND_FILE COMMAND_TEXT EXPECT [COMMAND_TEXT EXPECT ...]
+
+With COMMAND_FILE `--exec`, each COMMAND_TEXT is a JSON argv list that is run (in the
+notebook's folder) instead of written, e.g. `arb inspect done t001 --file answer.json`.
 """
 import asyncio, json, sys
 from pathlib import Path
@@ -73,8 +76,17 @@ async def main(nb: str, cmdfile: str, steps: list[tuple[str, str]], timeout: flo
             await asyncio.sleep(1.5)  # let the cell's watcher take its first look
             seen.clear()
             current[0] = expect
-            Path(cmdfile).parent.mkdir(parents=True, exist_ok=True)
-            Path(cmdfile).write_text(cmdtext)
+            if cmdfile == "--exec":  # without blocking the loop the session reports on
+                proc = await asyncio.create_subprocess_exec(
+                    *json.loads(cmdtext), cwd=Path(nb).parent, stdin=asyncio.subprocess.DEVNULL,
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                out, err = await asyncio.wait_for(proc.communicate(), timeout)
+                if proc.returncode != 0:
+                    print("EXEC-FAILED", out.decode(), err.decode())
+                    return 1
+            else:
+                Path(cmdfile).parent.mkdir(parents=True, exist_ok=True)
+                Path(cmdfile).write_text(cmdtext)
             await asyncio.wait_for(seen.wait(), timeout)
             print("RERUN-OK", expect)
         return 0

@@ -37,6 +37,7 @@ lab.plot(["r001", "r002"], "val/loss")       # 画在一张图上，一个 run �
 lab.diff("r001", "r002")                     # 两个 run 哪里不同
 lab.spend()                                  # 各 idea 花了多少 SU / GPU 时；lab.spend(".") 逐个 run
 lab.commands()                               # 内置的和 Claude 写的所有命令
+lab.inspect("训练循环")                        # 请 agent 讲代码；view="pseudo" / "simple" / "map"，见“读代码”
 lab.todo("把 eval 改成每 500 步一次")          # 给 agent 留待办，显示成一行；lab.todos() 列出待办
 lab.fork("lr-warmup-cosine", from_=r, hypothesis="...", metric="...")   # 从 r 的快照分出新 idea
 lab.conf("prelim")      # 改置信度；lab.metric("...") 改指标

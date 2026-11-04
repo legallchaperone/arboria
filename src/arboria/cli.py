@@ -14,6 +14,7 @@ import typer.core
 from . import claudemd, human, slurm
 from . import commands as commands_mod
 from . import hook as hook_mod
+from . import inspection
 from . import ideas as ideas_mod
 from . import install as install_mod
 from . import lessons as lessons_mod
@@ -70,6 +71,9 @@ app.add_typer(todo_app, name="todo")
 commands_app = typer.Typer(help="Notebook commands (written by the agent, called as lab.<name>(...)).",
                            no_args_is_help=True)
 app.add_typer(commands_app, name="commands")
+inspect_app = typer.Typer(help="读代码 todos from lab.inspect(...): the agent gives locations and "
+                          "notes, arb extracts the code from git.", no_args_is_help=True)
+app.add_typer(inspect_app, name="inspect")
 seed_app = typer.Typer(help="Alias of the seed side of `arb idea` (works from any directory): "
                        "seeds (种子) are ideas without a repo yet, kept in ~/arboria "
                        "(or $ARBORIA_HOME).",
@@ -1021,6 +1025,82 @@ def commands_promote(
                f"项目里的 {name} 仍然优先；别的项目和种子里 lab.{name}(...) 用全局的这份。")
 
 
+# ---------------------------------------------------------------- lab.inspect (读代码)
+
+
+def _answer(file: str) -> Any:
+    if file == "-":
+        text = sys.stdin.read()
+    else:
+        try:
+            text = Path(file).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ArbError(f"cannot read {file}: {exc}") from exc
+    return inspection.load_answer(text)
+
+
+FileOpt = Annotated[str, typer.Option("--file", help="The answer as JSON: a file, or - for stdin.")]
+
+
+@inspect_app.command("guide")
+def inspect_guide() -> None:
+    """The conventions for answering a lab.inspect todo (for the agent)."""
+    typer.echo(inspection.guide(), nl=False)
+
+
+@inspect_app.command("source")
+@handle_errors
+def inspect_source(
+    task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t007.")],
+    path: Annotated[Optional[str], typer.Argument(help="File to print with line numbers (omit to list the files).")] = None,
+) -> None:
+    """The code a 读代码 todo is about, at its code_ref (read from git; nothing is changed)."""
+    ctx, ledger = _open()
+    with ledger:
+        task = inspection.open_inspect_task(ledger, task_id)
+    commit = tasks_mod.payload(task)["code_ref"]
+    if path is None:
+        for f in inspection.list_files(ctx.main, commit):
+            typer.echo(f)
+        return
+    lines = inspection.blob_lines(ctx.main, commit, path)
+    width = len(str(len(lines)))
+    typer.echo(f"# {path} @ {inspection.short(commit)} ({len(lines)} lines)")
+    for i, line in enumerate(lines, 1):
+        typer.echo(f"{i:>{width}}  {line}")
+
+
+@inspect_app.command("check")
+@handle_errors
+def inspect_check(
+    task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t007.")],
+    file: FileOpt,
+) -> None:
+    """Validate an answer and print what the human will see; saves nothing."""
+    ctx, ledger = _open()
+    with ledger:
+        task = inspection.open_inspect_task(ledger, task_id)
+    result = inspection.validate_result(ctx.main, task, _answer(file))
+    typer.echo(inspection.to_text(None, result))
+    typer.echo(f"\nok: valid for {task_id} (nothing saved; deliver with "
+               f"`arb inspect done {task_id} --file …`)")
+
+
+@inspect_app.command("done")
+@handle_errors
+def inspect_done(
+    task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t007.")],
+    file: FileOpt,
+) -> None:
+    """Deliver the answer to a 读代码 todo: arb extracts the code, stores it, closes the todo."""
+    ctx, ledger = _open()
+    with ledger:
+        result = inspection.deliver(ledger, ctx.main, task_id, _answer(file))
+    lines = sum(len(s["lines"]) for s in result["spans"])
+    typer.echo(f"done {task_id}: {result['title']} ({len(result['spans'])} spans, {lines} lines "
+               f"@ {inspection.short(result['code_ref'])}); the notebook cell re-runs by itself")
+
+
 # ---------------------------------------------------------------- notes / status / export
 
 
@@ -1271,7 +1351,7 @@ def claudemd_sync(
 HELP_PANELS: dict[str, list[str]] = {
     "你做的": ["idea", "submit", "card", "approve", "reject", "note", "status", "ui"],
     "集群": ["watch", "poll", "cancel", "logs", "remote", "machine", "doctor"],
-    "agent 做的": ["todo", "commands", "run", "lesson"],
+    "agent 做的": ["todo", "commands", "inspect", "run", "lesson"],
     "安装与内部": ["init", "install-claude", "hook", "claudemd", "export"],
 }
 

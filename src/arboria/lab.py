@@ -1094,11 +1094,19 @@ def _watch_loop(name: str, state_dir: Path | None, seen: tuple[str, str] | None,
     """Poll until what `lab.<name>` resolves to differs from `seen` and has stayed the same
     for one more interval (so a half-written file is not picked up), then `rerun()`.
     Returns True if it re-ran."""
+    return _poll_loop(lambda: _commands.fingerprint(name, state_dir), seen, rerun,
+                      should_exit, interval)
+
+
+def _poll_loop(probe: Callable[[], Any], seen: Any, rerun: Callable[[], None],
+               should_exit: Callable[[], bool], interval: float = POLL_S) -> bool:
+    """Poll `probe()` until it differs from `seen` and has stayed the same for one more
+    interval, then `rerun()`. Returns True if it re-ran."""
     pending = None
     while not should_exit():
         _time.sleep(interval)
         try:
-            now = _commands.fingerprint(name, state_dir)
+            now = probe()
         except Exception:
             continue
         if now == seen:
@@ -1120,6 +1128,11 @@ def _watch_loop(name: str, state_dir: Path | None, seen: tuple[str, str] | None,
 def _watch(name: str, state_dir: Path | None, seen: tuple[str, str] | None) -> bool:
     """Re-run the calling cell when the command file is created or changed (marimo only).
     The watcher is a `mo.Thread`, so marimo stops it when the cell re-runs or is deleted."""
+    return _watch_probe(lambda: _commands.fingerprint(name, state_dir), seen)
+
+
+def _watch_probe(probe: Callable[[], Any], seen: Any) -> bool:
+    """Re-run the calling cell once `probe()` no longer returns `seen` (marimo only)."""
     rerun = _cell_rerunner()
     if rerun is None:
         return False
@@ -1128,7 +1141,7 @@ def _watch(name: str, state_dir: Path | None, seen: tuple[str, str] | None) -> b
 
         def target() -> None:
             me = mo.current_thread()
-            _watch_loop(name, state_dir, seen, rerun, lambda: me.should_exit)
+            _poll_loop(probe, seen, rerun, lambda: me.should_exit)
 
         mo.Thread(target=target, daemon=True).start()
         return True
@@ -1140,15 +1153,16 @@ def _arg_repr(value: Any) -> str | None:
     return f"Run({value.id!r})" if isinstance(value, Run) else None
 
 
-def _push(t: Target | SeedTarget, owner: dict[str, Any], task: dict[str, Any]) -> bool:
+def _push(t: Target | SeedTarget, owner: dict[str, Any], task: dict[str, Any],
+          text: Callable[[dict[str, Any]], str] | None = None) -> bool:
     """To the Claude Code session of the idea's worktree, or of the home for a seed."""
+    text = text or _commands.push_text
     try:
         if isinstance(t, SeedTarget):
-            return sessions.notify(t.state_dir, t.home.root, _commands.push_text(task))
+            return sessions.notify(t.state_dir, t.home.root, text(task))
         if not project_config(t.ctx).claude.push:
             return False
-        return sessions.notify(t.ctx.state_dir, owner["worktree_path"],
-                               _commands.push_text(task))
+        return sessions.notify(t.ctx.state_dir, owner["worktree_path"], text(task))
     except Exception:
         return False
 
@@ -1231,6 +1245,150 @@ def _invoke(name: str, args: tuple, kwargs: dict[str, Any]) -> Any:
     finally:
         _log_call(t, found, ok, _time.monotonic() - started)
     return Result(value, found) if _in_marimo_notebook() else value
+
+
+# ---------------------------------------------------------------- inspect (读代码)
+#
+# `lab.inspect("训练循环", view="code")`: the agent explains code, the answer shows up here
+# and is cached in the ledger (inspection.py). The first call is a todo for the agent (and,
+# best effort, a message into the session, like a command todo); the cell re-runs by itself
+# when the answer is delivered (`arb inspect done`).
+
+
+def _task_status(state_dir: Path, task_id: str) -> str | None:
+    """A todo's status, read-only (the watcher polls this)."""
+    import sqlite3
+
+    uri = f"file:{Path(state_dir) / 'ledger.db'}?mode=ro"
+    con = sqlite3.connect(uri, uri=True, timeout=2.0)
+    try:
+        row = con.execute("SELECT status FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        return row[0] if row else None
+    finally:
+        con.close()
+
+
+class Inspection:
+    """What `lab.inspect` returns: the agent's answer (code excerpts with notes, pseudocode,
+    simplified code or a diagram), or where the request stands. `.refresh()` asks again
+    when the code has changed since; `.result` is the stored answer (a dict) or None."""
+
+    def __init__(self, state: Any, run: str | None, *, pushed: bool = False,
+                 watching: bool = False):
+        self._state = state
+        self._run = run
+        self.pushed, self.watching = pushed, watching
+
+    @property
+    def question(self) -> str:
+        return self._state.question
+
+    @property
+    def view(self) -> str:
+        return self._state.view
+
+    @property
+    def status(self) -> str:
+        """fresh | stale | pending | dropped"""
+        return self._state.status
+
+    @property
+    def task_id(self) -> str | None:
+        todo = self._state.todo
+        return todo["id"] if todo else None
+
+    @property
+    def result(self) -> dict[str, Any] | None:
+        answer = self._state.answer
+        return answer["result"] if answer else None
+
+    def refresh(self) -> "Inspection":
+        """Ask the agent again, for the code as it is now (only when it has changed since
+        the answer, or the last request was dropped)."""
+        return inspect(self.question, view=self.view, run=self._run, refresh=True)
+
+    def _note(self) -> str:
+        if self.status != "pending":
+            return ""
+        note = "交付后这个 cell 会自动重跑。" if self.watching else "交付后重新运行这个 cell。"
+        if self._state.created and not self.pushed:
+            note += "没能通知 agent 会话：在会话里说“处理待办”即可。"
+        return note
+
+    def _head(self) -> str:
+        from . import inspection as _insp
+
+        head = _insp.head_html(self._state)
+        note = self._note()
+        if note:
+            head += f'<div style="{MUTED};font-size:.85em">{_esc(note)}</div>'
+        return head
+
+    def _repr_html_(self) -> str:
+        from . import inspection as _insp
+
+        inner = self._head()
+        if self.result is not None:
+            inner += _insp.body_html(self.result)[0]
+        return _insp.wrap(inner)
+
+    def _display_(self) -> Any:
+        """In marimo a map is drawn with `mo.mermaid` (bundled with marimo, works offline)."""
+        from . import inspection as _insp
+
+        mo = sys.modules["marimo"]
+        result = self.result
+        if result is None or result["view"] != "map":
+            return mo.Html(self._repr_html_())
+        before, after = _insp.body_html(result, mermaid_inline=False)
+        return mo.vstack([mo.Html(_insp.wrap(self._head() + before)),
+                          mo.mermaid(result["mermaid"]), mo.Html(_insp.wrap(after))], gap=0.25)
+
+    def __str__(self) -> str:
+        from . import inspection as _insp
+
+        lines = _insp.to_text(self._state).split("\n")
+        note = self._note()
+        if note:  # pending: right after the status line
+            lines[1] += note
+        return "\n".join(lines)
+
+    __repr__ = __str__
+
+
+def inspect(question: str, *, view: str = "code", run: str | Run | None = None,
+            refresh: bool = False) -> Inspection:
+    """Ask the agent to explain code; the answer shows up here and is cached.
+
+    view: "code" (the core source excerpts, with the agent's notes; the code itself is
+    extracted by arb from git, exactly the repo's), "pseudo" (pseudocode), "simple"
+    (simplified code: logging, distributed and boilerplate left out), "map" (an
+    architecture diagram, Mermaid). `run="r003"` asks about that run's code snapshot
+    instead of the idea's current code (the worktree as it is, uncommitted files
+    included). The first call leaves a todo for the agent; the cell re-runs by itself
+    when the answer arrives. When the code changes later the old answer stays, marked;
+    `refresh=True` (or `.refresh()`) asks again."""
+    from . import inspection as _insp
+    from .human import in_claude_code
+
+    t = resolve()
+    if isinstance(t, SeedTarget):
+        raise ArbError("lab.inspect 读的是仓库里的代码，种子还没有仓库。" + str(_seed_error(t)))
+    run_id = run.id if isinstance(run, Run) else run
+    t, ledger, idea = _open(t)
+    agent_session = in_claude_code()
+    with ledger:
+        state = _insp.ask(ledger, idea, question, view, run_id, refresh=refresh,
+                          create=not agent_session)
+    if state.answer is None and state.todo is None:  # it would have created a todo
+        raise ArbError(HUMAN_ONLY.format(what="请 agent 读代码（lab.inspect）"))
+    pushed = watching = False
+    if state.status == "pending":
+        task_id = state.todo["id"]
+        watching = _watch_probe(lambda: _task_status(t.state_dir, task_id), "open")
+        if state.created:
+            pushed = _push(t, idea, state.todo, _insp.push_text)
+    return Inspection(state, run_id, pushed=pushed, watching=watching)
 
 
 NO_COMMAND_YET = ("lab.{name} 还不存在：调用 lab.{name}(..., ask=\"想要什么\")，"

@@ -295,15 +295,20 @@ def _lesson_item(lesson: dict[str, Any]) -> str:
 
 
 def todo_kind(todo: dict[str, Any]) -> str:
-    """'' for a plain todo; `写命令 svd` / `改命令 svd` for command todos."""
+    """'' for a plain todo; `写命令 svd` / `改命令 svd` for command todos; `读代码 · 架构图`
+    for an inspect todo."""
     kind = todo.get("kind") or "plain"
     if kind == "plain":
         return ""
     try:
-        name = json.loads(todo.get("payload_json") or "{}").get("name", "?")
+        data = json.loads(todo.get("payload_json") or "{}")
     except ValueError:
-        name = "?"
-    return ("改命令 " if kind == "command_revise" else "写命令 ") + str(name)
+        data = {}
+    if kind == "inspect":  # labels as in inspection.VIEW_LABELS (not imported: read-only UI)
+        view = {"code": "代码摘录", "pseudo": "伪代码", "simple": "简化代码",
+                "map": "架构图"}.get(data.get("view"), "?")
+        return f"读代码 · {view}"
+    return ("改命令 " if kind == "command_revise" else "写命令 ") + str(data.get("name", "?"))
 
 
 def _todo_item(board: Board, todo: dict[str, Any], with_idea: bool = True) -> str:

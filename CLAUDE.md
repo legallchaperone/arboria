@@ -48,7 +48,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - 已完成 notebook 命令：schema v5（`tasks.kind` ∈ plain/command_new/command_revise，`tasks.payload_json`）；`lab.<名字>(...)`（模块级 `__getattr__`）、`.revise`/`.source`/`.info`、`lab.commands()`、`arb commands list|guide`；缺命令时写待办（同名复用）并尽力推给会话（`[claude] push`）；项目命令随备份提交版本化。自动重跑：marimo 公开的响应式（`mo.state`、`mo.watch.file`、`mo.ui.refresh`）只重跑**引用了绑定到该对象的全局变量**的 cell，`lab.svd(r)` 这种 cell 碰不到，所以 `lab._cell_rerunner` 用私有接口（`ctx._kernel.graph.set_stale` + `_execute_stale_cells_callback`，对着 0.25.2 核对过，`test_marimo_private_api_still_there` 守着），拿不到就退回“重新运行这个 cell”的提示。另有 `lab.run(repeat=True)` / `arb submit --repeat`（nonce 进审核单哈希）和 `arb idea notebook`。
 
 - 已完成种子（分支 `seeds`）：schema v6（`seeds`、`plantings`；`tasks` 重建为 idea_id 或 seed_id 二选一）；`arb seed new/list/show/set/drop/plant`，任何目录可用、第一次用时建好种子园；种下的 idea notebook 开头“来自种子”并带折叠的“种子里的思路”（marimo `/// details`）；`lab` 认得种子 notebook（`SeedTarget`：run/fork/prune 报错指向 `arb seed plant`，todo/todos/metric 可用，只能用全局命令，`ctx.seed`）；种子园里的 hook / `arb status` / `arb todo`；`arb install-claude --home`；种子园看板 `arb ui --home`（仓库外默认），项目看板标题下有思考中的种子数。
-- 已完成小修（分支 `small-fixes`）：`arb seed revive NAME`（已放弃 → 思考中，`seed_revive` 事件触发备份，只由人；种子园看板“已放弃”里每个旁边是这条命令的文本）。
+- 已完成小修（分支 `small-fixes`）：`arb seed revive NAME`（已放弃 → 思考中，`seed_revive` 事件触发备份，只由人；种子园看板“已放弃”里每个旁边是这条命令的文本）；`lab.todo` 返回 `lab.Todo`（Mapping，`.id`/`.data`/`.existed`，显示成一行“已交给 Claude（t001）：…”），`lab.todos()` 返回 `lab.TodoList`（一行一个：id · 状态 · 文字 · 多久前），不再是 dict/DataFrame 的 JSON 树。
 
 ## 使用 arboria 的训练代码要遵守的约定
 1. 启动时把完整的解析后配置导出为 `$ARBORIA_OUT/config.yaml`（`poll` 拉回后存进 `runs.config_json`）。

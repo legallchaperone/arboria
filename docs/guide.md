@@ -106,7 +106,7 @@ lab.runs()              # 当前 idea 的 run 一览；lab.runs(raw=True) 是账
 lab.get("r001")         # 按 id 取一个 run 句柄
 r2.metrics(["val/loss"])                       # wandb 曲线（需要 wandb）
 lab.compare(["r001", "r002"], "val/loss")
-lab.todo("把 eval 改成每 500 步一次")          # 给 Claude 留待办；lab.todos() 列出待办
+lab.todo("把 eval 改成每 500 步一次")          # 给 Claude 留待办，显示成一行；lab.todos() 列出待办
 lab.fork("lr-warmup-cosine", from_=r, hypothesis="...", metric="...")   # 从 r 的快照分出新 idea
 lab.conf("prelim")      # 改置信度；lab.metric("...") 改指标
 lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
@@ -125,6 +125,7 @@ lab.prune("loss 不降")   # = arb idea close --drop，理由记成你的笔记
 ## 待办（todo）
 
 - 你在 notebook 里用 `lab.todo("...")` 写待办；SessionStart hook 会在当前 idea 的状态里列出未完成的待办（“来自 notebook 的待办：…”），Claude 据此干活。
+- **在 notebook 里怎么显示**：`lab.todo("...")` 显示成一行 `已交给 Claude（t001）：<待办>`；cell 重跑时找到了同一个未完成的待办就是 `已在待办里（t001）：<待办>`；已完成的是 `已完成（t001）：<待办> → <结果>`。`lab.todos(include_closed=False)` 是一行一个待办的简短列表：`t001 · 等 Claude · <待办> · 3 分钟前`（状态：等 Claude、已完成、已放弃；做完的后面跟 `→ <结果>`）。文字一律转义，太长的截短（悬停看全文）。返回值照旧能当行用：`t["id"]`、`t.id`、`t.text`、`t.status`、`t.result`、`t.data`（完整的 dict）、`t.existed`（是不是复用的）；`lab.todos()` 可以遍历、取下标，`.data` 是 dict 的列表（要 DataFrame 就 `pd.DataFrame(lab.todos().data)`）。
 - `arb todo list [--all] [--json]`：在 idea worktree 里列这个 idea 的待办，在主 worktree 里列所有 open idea 的。
 - `arb todo done tNNN --result "..."`：Claude 做完后写一句结果（≤600 字符）；`arb todo drop tNNN [--reason "..."]`：不做了。
 - `arb note` 只由你写（在 Claude Code 里会被拒绝）；Claude 的结论写进待办的 result 或 `arb run summary RUN "..."`。

@@ -22,6 +22,7 @@ and the "commands" section below): Claude writes the library, the human calls it
 
 from __future__ import annotations
 
+import collections.abc as _abc
 import json
 import os
 import sys
@@ -596,37 +597,202 @@ def compare(run_ids: Iterable[str | Run], key: str | Iterable[str]) -> Any:
 # ---------------------------------------------------------------- the human's records
 
 
-def todo(text: str) -> dict[str, Any]:
+TODO_STATUS = {"open": "等 Claude", "done": "已完成", "dropped": "已放弃"}
+TODO_CLIP = 160  # one line in the notebook; the full text is in the tooltip / `.text`
+
+
+def _todo_age(ts: str | None, now: Any) -> str:
+    from .ui.views import age
+
+    return age(ts, now)
+
+
+def _todo_kind(row: Mapping[str, Any]) -> str:
+    from .ui.views import todo_kind
+
+    return todo_kind(dict(row))
+
+
+def _md_escape(text: str) -> str:
+    """Escaped for marimo's Markdown: HTML first, then the inline Markdown marks."""
+    import html
+    import re
+
+    return re.sub(r"([\\`*_\[\]#|~])", r"\\\1", html.escape(text, quote=False))
+
+
+class Todo(_abc.Mapping):
+    """What `lab.todo` returns: the todo row, shown as one calm line.
+
+    It reads like the row it wraps (`t["id"]`, `t.get("status")`, `dict(t)`, `t.data`),
+    plus `t.id`, `t.text`, `t.status`, `t.result`; `t.existed` is True when the call found
+    the same open todo instead of writing a new one (the cell re-ran)."""
+
+    def __init__(self, row: Mapping[str, Any], *, existed: bool = False):
+        self.data: dict[str, Any] = dict(row)
+        self.existed = existed
+
+    def __getitem__(self, key: str) -> Any:
+        return self.data[key]
+
+    def __iter__(self) -> Any:
+        return iter(self.data)
+
+    def __len__(self) -> int:
+        return len(self.data)
+
+    @property
+    def id(self) -> str:
+        return self.data["id"]
+
+    @property
+    def text(self) -> str:
+        return self.data["text"]
+
+    @property
+    def status(self) -> str:
+        return self.data["status"]
+
+    @property
+    def result(self) -> str | None:
+        return self.data.get("result")
+
+    def lead(self) -> str:
+        if self.status == "done":
+            label = "已完成"
+        elif self.status == "dropped":
+            label = "已放弃"
+        else:
+            label = "已在待办里" if self.existed else "已交给 Claude"
+        return f"{label}（{self.id}）："
+
+    def _tail(self) -> str | None:
+        return self.result if self.status != "open" and self.result else None
+
+    def __str__(self) -> str:
+        tail = self._tail()
+        return self.lead() + _clip(self.text, TODO_CLIP) + (
+            f" → {_clip(tail, TODO_CLIP)}" if tail else "")
+
+    __repr__ = __str__
+
+    def _repr_html_(self) -> str:
+        tail = self._tail()
+        out = (f'<span style="{MUTED}">{_esc(self.lead())}</span>'
+               f'<span title="{_esc(self.text)}">{_esc(_clip(self.text, TODO_CLIP))}</span>')
+        if tail:
+            out += (f'<span style="{MUTED}"> → </span>'
+                    f'<span title="{_esc(tail)}">{_esc(_clip(tail, TODO_CLIP))}</span>')
+        return f'<div class="arb-todo" style="line-height:1.7">{out}</div>'
+
+    def _repr_markdown_(self) -> str:
+        return _md_escape(str(self))
+
+
+class TodoList(_abc.Sequence):
+    """What `lab.todos()` returns: the todos (each a `Todo`), oldest first, shown as a
+    compact list: id · 状态 · text · age. `.data` is the plain rows (for a DataFrame)."""
+
+    def __init__(self, rows: Iterable[Mapping[str, Any]], *, include_closed: bool = False):
+        from datetime import datetime, timezone
+
+        self.items = [Todo(r) for r in rows]
+        self.include_closed = include_closed
+        self.loaded_at = datetime.now(timezone.utc)
+
+    def __getitem__(self, i: Any) -> Any:
+        return self.items[i]
+
+    def __len__(self) -> int:
+        return len(self.items)
+
+    @property
+    def data(self) -> list[dict[str, Any]]:
+        return [t.data for t in self.items]
+
+    def empty_text(self) -> str:
+        return "没有待办" if self.include_closed else "没有未完成的待办"
+
+    def _cells(self, t: Todo) -> tuple[str, str, str, str]:
+        kind = _todo_kind(t)
+        text = (f"[{kind}] " if kind else "") + _clip(t.text, TODO_CLIP)
+        return (t.id, TODO_STATUS.get(t.status, t.status), text,
+                _todo_age(t.get("created_at"), self.loaded_at))
+
+    def __str__(self) -> str:
+        if not self.items:
+            return self.empty_text()
+        lines = []
+        for t in self.items:
+            tid, label, text, when = self._cells(t)
+            tail = t._tail()
+            text += f" → {_clip(tail, 80)}" if tail else ""
+            lines.append(f"{tid} · {label} · {text} · {when}")
+        return "\n".join(lines)
+
+    __repr__ = __str__
+
+    def _repr_html_(self) -> str:
+        if not self.items:
+            return f'<div class="arb-todos" style="{MUTED}">{_esc(self.empty_text())}</div>'
+        rows = []
+        for t in self.items:
+            tid, label, text, when = self._cells(t)
+            color = "#2f855a" if t.status == "done" else None
+            style = f' style="color:{color}"' if color else (
+                f' style="{MUTED}"' if t.status == "dropped" else "")
+            tail = t._tail()
+            rows.append(
+                f'<div><code style="{CODE}">{_esc(tid)}</code>'
+                f' · <span{style}>{_esc(label)}</span>'
+                f' · <span title="{_esc(t.text)}">{_esc(text)}</span>'
+                + (f'<span style="{MUTED}" title="{_esc(tail)}"> → {_esc(_clip(tail, 80))}</span>'
+                   if tail else "")
+                + f' · <span style="{MUTED}">{_esc(when)}</span></div>')
+        return '<div class="arb-todos" style="line-height:1.8">' + "".join(rows) + "</div>"
+
+    def _repr_markdown_(self) -> str:
+        if not self.items:
+            return self.empty_text()
+        return "\n".join(f"- {_md_escape(line)}" for line in str(self).splitlines())
+
+
+def todo(text: str) -> Todo:
     """Leave a todo for Claude on this idea (shown by the SessionStart hook).
 
     An open todo with the same text is returned instead of a duplicate: the cell
-    re-runs every time the notebook opens."""
+    re-runs every time the notebook opens. Shown as one line in the notebook."""
     _human_only("写待办")
     from .db import validate_text
 
     text = validate_text("todo", text)
     t = resolve()
     if isinstance(t, SeedTarget):  # a todo for a Claude Code session opened in the home
-        ledger, seed = _open_seed(t)
-        with ledger:
-            existing = tasks.open_plain_task(ledger, seed["id"], text, seed=True)
-            return existing if existing is not None else tasks.add(ledger, seed, text)
-    t, ledger, idea = _open(t)
+        ledger, owner = _open_seed(t)
+        seed = True
+    else:
+        t, ledger, owner = _open(t)
+        seed = False
     with ledger:
-        existing = tasks.open_plain_task(ledger, idea["id"], text)
-        return existing if existing is not None else tasks.add(ledger, idea, text)
+        existing = tasks.open_plain_task(ledger, owner["id"], text, seed=seed)
+        if existing is not None:
+            return Todo(existing, existed=True)
+        return Todo(tasks.add(ledger, owner, text))
 
 
-def todos(include_closed: bool = False) -> Any:
+def todos(include_closed: bool = False) -> TodoList:
+    """This idea's (or seed's) todos, oldest first: open ones, or all with include_closed."""
     t = resolve()
     if isinstance(t, SeedTarget):
         ledger, seed = _open_seed(t)
         with ledger:
-            return _table(tasks.list_tasks(ledger, seed_id=seed["id"],
-                                           include_closed=include_closed))
+            return TodoList(tasks.list_tasks(ledger, seed_id=seed["id"],
+                                             include_closed=include_closed),
+                            include_closed=include_closed)
     t, ledger, idea = _open(t)
     with ledger:
-        return _table(tasks.list_tasks(ledger, idea["id"], include_closed=include_closed))
+        return TodoList(tasks.list_tasks(ledger, idea["id"], include_closed=include_closed),
+                        include_closed=include_closed)
 
 
 def conf(level: str) -> dict[str, Any]:

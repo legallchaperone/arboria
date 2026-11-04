@@ -144,6 +144,22 @@ def _(mo):
     return
 
 
+@app.cell
+def _():
+    from arboria import lab as arb_lab
+
+    first = arb_lab.todo("找三篇 <相关> 论文")
+    first
+    return arb_lab, first
+
+
+@app.cell
+def _(arb_lab, first):
+    assert first.id == "t001"
+    arb_lab.todos()
+    return
+
+
 if __name__ == "__main__":'''
 
 
@@ -169,6 +185,9 @@ def test_seed_notebook_runs_headless(arb, tmp_path: Path, isolated_home: Path) -
     html = _decoded(out.read_text())
     assert "LoRA 的秩随层变化" in html and "更高的秩" in html
     assert "SEED=rank-schedule · 这是一个种子（rank-schedule），还没种进仓库" in html
+    # lab.todo / lab.todos(): calm lines, escaped, no JSON tree
+    assert "已交给 Claude（t001）：</span>" in html and "找三篇 &lt;相关&gt; 论文" in html
+    assert "<code" in html and "等 Claude" in html and "payload_json" not in html
 
 
 def test_planted_notebook_passes_marimo_check(arb, tmp_path: Path, isolated_home: Path,

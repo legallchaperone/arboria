@@ -30,9 +30,10 @@
 | `tasks` | `tasks` + v8 agent 队列 | **已实现**；队列最多 `MAX_ATTEMPTS` = 3 次（首次、`--resume` 一次、换大模型一次），之后 needs_human |
 | `commands` | `commands`（文件一侧） | 命令只在人的 kernel 里运行 |
 | `inspection` | `inspection`（账本、git、校验一侧） | 渲染归 app |
-| `report` / `hook` | 同名 | hook 不再记录会话 socket（ADR 0001） |
+| `report` / `hook` | 同名 | **已实现**；hook 不再记录会话 socket（ADR 0001），出错和 panic 写进 `hook.log`（panic hook 静音）。`tests/report.rs` 先让 CPython 报告一个 Python 写的 v7 账本，再让核心迁到 v8 后报告，status（完整 / brief）、export、hook 的 JSON 行逐字相同 |
 | `probe` | 新（ADR 0003） | **已实现**：文件头解析、结果校验、`set_probe_result`、`enabled_hash`；发现、启用、运行、宿主未实现 |
-| `lessons` / `claudemd` / `install` / `state` / `machine` / `ui` | 同名 | `ui` 以后由 app 取代 |
+| `lessons` / `claudemd` / `install` / `state` | 同名 | **已实现**；`install` 的规则是 Python 的加上 `arb probe enable`，写出的 settings 与 CPython 逐字节相同 |
+| `machine` / `ui` | 同名 | `ui` 以后由 app 取代 |
 
 不移植：`lab`、`notebooks`、`analysis`、`style`（留在 Python kernel 一侧或被 app 取代）、`sessions`（ADR 0001 删掉推送）。
 
@@ -46,7 +47,7 @@
 - 新表 `probe_results(machine, probe, at, input_hash, result_json, probe_hash)`：心跳类，不写事件、不触发备份；只有 `probe::set_probe_result` 写。
 - 新事件 kind：todo_queue、todo_needs_human、probe_enable、probe_disable（触发备份），todo_attempt（不触发）。
 
-Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且只读，看板不再要求恰好 v7。Python 绝不写 v8 账本。
+Python 版读 v8 账本（2026-11-04 已做）：`db.READ_ONLY_VERSIONS = (8,)`，`db.migrate` 遇到 8 原样返回，`Ledger` 对它开 `PRAGMA query_only`，`write()` 和 `backup()` 报错（`READ_ONLY_MESSAGE`：让人用 arb-rs 改）；看板接受 v7 和 v8，种子园的种子在 v8 从 ideas 里读（没有 branch 的行，planted 由 `plantings` 推出）。Python 绝不写 v8 账本。`tests/test_v8_read_only.py` 用 `tests/fixtures/migration_v8.sql`（就是 `schema::MIGRATION_V8`，`tests/schema.rs` 守着）把 Python 账本迁到 v8 再读。
 
 ## 测试
 - `crates/arboria-core/tests/schema.rs`：v1–v7 与 `tests/fixtures/migrations_v1_v7.sql`（由 `gen_fixtures.py` 从 Python 生成）逐字节一致；v7 的 `sqlite_master` 与 Python 账本一致；Python 生成的 v7 账本迁移到 v8 不丢行；v8 的 CHECK；锁、回滚、`BEGIN IMMEDIATE`、`data_version`；probe 的写入和启用哈希。
@@ -84,3 +85,6 @@ Python 版要读 v8 账本，需要一个小改动：`db.migrate` 接受 8 且�
 - `config.yaml` 存成 `{"_raw_yaml": 原文}`（超过 200 KiB 加 `_truncated`、`_bytes`），就是 Python 没装 PyYAML 时的行为（PyYAML 不是依赖）。要解析得加 YAML crate。
 - `submit` 先快照再进事务（Python 在锁里快照）；`--repeat` 的随机数读 `/dev/urandom` 4 字节。
 - `watch` 里 sqlite / 文件 / JSON 错误直接返回，其余错误照 Python 打成 `warning: …` 继续；NeedLogin 暂停那台机器。
+- `Error::is_arb`：Python 会当 `ArbError`（及其子类）接住的那些；sqlite / 文件 / JSON 错误不算（`init` 同步 CLAUDE.md 失败、lesson 之后的同步失败只警告，用的就是它）。
+- 签名改动（2026-11-04，state / claudemd / lessons / report / hook / install）：`claudemd::find_block` / `apply_block` 收发字节（区块外不是 UTF-8 也原样保留），`render_block` 返回 `Result`（行数上限），另有 `accepted_lessons`、`lesson_line`、`autocommit_enabled`、`commit_claudemd`、`render_home_block`、`SyncResult::{changed, messages}`；`lessons::propose` 返回 `(Lesson, DecisionId)`，`accept` 内部走 `accept_confirmed`（要 `human::Confirmed`，和 approve 一样），另有 `proposed_count`；`report` 另有 `status_parts`、`todo_lines`、`lesson_lines`、`jobs_line`、`clip`、`display_path`、`HOME_FOOTER`、`VIEW_LABELS`（`StatusData` 仍是 JSON：键和 Python 的行一样）；`hook::session_start` 不自己判断 TTY（CLI 在 stdin 是终端时传空 reader）；`install` 另有 `add_directories`、`remove_directories`、`default_add_dirs`、`LOCAL_EXCLUDE`、`LOCAL_COMMENT`；`canonical::python_pretty`（`json.dumps(indent=2)`）、`python_dumps`（不排序键）。serde_json 开了 `preserve_order`（`--json` 的键按列顺序；规范 JSON 仍显式排序）。
+- `arb-rs` 的输出逐字照 Python CLI：`crates/arb/tests/cli_parity.rs` 在两个新仓库和种子园里各跑同样六十来步（init、status、idea、种子、lesson、todo、install-claude、export、close、plant…），比 stdout、退出码和 `error:` 行（路径、项目 id、日期、提交哈希先归一）；需要 `.venv/bin/arb`，没有就跳过。故意的不同：多一条 `arb probe enable` deny 规则；`arb idea new` 不说 notebook（Rust 不写 notebook）。

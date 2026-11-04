@@ -6,8 +6,10 @@
 //! the rest is `todo!("port of arboria.<module>.<fn>")`. Real so far: [`canonical`],
 //! [`model`], [`schema`], [`db`] (with the backup repo), [`records`], [`snapshot`],
 //! [`gitutil`], [`tasks`], [`ideas`] (git and ledger side), [`slurm`], [`cards`],
-//! [`config`], [`clusters`], [`paths`], the terminal check in [`human`], the probe header /
-//! result validation and its ledger write in [`probe`], and [`backend::check_job_ids`].
+//! [`config`], [`clusters`], [`paths`], [`backend`], [`human`], [`submission`],
+//! [`monitor`], [`state`], [`claudemd`], [`lessons`], [`report`], [`hook`], [`install`],
+//! and in [`probe`] the header / result validation and its ledger write. Not yet:
+//! [`commands`], [`inspection`], [`machine`], [`ui`], the rest of [`probe`].
 //! `tests/vectors.rs` runs the Python test vectors against the real parts.
 //!
 //! Rules for porting a module: one module per agent; do not change another module's

@@ -7,7 +7,9 @@
 //!   ignore it);
 //! - the hidden `arb probe enable|run|check|guide` of ADR 0003.
 //!
-//! Every subcommand dispatches to one core function; most are still `todo!()`.
+//! Every subcommand dispatches to one core function and prints what the Python CLI prints
+//! (`tests/cli_parity.rs` runs both on the same steps); commands whose core module is not
+//! ported yet (commands, inspect, machine, doctor, ui, probe) still reach `todo!()`.
 //! Exit status: 0, or 1 with `error: <message>` on stderr (Python `handle_errors`);
 //! `arb hook session-start` always exits 0 silently.
 
@@ -715,13 +717,21 @@ fn emit<T: Serialize>(
     value: &T,
     text: impl FnOnce(&T) -> String,
 ) -> anyhow::Result<()> {
-    let out = if json {
-        serde_json::to_string_pretty(value)?
-    } else {
-        text(value)
-    };
+    let out = if json { pretty(value)? } else { text(value) };
     println!("{out}");
     Ok(())
+}
+
+/// Python `_echo_json`: `json.dumps(obj, indent=2, ensure_ascii=False)`.
+fn pretty<T: Serialize + ?Sized>(value: &T) -> anyhow::Result<String> {
+    Ok(arboria_core::canonical::python_pretty(
+        &serde_json::to_value(value)?,
+    ))
+}
+
+/// `由你批准：arb approve {run}` (Python `cli.APPROVE_LINE`).
+fn approve_line(run: &str) -> String {
+    format!("由你批准：arb approve {run}")
 }
 
 fn lesson_out(r: &arboria_core::lessons::LessonResult, verb: &str) {
@@ -770,13 +780,68 @@ fn read_file_arg(file: &str) -> anyhow::Result<String> {
 mod lines {
     use arboria_core::{ideas, lessons, tasks};
 
+    /// `_seed_line`.
     pub fn seed(s: &ideas::SeedView) -> String {
-        let _ = s;
-        todo!("port of arboria.cli._seed_line")
+        let date: String = s.last_edited.chars().take(10).collect();
+        let mut line = format!(
+            "{:<24} {:<4} {date}  {}",
+            s.idea.name.as_str(),
+            s.seed_status.label(),
+            s.idea.gist.as_deref().unwrap_or_default()
+        );
+        for p in &s.planted_to {
+            let repo = std::path::Path::new(&p.repo)
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            line.push_str(&format!("\n{:<25}→ {repo} · {}", "", p.idea));
+        }
+        line
     }
+    /// `_seed_show` (text).
+    pub fn seed_detail(s: &ideas::SeedView) -> String {
+        let mut out = vec![format!("{} · {}", s.idea.name, s.seed_status.label())];
+        for (label, value) in [
+            ("想法", &s.idea.gist),
+            ("假设", &s.idea.hypothesis),
+            ("指标", &s.idea.metric),
+        ] {
+            if let Some(v) = value.as_deref().filter(|v| !v.is_empty()) {
+                out.push(format!("{label}：{v}"));
+            }
+        }
+        out.push(format!("notebook：{}", s.notebook));
+        let created: String = s.idea.created_at.chars().take(10).collect();
+        let edited: String = s
+            .last_edited
+            .chars()
+            .take(16)
+            .collect::<String>()
+            .replace('T', " ");
+        out.push(format!("创建 {created} · 最近编辑 {edited}"));
+        for p in &s.planted_to {
+            let when: String = p.created_at.chars().take(10).collect();
+            out.push(format!("种在 {} · idea {}（{when}）", p.repo, p.idea));
+        }
+        out.join("\n")
+    }
+    /// `_todo_line`.
     pub fn todo(t: &tasks::TaskView) -> String {
-        let _ = t;
-        todo!("port of arboria.cli._todo_line")
+        let kind = match t.task.kind.as_str() {
+            "plain" => String::new(),
+            k => format!("[{k}] "),
+        };
+        let mut line = format!(
+            "{:<5} {:<7} {:<20} {kind}{}",
+            t.task.id.as_str(),
+            t.task.status.as_str(),
+            t.owner_name(),
+            t.task.text
+        );
+        if let Some(r) = t.task.result.as_deref().filter(|r| !r.is_empty()) {
+            line.push_str(&format!("\n      → {r}"));
+        }
+        line
     }
     /// `_lesson_line`.
     pub fn lesson(l: &arboria_core::model::Lesson) -> String {
@@ -805,9 +870,67 @@ mod lines {
             .map(|w| format!("{w}; then run `arb claudemd sync`"));
         (out.join("\n"), warning)
     }
-    pub fn idea(i: &ideas::IdeaSummary) -> String {
-        let _ = i;
-        todo!("port of arboria.cli.idea_list (text)")
+    /// One `arb idea list` line.
+    pub fn idea(r: &ideas::IdeaSummary) -> String {
+        let parent = match r.parent_name.as_deref() {
+            Some(p) if !p.is_empty() => format!(" (from {p})"),
+            _ => String::new(),
+        };
+        let hyp: String = r
+            .idea
+            .hypothesis
+            .as_deref()
+            .unwrap_or_default()
+            .chars()
+            .take(60)
+            .collect();
+        format!(
+            "{:<24} {:<7} {:<9} runs:{:<3} {hyp}{parent}",
+            r.idea.name.as_str(),
+            r.idea.status.as_str(),
+            r.idea.confidence.as_str(),
+            r.run_count
+        )
+    }
+    /// `arb idea show` (text).
+    pub fn idea_detail(i: &ideas::IdeaDetail) -> String {
+        let d = &i.idea;
+        let mut out = vec![
+            format!("{} · {} · {}", d.name, d.status, d.confidence),
+            format!("假设：{}", d.hypothesis.as_deref().unwrap_or("None")),
+            format!("指标：{}", d.metric.as_deref().unwrap_or("None")),
+        ];
+        if let Some(p) = i.parent_name.as_deref().filter(|p| !p.is_empty()) {
+            out.push(format!("来自：{p}"));
+        }
+        let folder = if d.status.as_str() == "open" {
+            format!(
+                " · 文件夹：{}",
+                d.worktree_path.as_deref().unwrap_or("None")
+            )
+        } else {
+            String::new()
+        };
+        out.push(format!(
+            "分支：{}{folder}",
+            d.branch.as_deref().unwrap_or("None")
+        ));
+        out.push(format!("notebook：{}", i.notebook));
+        let created: String = d.created_at.chars().take(10).collect();
+        let closed = match d.closed_at.as_deref().filter(|c| !c.is_empty()) {
+            Some(c) => format!(" · 结束 {}", c.chars().take(10).collect::<String>()),
+            None => String::new(),
+        };
+        out.push(format!("创建 {created}{closed}"));
+        for r in &i.runs {
+            let why: String = r.change_reason.chars().take(70).collect();
+            out.push(format!(
+                "  {:<5} {:<18} {why}",
+                r.id.as_str(),
+                r.status.as_str()
+            ));
+        }
+        out.join("\n")
     }
 }
 
@@ -843,43 +966,75 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                 block_id: None,
             };
             let s = submission::submit(&ctx, &mut ledger, &idea, args, &mut warn)?;
-            emit(json, &s, |s| {
-                let head = if s.existed {
-                    submission::EXISTS.replace("{run}", s.run.id.as_str()) + "\n"
-                } else {
-                    String::new()
-                };
-                head + &s.card.text()
-            })?;
+            if json {
+                let out = serde_json::json!({
+                    "run": &s, "card": &s.card, "card_text": s.card.text(), "existed": s.existed,
+                });
+                println!("{}", pretty(&out)?);
+                return Ok(0);
+            }
+            if s.existed {
+                println!("{}", submission::EXISTS.replace("{run}", s.run.id.as_str()));
+                if s.run.status != arboria_core::model::RunStatus::AwaitingApproval {
+                    println!("状态：{}", s.run.status);
+                    return Ok(0);
+                }
+            }
+            println!("{}", s.card.text());
+            println!("{}", approve_line(s.run.id.as_str()));
         }
         Cmd::Card { run_id } => {
             let (ctx, ledger) = open()?;
-            let (card, matches) = submission::card_for(&ctx, &ledger, &RunId::parse(&run_id)?)?;
-            emit(json, &card, |c| {
-                let stale = if matches {
-                    String::new()
-                } else {
-                    format!("\n{}", arboria_core::cards::CARD_CHANGED)
-                };
-                c.text() + &stale
-            })?;
+            let id = RunId::parse(&run_id)?;
+            let (card, matches) = submission::card_for(&ctx, &ledger, &id)?;
+            let status = records::get_run(&ledger, &id)?.status;
+            if json {
+                let mut out = serde_json::to_value(&card)?;
+                out["matches_submitted"] = matches.into();
+                out["status"] = status.as_str().into();
+                println!("{}", pretty(&out)?);
+                return Ok(0);
+            }
+            println!("{}", card.text());
+            if !matches {
+                println!("⚠ {}", arboria_core::cards::CARD_CHANGED);
+            } else if status == arboria_core::model::RunStatus::AwaitingApproval {
+                println!("{}", approve_line(&run_id));
+            } else {
+                println!("状态：{status}");
+            }
         }
         Cmd::Approve { run_id } => {
             let (ctx, mut ledger) = open()?;
             let r = submission::approve(&ctx, &mut ledger, &RunId::parse(&run_id)?, &mut |t| {
-                eprintln!("{t}")
+                println!("{t}")
             })?;
-            emit(json, &r, |r| format!("{} {}", r.run.id, r.run.status))?;
+            match &r.decision_id {
+                Some(d) => println!("approved {run_id} (decision {d})"),
+                None => println!("resuming approved {run_id}"),
+            }
+            for s in &r.submitted {
+                let adopted = if s.adopted {
+                    " (already on the cluster, adopted)"
+                } else {
+                    ""
+                };
+                println!("  s{}: job {}{adopted}", s.segment, s.job_id);
+            }
+            println!(
+                "{run_id} is {}; follow it with `arb poll {run_id}` or `arb watch`",
+                r.run.status
+            );
         }
         Cmd::Reject { run_id, reason } => {
             let (ctx, mut ledger) = open()?;
-            let run = submission::reject(
+            submission::reject(
                 &ctx,
                 &mut ledger,
                 &RunId::parse(&run_id)?,
                 reason.as_deref(),
             )?;
-            emit(json, &run, |r| format!("{} {}", r.id, r.status))?;
+            println!("rejected {run_id}");
         }
         Cmd::Note {
             text,
@@ -902,7 +1057,17 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         Cmd::Status { brief } => {
             if let Some(home) = ideas::home_of(None).filter(|h| h.initialized()) {
                 let ledger = db::Ledger::open(&home.state_dir())?;
-                println!("{}", report::home_status(&home, &ledger, brief)?);
+                if json {
+                    let out = serde_json::json!({
+                        "scope": "home",
+                        "home": home.root.display().to_string(),
+                        "seeds": ideas::list_seeds(&home, &ledger, true)?,
+                        "todos": tasks::list_tasks(&ledger, None, false)?,
+                    });
+                    println!("{}", pretty(&out)?);
+                } else {
+                    println!("{}", report::home_status(&home, &ledger, brief)?);
+                }
             } else {
                 let (ctx, ledger) = open()?;
                 let data = report::status_data(&ctx, &ledger)?;
@@ -923,6 +1088,12 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
             interval,
             window,
         } => {
+            if interval < 10 {
+                bail!("--interval must be at least 10 seconds");
+            }
+            if window.is_some_and(|w| w < 1) {
+                bail!("--window must be at least 1 minute");
+            }
             let (ctx, mut ledger) = open()?;
             let opts = monitor::WatchOptions {
                 once,
@@ -936,6 +1107,7 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         }
         Cmd::Poll { run_id } => {
             let (ctx, mut ledger) = open()?;
+            arboria_core::config::require_project_id(&ctx)?;
             let ids = match run_id {
                 Some(r) => vec![RunId::parse(&r)?],
                 None => monitor::active_runs(&ledger)?
@@ -948,23 +1120,39 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                 outcomes.push(monitor::poll_run(&ctx, &mut ledger, id, None)?);
             }
             emit(json, &outcomes, |o| {
-                o.iter()
-                    .map(|p| format!("{} {} → {}", p.run_id, p.previous, p.status))
-                    .collect::<Vec<_>>()
-                    .join("\n")
+                if o.is_empty() {
+                    return "no active runs".into();
+                }
+                let mut out = Vec::new();
+                for p in o {
+                    let was = if p.previous != p.status {
+                        format!(" (was {})", p.previous)
+                    } else {
+                        String::new()
+                    };
+                    out.push(format!("{}: {}{was}", p.run_id, p.status));
+                    out.extend(p.messages.iter().map(|m| format!("  {m}")));
+                }
+                out.join("\n")
             })?;
         }
         Cmd::Cancel { run_id } => {
             let (ctx, mut ledger) = open()?;
-            let (run, jobs) = monitor::cancel(&ctx, &mut ledger, &RunId::parse(&run_id)?)?;
-            println!("{} cancelled ({})", run.id, jobs.join(", "));
+            let (_, ids) = monitor::cancel(&ctx, &mut ledger, &RunId::parse(&run_id)?)?;
+            if ids.is_empty() {
+                println!("cancelled {run_id} (no live jobs)");
+            } else {
+                println!("cancelled {run_id} (scancel {})", ids.join(" "));
+            }
         }
         Cmd::Logs { run_id, segment, n } => {
             let (ctx, ledger) = open()?;
-            print!(
-                "{}",
-                monitor::logs(&ctx, &ledger, &RunId::parse(&run_id)?, segment, n)?
-            );
+            let text = monitor::logs(&ctx, &ledger, &RunId::parse(&run_id)?, segment, n)?;
+            if text.ends_with('\n') {
+                print!("{text}");
+            } else {
+                println!("{text}");
+            }
         }
         Cmd::Remote(RemoteCmd::Ls {
             run_id,
@@ -1091,13 +1279,8 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                     emit(json, &r, |r| r.run.id.to_string())?;
                 }
                 RunCmd::Summary { run_id, text } => {
-                    let run = records::set_run_summary(
-                        &mut ledger,
-                        &idea,
-                        &RunId::parse(&run_id)?,
-                        &text,
-                    )?;
-                    println!("summary set on {}", run.id);
+                    records::set_run_summary(&mut ledger, &idea, &RunId::parse(&run_id)?, &text)?;
+                    println!("summary saved for {run_id}");
                 }
             }
         }
@@ -1152,60 +1335,24 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                 println!("already initialized");
             } else {
                 println!("arboria ready: state in {}", ctx.state_dir().display());
-                println!("\n{}", state::NEXT_STEPS);
+                println!("{}", state::NEXT_STEPS);
             }
         }
-        Cmd::InstallClaude { main, user, home } => {
-            let (root, local, deny) = if home {
-                (paths::home_root(), false, install::home_deny_rules())
-            } else if user {
-                (
-                    std::env::var_os("HOME")
-                        .map(PathBuf::from)
-                        .context("HOME is not set")?,
-                    false,
-                    install::deny_rules(),
-                )
-            } else {
-                let ctx = paths::locate(None)?.require_initialized()?;
-                let root = if main {
-                    ctx.main.clone()
-                } else {
-                    ctx.toplevel.clone().unwrap_or(ctx.main.clone())
-                };
-                (root, true, install::deny_rules())
-            };
-            let (path, changes) = install::install(&root, None, local, &deny)?;
-            for c in &changes {
-                println!("{c}");
-            }
-            println!(
-                "{}: {}",
-                path.display(),
-                if changes.is_empty() {
-                    "up to date"
-                } else {
-                    "updated"
-                }
-            );
-        }
+        Cmd::InstallClaude { main, user, home } => install_claude(main, user, home)?,
         Cmd::Hook(HookCmd::SessionStart) => {
             // Never fails, never prints anything extra (see main.rs, which also catches panics).
-            return Ok(hook::session_start(
-                &mut std::io::stdin(),
-                &mut std::io::stdout(),
-            ));
+            let stdin = std::io::stdin();
+            let code = if std::io::IsTerminal::is_terminal(&stdin) {
+                hook::session_start(&mut std::io::empty(), &mut std::io::stdout())
+            } else {
+                hook::session_start(&mut stdin.lock(), &mut std::io::stdout())
+            };
+            return Ok(code);
         }
         Cmd::Claudemd(ClaudemdCmd::Sync { no_commit }) => {
             let (ctx, ledger) = open()?;
             let r = claudemd::sync(&ctx, &ledger, !no_commit)?;
-            emit(json, &r, |r| {
-                format!(
-                    "{}: {}",
-                    r.path.display(),
-                    r.action.as_deref().unwrap_or("unchanged")
-                )
-            })?;
+            emit(json, &r, |r| r.messages().join("\n"))?;
         }
         Cmd::Export { out } => {
             let (ctx, ledger) = open()?;
@@ -1226,11 +1373,89 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
     Ok(0)
 }
 
+/// `arb install-claude [--main|--user|--home]`.
+fn install_claude(main: bool, user: bool, home: bool) -> anyhow::Result<()> {
+    if u8::from(main) + u8::from(user) + u8::from(home) > 1 {
+        bail!("use only one of --main / --user / --home");
+    }
+    let report = |path: &Path, changes: &[String]| {
+        for c in changes {
+            println!("{c}");
+        }
+        if changes.is_empty() {
+            println!("{} already up to date", path.display());
+        } else {
+            println!("updated {}", path.display());
+        }
+    };
+    if home {
+        let h = ideas::ensure_home(&mut |m| eprintln!("{m}"))?;
+        let (path, changes) = install::install(&h.root, None, false, &install::home_deny_rules())?;
+        report(&path, &changes);
+        let r = claudemd::sync_home(&h.root)?;
+        if let Some(action) = &r.action {
+            println!("{action} arboria block in {}", r.path.display());
+        }
+        return Ok(());
+    }
+    let (root, ctx) = if user {
+        let root = std::env::home_dir().context("cannot find the home directory")?;
+        (root, paths::locate(None).ok()) // --user works outside any repository
+    } else {
+        let ctx = paths::locate(None)?;
+        let root = if main {
+            ctx.main.clone()
+        } else {
+            ctx.toplevel.clone().context("not inside a worktree")?
+        };
+        (root, Some(ctx))
+    };
+    let (path, mut changes) = install::install(&root, None, !user, &install::deny_rules())?;
+    if let Some(ctx) = ctx.as_ref().filter(|_| !user) {
+        // the local file is per machine: keep it out of git
+        if paths::ensure_excluded(
+            &ctx.common_dir,
+            install::LOCAL_EXCLUDE,
+            install::LOCAL_COMMENT,
+        )? {
+            changes.push(format!(
+                "added {} to {}",
+                install::LOCAL_EXCLUDE,
+                ctx.common_dir.join("info").join("exclude").display()
+            ));
+        }
+    }
+    if changes.is_empty() {
+        println!("{} already up to date", path.display());
+    } else {
+        report(&path, &changes);
+    }
+    sync_claudemd_after(ctx.as_ref(), true);
+    Ok(())
+}
+
+/// Sync CLAUDE.md as a follow-up step; a failure only warns (the main action succeeded).
+fn sync_claudemd_after(ctx: Option<&RepoContext>, quiet_if_unchanged: bool) {
+    let Some(ctx) = ctx.filter(|c| c.initialized()) else {
+        return;
+    };
+    let result = db::Ledger::open(&ctx.state_dir()).and_then(|l| claudemd::sync(ctx, &l, true));
+    match result {
+        Err(e) => warn(&format!("CLAUDE.md not updated: {e}")),
+        Ok(r) => {
+            if r.changed() || !quiet_if_unchanged {
+                for line in r.messages() {
+                    println!("{line}");
+                }
+            }
+        }
+    }
+}
+
 fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
-    let route = ideas::route(&cwd()?)?;
-    let (ctx, home) = match route {
-        ideas::Route::Repo(ctx) => (Some(ctx), None),
-        ideas::Route::Seeds(home) => (None, Some(home)),
+    let ctx = match ideas::route(&cwd()?)? {
+        ideas::Route::Repo(ctx) => Some(ctx),
+        ideas::Route::Seeds(_) => None,
     };
     let seed_only = |verb: &str, name: &str| -> anyhow::Result<()> {
         if ctx.is_some() {
@@ -1245,80 +1470,78 @@ fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
             hypothesis,
             metric,
             parent,
-        } => match (&ctx, &home) {
-            (Some(ctx), _) => {
-                if let Some(g) = gist {
-                    bail!(
-                        "unexpected argument {}: in a repo an idea takes --hypothesis and --metric (a one-line gist is for seeds, outside any repo)",
-                        records::py_repr(&g)
-                    );
-                }
-                let missing: Vec<&str> = [("--hypothesis", &hypothesis), ("--metric", &metric)]
-                    .into_iter()
-                    .filter(|(_, v)| v.is_none())
-                    .map(|(o, _)| o)
-                    .collect();
-                if !missing.is_empty() {
-                    bail!(
-                        "missing {}: an idea in a repo needs both",
-                        missing.join(" and ")
-                    );
-                }
-                let mut ledger = db::Ledger::open(&ctx.state_dir())?;
-                let name = idea_name(&name)?;
-                let parent = parent.as_deref().map(idea_name).transpose()?;
-                let new = ideas::NewIdea {
-                    hypothesis: hypothesis.as_deref().unwrap_or_default(),
-                    metric: metric.as_deref().unwrap_or_default(),
-                    parent: parent.as_ref(),
-                    ..Default::default()
-                };
-                let idea = ideas::new_idea(ctx, &mut ledger, &name, new, &mut warn)?;
-                emit(json, &idea, |i| i.worktree_path.clone().unwrap_or_default())?;
-            }
-            (None, _) => {
+        } => {
+            let Some(ctx) = &ctx else {
                 if parent.is_some() {
                     bail!("--parent is for ideas in a repo; a seed has no parent");
                 }
-                let shown = name.clone();
-                seed(
-                    SeedCmd::New {
-                        name,
-                        gist,
-                        hypothesis,
-                        metric,
-                    },
-                    json,
-                )?;
-                eprintln!(
-                    "{}",
-                    SEED_RECORDED
-                        .replace("{path}", "seeds/")
-                        .replace("{name}", &shown)
+                let fields = ideas::SeedFields {
+                    gist: gist.as_deref(),
+                    hypothesis: hypothesis.as_deref(),
+                    metric: metric.as_deref(),
+                };
+                let s = seed_new(&name, fields, &format!("arb idea new {name}"), json)?;
+                info(
+                    &SEED_RECORDED
+                        .replace("{path}", &report::display_path(Path::new(&s.notebook)))
+                        .replace("{name}", &name),
+                );
+                return Ok(());
+            };
+            if let Some(g) = gist {
+                bail!(
+                    "unexpected argument {}: in a repo an idea takes --hypothesis and --metric (a one-line gist is for seeds, outside any repo)",
+                    records::py_repr(&g)
                 );
             }
-        },
-        IdeaCmd::List { show_all } => match &ctx {
-            Some(ctx) => {
-                let ledger = db::Ledger::open(&ctx.state_dir())?;
-                let ideas = ideas::list_ideas(&ledger)?;
-                emit(json, &ideas, |is| {
-                    is.iter().map(lines::idea).collect::<Vec<_>>().join("\n")
-                })?;
+            let missing: Vec<&str> = [("--hypothesis", &hypothesis), ("--metric", &metric)]
+                .into_iter()
+                .filter(|(_, v)| v.is_none())
+                .map(|(o, _)| o)
+                .collect();
+            if !missing.is_empty() {
+                bail!(
+                    "missing {}: an idea in a repo needs both",
+                    missing.join(" and ")
+                );
             }
-            None => seed(SeedCmd::List { show_all }, json)?,
-        },
-        IdeaCmd::Show { name } => match (&ctx, name) {
-            (Some(ctx), name) => {
-                let ledger = db::Ledger::open(&ctx.state_dir())?;
-                let name = name.as_deref().map(idea_name).transpose()?;
-                let d = ideas::show_idea(ctx, &ledger, name.as_ref())?;
-                emit(json, &d, |d| format!("{}\n{}", d.idea.name, d.notebook))?;
-            }
-            (None, Some(name)) => seed(SeedCmd::Show { name }, json)?,
-            (None, None) => bail!("outside any repo, name the seed: arb idea show NAME"),
-        },
+            let mut ledger = db::Ledger::open(&ctx.state_dir())?;
+            let name = idea_name(&name)?;
+            let parent = parent.as_deref().map(idea_name).transpose()?;
+            let new = ideas::NewIdea {
+                hypothesis: hypothesis.as_deref().unwrap_or_default(),
+                metric: metric.as_deref().unwrap_or_default(),
+                parent: parent.as_ref(),
+                ..Default::default()
+            };
+            let idea = ideas::new_idea(ctx, &mut ledger, &name, new, &mut warn)?;
+            emit(json, &idea, |i| i.worktree_path.clone().unwrap_or_default())?;
+        }
+        IdeaCmd::List { show_all } => {
+            let Some(ctx) = &ctx else {
+                return seed(SeedCmd::List { show_all }, json);
+            };
+            let ledger = db::Ledger::open(&ctx.state_dir())?;
+            let ideas = ideas::list_ideas(&ledger)?;
+            emit(json, &ideas, |is| {
+                if is.is_empty() {
+                    return "no ideas yet".into();
+                }
+                is.iter().map(lines::idea).collect::<Vec<_>>().join("\n")
+            })?;
+        }
+        IdeaCmd::Show { name } => {
+            let Some(ctx) = &ctx else {
+                let name = name.context("which seed? pass its NAME (see `arb idea list`)")?;
+                return seed(SeedCmd::Show { name }, json);
+            };
+            let ledger = db::Ledger::open(&ctx.state_dir())?;
+            let name = name.as_deref().map(idea_name).transpose()?;
+            let d = ideas::show_idea(ctx, &ledger, name.as_ref())?;
+            emit(json, &d, lines::idea_detail)?;
+        }
         IdeaCmd::Set(a) => {
+            ideas::require_human_for_seeds(&format!("arb idea set {}", a.name), "改种子")?;
             seed_only("set", &a.name)?;
             seed(SeedCmd::Set(a), json)?;
         }
@@ -1326,44 +1549,61 @@ fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
             name,
             confidence: conf,
             allow_large,
-        } => match (&ctx, name) {
-            (Some(ctx), name) => close(
+        } => {
+            let Some(ctx) = &ctx else {
+                let shown = name.as_deref().unwrap_or("NAME");
+                ideas::require_human_for_seeds(&format!("arb idea drop {shown}"), "放弃一个种子")?;
+                let name = name.context("which seed? pass its NAME (see `arb idea list`)")?;
+                if conf.is_some() || allow_large {
+                    bail!("--confidence and --allow-large are for ideas in a repo, not seeds");
+                }
+                return seed(SeedCmd::Drop { name }, json);
+            };
+            close(
                 ctx,
                 name.as_deref(),
                 ideas::CloseMode::Drop,
                 conf.as_deref(),
                 allow_large,
                 json,
-            )?,
-            (None, Some(name)) => seed(SeedCmd::Drop { name }, json)?,
-            (None, None) => bail!("outside any repo, name the seed: arb idea drop NAME"),
-        },
+            )?;
+        }
         IdeaCmd::Revive { name } => {
+            ideas::require_human_for_seeds(
+                &format!("arb idea revive {name}"),
+                "恢复一个已放弃的种子",
+            )?;
             seed_only("revive", &name)?;
             seed(SeedCmd::Revive { name }, json)?;
         }
         IdeaCmd::Plant(a) => seed(SeedCmd::Plant(a), json)?,
         IdeaCmd::Notebook { name } => {
-            let ctx = ctx.context("arb idea notebook works in an arb-initialized repo")?;
-            let mut ledger = db::Ledger::open(&ctx.state_dir())?;
+            let (ctx, mut ledger) = open()?;
             let name = name.as_deref().map(idea_name).transpose()?;
             let (idea, path, created) =
                 ideas::ensure_notebook(&ctx, &mut ledger, name.as_ref(), &mut warn)?;
-            println!(
-                "{} {}: {}",
-                if created { "created" } else { "exists" },
-                idea.name,
-                path.display()
-            );
+            if created {
+                println!(
+                    "created {} (open it with `marimo edit {}`)",
+                    path.display(),
+                    path.display()
+                );
+            } else {
+                println!(
+                    "{} already has a notebook: {} (left as is)",
+                    idea.name,
+                    path.display()
+                );
+            }
         }
         IdeaCmd::Style => {
             ideas::require_human_for_seeds("arb idea style", "会改 notebook 文件")?;
-            let done = match (&ctx, &home) {
-                (Some(ctx), _) => {
+            let done = match &ctx {
+                Some(ctx) => {
                     let ledger = db::Ledger::open(&ctx.state_dir())?;
                     ideas::restyle(ctx, &ledger, &mut warn)?
                 }
-                (None, _) => ideas::restyle_seeds(&ideas::ensure_home(&mut |m| eprintln!("{m}"))?)?,
+                None => ideas::restyle_seeds(&ideas::ensure_home(&mut info)?)?,
             };
             if done.is_empty() {
                 println!("没有 notebook");
@@ -1388,11 +1628,14 @@ fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
             confidence: conf,
             allow_large,
         } => {
-            let ctx = ctx.context("arb idea close works in an arb-initialized repo")?;
-            let mode = match (merge, drop) {
-                (true, false) => ideas::CloseMode::Merge,
-                (false, true) => ideas::CloseMode::Drop,
-                _ => bail!("pass exactly one of --merge or --drop"),
+            if merge == drop {
+                bail!("choose exactly one of --merge or --drop");
+            }
+            let (ctx, _) = open()?;
+            let mode = if merge {
+                ideas::CloseMode::Merge
+            } else {
+                ideas::CloseMode::Drop
             };
             close(
                 &ctx,
@@ -1405,6 +1648,11 @@ fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+/// Python `_info`: a message for the human on stderr.
+fn info(msg: &str) {
+    eprintln!("{msg}");
 }
 
 fn close(
@@ -1426,15 +1674,66 @@ fn close(
         allow_large,
         &mut warn,
     )?;
-    emit(json, &closed, |c| {
-        format!("{} {}", c.idea.name, c.idea.stage)
-    })?;
-    eprintln!("{IDEA_CLOSE_HINT}");
+    if json {
+        println!("{}", pretty(&closed)?);
+        return Ok(());
+    }
+    let (i, c) = (&closed.idea, &closed.close);
+    let worktree = i.worktree_path.as_deref().unwrap_or_default();
+    match mode {
+        ideas::CloseMode::Merge => println!(
+            "merged {} into {}; removed {worktree}",
+            i.branch.as_deref().unwrap_or_default(),
+            c.merged_into.as_deref().unwrap_or_default()
+        ),
+        ideas::CloseMode::Drop => {
+            let commit: String = c
+                .final_commit
+                .as_deref()
+                .unwrap_or_default()
+                .chars()
+                .take(12)
+                .collect();
+            println!(
+                "dropped {}: final snapshot {commit} tagged {}; removed {worktree}",
+                i.name,
+                c.tag.as_deref().unwrap_or_default()
+            );
+        }
+    }
+    println!("{IDEA_CLOSE_HINT}");
     Ok(())
 }
 
+/// Python `_seed_new` (the human check included).
+fn seed_new(
+    name: &str,
+    fields: ideas::SeedFields<'_>,
+    command: &str,
+    json: bool,
+) -> anyhow::Result<ideas::SeedView> {
+    ideas::require_human_for_seeds(command, "写一个种子")?;
+    let home = ideas::ensure_home(&mut info)?;
+    let mut ledger = db::Ledger::open(&home.state_dir())?;
+    let s = ideas::new_seed(&home, &mut ledger, &seed_name(name)?, fields)?;
+    if json {
+        println!("{}", pretty(&s)?);
+    } else {
+        println!("{}", s.notebook);
+    }
+    if s.kept_existing_notebook {
+        warn(&format!("{} already existed; left as is", s.notebook));
+    }
+    if Path::new(&s.notebook).exists() {
+        info(&format!(
+            "打开：VS Code（marimo 扩展），或 marimo edit {}",
+            s.notebook
+        ));
+    }
+    Ok(s)
+}
+
 fn seed(cmd: SeedCmd, json: bool) -> anyhow::Result<()> {
-    let home = paths::home();
     match cmd {
         SeedCmd::New {
             name,
@@ -1442,55 +1741,80 @@ fn seed(cmd: SeedCmd, json: bool) -> anyhow::Result<()> {
             hypothesis,
             metric,
         } => {
-            ideas::require_human_for_seeds(&format!("arb idea new {name}"), "records a seed")?;
-            let home = ideas::ensure_home(&mut |m| eprintln!("{m}"))?;
-            let mut ledger = db::Ledger::open(&home.state_dir())?;
             let fields = ideas::SeedFields {
                 gist: gist.as_deref(),
                 hypothesis: hypothesis.as_deref(),
                 metric: metric.as_deref(),
             };
-            let s = ideas::new_seed(&home, &mut ledger, &seed_name(&name)?, fields)?;
-            emit(json, &s, |s| s.notebook.clone())?;
+            seed_new(&name, fields, &format!("arb seed new {name}"), json)?;
         }
         SeedCmd::List { show_all } => {
+            let home = ideas::ensure_home(&mut info)?;
             let ledger = db::Ledger::open(&home.state_dir())?;
             let seeds = ideas::list_seeds(&home, &ledger, show_all)?;
             emit(json, &seeds, |ss| {
+                if ss.is_empty() {
+                    return "no seeds yet (outside any repo: arb idea new NAME \"一句话想法\")"
+                        .into();
+                }
                 ss.iter().map(lines::seed).collect::<Vec<_>>().join("\n")
             })?;
         }
         SeedCmd::Show { name } => {
+            let home = ideas::ensure_home(&mut info)?;
             let ledger = db::Ledger::open(&home.state_dir())?;
             let s = ideas::show_seed(&home, &ledger, &seed_name(&name)?)?;
-            emit(json, &s, lines::seed)?;
+            emit(json, &s, lines::seed_detail)?;
         }
         SeedCmd::Set(a) => {
-            ideas::require_human_for_seeds(&format!("arb idea set {}", a.name), "changes a seed")?;
+            ideas::require_human_for_seeds(&format!("arb seed set {}", a.name), "改种子")?;
+            if a.gist.is_none() && a.hypothesis.is_none() && a.metric.is_none() {
+                bail!("nothing to change: pass --gist, --hypothesis and/or --metric");
+            }
+            let home = ideas::ensure_home(&mut info)?;
             let mut ledger = db::Ledger::open(&home.state_dir())?;
             let fields = ideas::SeedFields {
                 gist: a.gist.as_deref(),
                 hypothesis: a.hypothesis.as_deref(),
                 metric: a.metric.as_deref(),
             };
-            let s = ideas::set_seed_fields(&mut ledger, &seed_name(&a.name)?, fields)?;
-            println!("updated {}", s.name);
+            ideas::set_seed_fields(&mut ledger, &seed_name(&a.name)?, fields)?;
+            println!("updated {}", a.name);
         }
         SeedCmd::Drop { name } => {
-            ideas::require_human_for_seeds(&format!("arb idea drop {name}"), "drops a seed")?;
+            ideas::require_human_for_seeds(&format!("arb seed drop {name}"), "放弃一个种子")?;
+            let home = ideas::ensure_home(&mut info)?;
             let mut ledger = db::Ledger::open(&home.state_dir())?;
             let s = ideas::drop_seed(&mut ledger, &seed_name(&name)?)?;
-            emit(json, &s, |s| format!("dropped {}", s.name))?;
+            emit(json, &s, |_| {
+                format!(
+                    "dropped {name} (notebook kept: {})",
+                    home.notebook(&name).display()
+                )
+            })?;
         }
         SeedCmd::Revive { name } => {
-            ideas::require_human_for_seeds(&format!("arb idea revive {name}"), "revives a seed")?;
+            ideas::require_human_for_seeds(
+                &format!("arb seed revive {name}"),
+                "恢复一个已放弃的种子",
+            )?;
+            let home = ideas::ensure_home(&mut info)?;
             let mut ledger = db::Ledger::open(&home.state_dir())?;
-            let s = ideas::revive_seed(&mut ledger, &seed_name(&name)?)?;
-            println!("revived {}", s.name);
+            ideas::revive_seed(&mut ledger, &seed_name(&name)?)?;
+            println!(
+                "revived {name}: thinking again ({})",
+                home.notebook(&name).display()
+            );
         }
         SeedCmd::Plant(a) => {
-            ideas::require_human_for_seeds(&format!("arb idea plant {}", a.name), "plants a seed")?;
-            human::require_terminal(&format!("arb idea plant {}", a.name))?;
+            ideas::require_human_for_seeds(
+                &format!("arb idea plant {}", a.name),
+                "会建分支和 worktree",
+            )?;
+            let home = ideas::ensure_home(&mut info)?;
+            if a.repo.is_none() && home.contains(&cwd()?) {
+                bail!("which repo? run this inside the target repo, or pass --repo PATH");
+            }
             let target = paths::locate(a.repo.as_deref())?.require_initialized()?;
             let mut home_ledger = db::Ledger::open(&home.state_dir())?;
             let as_name = a.as_.as_deref().map(idea_name).transpose()?;
@@ -1509,6 +1833,12 @@ fn seed(cmd: SeedCmd, json: bool) -> anyhow::Result<()> {
                 &mut warn,
             )?;
             emit(json, &idea, |i| i.worktree_path.clone().unwrap_or_default())?;
+            info(&format!(
+                "planted {} as idea {} in {}",
+                a.name,
+                idea.name,
+                target.main.display()
+            ));
         }
     }
     Ok(())
@@ -1528,16 +1858,24 @@ fn todo_cmd(cmd: TodoCmd, json: bool) -> anyhow::Result<()> {
         TodoCmd::List { show_all } => {
             let ts = tasks::list_tasks(&ledger, owner, show_all)?;
             emit(json, &ts, |ts| {
+                if ts.is_empty() {
+                    return if show_all {
+                        "no todos"
+                    } else {
+                        "no open todos"
+                    }
+                    .into();
+                }
                 ts.iter().map(lines::todo).collect::<Vec<_>>().join("\n")
             })?;
         }
         TodoCmd::Done { task_id, result } => {
-            let t = tasks::done(&mut ledger, &TaskId::parse(&task_id)?, &result)?;
-            println!("{} done", t.task.id);
+            tasks::done(&mut ledger, &TaskId::parse(&task_id)?, &result)?;
+            println!("done {task_id}");
         }
         TodoCmd::Drop { task_id, reason } => {
-            let t = tasks::drop_task(&mut ledger, &TaskId::parse(&task_id)?, reason.as_deref())?;
-            println!("{} dropped", t.task.id);
+            tasks::drop_task(&mut ledger, &TaskId::parse(&task_id)?, reason.as_deref())?;
+            println!("dropped {task_id}");
         }
     }
     Ok(())

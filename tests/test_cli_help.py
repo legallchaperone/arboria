@@ -24,6 +24,8 @@ def test_help_shows_the_panels_in_order() -> None:
     out = CliRunner().invoke(cli.app, ["--help"], env={"COLUMNS": "120"}).stdout
     at = [out.index(f"─ {panel} ") for panel in cli.HELP_PANELS]
     assert at == sorted(at)
+    assert "─ Commands " not in out  # nothing left outside a panel
+    assert " seed " not in out  # seeds live under `arb idea`; `arb seed` is a hidden alias
 
 
 def test_run_new_is_hidden_but_still_there() -> None:

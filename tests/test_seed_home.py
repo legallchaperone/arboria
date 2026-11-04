@@ -62,7 +62,7 @@ def test_runs_and_ideas_refuse_with_a_pointer_to_plant(home: Home, arb, initiali
         with pytest.raises(ArbError) as exc:
             _in_cell(nb, code)
         assert str(exc.value) == ("这是一个种子（rank-schedule），还没种进仓库："
-                                  "先运行 arb seed plant rank-schedule --repo …"), code
+                                  "先在目标仓库里运行 arb idea plant rank-schedule"), code
     with pytest.raises(ArbError, match="种子没有置信度"):
         _in_cell(nb, 'lab.conf("prelim")')
     # once planted, the error says where the idea is
@@ -236,16 +236,21 @@ def test_install_claude_home(arb, tmp_path: Path, isolated_home: Path, repo: Pat
     assert deny == install.HOME_DENY_RULES
     for tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
         assert f"{tool}(**/seeds/**)" in deny and f"{tool}(**/.arboria/**)" in deny
+    # every seed write, under both spellings: in the home `arb idea new/drop` act on seeds
     for rule in ("Bash(arb approve:*)", "Bash(sbatch:*)", "Bash(arb seed plant:*)",
-                 "Bash(arb seed new:*)", "Bash(arb seed drop:*)", "Bash(arb seed revive:*)"):
+                 "Bash(arb seed new:*)", "Bash(arb seed set:*)", "Bash(arb seed drop:*)",
+                 "Bash(arb seed revive:*)", "Bash(arb idea new:*)", "Bash(arb idea set:*)",
+                 "Bash(arb idea drop:*)", "Bash(arb idea revive:*)", "Bash(arb idea plant:*)"):
         assert rule in deny
+    assert not any(r.startswith(("Bash(arb idea list", "Bash(arb idea show")) for r in deny)
     assert not any(r.startswith("Read(") for r in deny)  # reading seeds stays allowed
     gdir = Path(os.environ["ARBORIA_CONFIG_DIR"]) / "commands"
     assert settings["permissions"]["additionalDirectories"] == [str(gdir)]
     assert not (isolated_home / ".claude" / "settings.local.json").exists()
     md = (isolated_home / "CLAUDE.md").read_text()
     assert md.startswith("<!-- arboria:begin") and md.rstrip().endswith("<!-- arboria:end -->")
-    assert "## 种子园（Arboria）" in md and "绝不修改" in md and "arb seed plant" in md
+    assert "## 种子园（Arboria）" in md and "绝不修改" in md and "arb idea plant NAME" in md
+    assert "`arb idea new/set/drop/revive`" in md and "arb idea list" in md
     assert "经验（已确认）" not in md
     # idempotent; the user's own text around the block is kept
     (isolated_home / "CLAUDE.md").write_text("# 我的笔记\n\n" + md)

@@ -45,7 +45,9 @@ app = typer.Typer(
     add_completion=False,
     pretty_exceptions_enable=False,
 )
-idea_app = typer.Typer(help="Create, list and close research ideas.", no_args_is_help=True)
+idea_app = typer.Typer(help="Research ideas: in a repo, a branch + worktree each; outside any "
+                       "repo, seeds (ideas with no repo yet, in ~/arboria).",
+                       no_args_is_help=True)
 run_app = typer.Typer(help="Runs: the result summary of a finished run.", no_args_is_help=True)
 hook_app = typer.Typer(help="Claude Code hooks.", no_args_is_help=True)
 claudemd_app = typer.Typer(help="The arb-managed block in the main CLAUDE.md.", no_args_is_help=True)
@@ -68,10 +70,11 @@ app.add_typer(todo_app, name="todo")
 commands_app = typer.Typer(help="Notebook commands (written by Claude, called as lab.<name>(...)).",
                            no_args_is_help=True)
 app.add_typer(commands_app, name="commands")
-seed_app = typer.Typer(help="Seeds (种子): ideas without a repo yet, kept in the global home "
-                       "(~/arboria, or $ARBORIA_HOME); work from any directory.",
+seed_app = typer.Typer(help="Alias of the seed side of `arb idea` (works from any directory): "
+                       "seeds (种子) are ideas without a repo yet, kept in ~/arboria "
+                       "(or $ARBORIA_HOME).",
                        no_args_is_help=True)
-app.add_typer(seed_app, name="seed")
+app.add_typer(seed_app, name="seed", hidden=True)
 
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print machine-readable JSON.")]
 ConfidenceOpt = Annotated[
@@ -139,24 +142,199 @@ NEXT_STEPS = """
 
 
 # ---------------------------------------------------------------- ideas
+#
+# `arb idea …` covers both stages of an idea. Where it acts is fixed by the current
+# directory (`_idea_route`): in the seed home or outside any git repo, the seeds (ideas
+# with no repo yet, ~/arboria); inside a repo, that repo's ideas, and a repo without
+# `arb init` is an error as before (never a seed by accident). `arb idea plant` is the
+# bridge: run inside the target repo, it turns a seed into an idea there.
+# Every command that writes a seed is the human's and refuses inside Claude Code
+# (`seeds.require_human`), under either name (`arb idea …` or the `arb seed …` alias).
+
+SEED_OPEN_HINT = "打开：VS Code（marimo 扩展），或 marimo edit {path}"
+SEED_RECORDED = ("不在仓库里，所以记成了种子：{path}；以后在仓库里用 "
+                 "arb idea plant {name} 把它种下")
+SEED_ONLY = ("arb idea {verb} 只用于种子（还没有仓库的 idea），这里是仓库：请在仓库外运行，"
+             "或者用 arb seed {verb} {name}")
+
+
+def _info(msg: str) -> None:
+    typer.echo(msg, err=True)
+
+
+def _idea_route() -> RepoContext | None:
+    """The initialized repo `arb idea …` acts on, or None for the seeds (in the seed
+    home, or anywhere outside a git repo). A repo without `arb init` raises."""
+    if seeds_mod.home_of() is not None:
+        return None
+    try:
+        ctx = locate()
+    except NotARepoError:
+        return None
+    return ctx.require_initialized()
+
+
+def _seed_only(verb: str, name: str) -> None:
+    if _idea_route() is not None:
+        raise ArbError(SEED_ONLY.format(verb=verb, name=name))
 
 
 @idea_app.command("new")
 @handle_errors
 def idea_new(
     name: Annotated[str, typer.Argument(help="Slug: lowercase letters, digits, '-'.")],
-    hypothesis: Annotated[str, typer.Option("--hypothesis", help="What you expect and why (≤300 chars).")],
-    metric: Annotated[str, typer.Option("--metric", help="How success is measured (≤200 chars).")],
-    parent: Annotated[Optional[str], typer.Option("--parent", help="Branch off this open idea.")] = None,
+    gist: Annotated[Optional[str], typer.Argument(help="Seeds only: the idea in one line (≤300 chars).")] = None,
+    hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="What you expect and why (≤300 chars); required in a repo.")] = None,
+    metric: Annotated[Optional[str], typer.Option("--metric", help="How success is measured (≤200 chars); required in a repo.")] = None,
+    parent: Annotated[Optional[str], typer.Option("--parent", help="Branch off this open idea (in a repo).")] = None,
 ) -> None:
-    """Create branch idea/NAME and its worktree folder; prints the worktree path."""
-    ctx, ledger = _open()
-    with ledger:
+    """New idea: in a repo, branch idea/NAME and its worktree folder (prints its path).
+
+    Outside any repo: (human only) a seed in ~/arboria and its notebook
+    seeds/NAME.py, to plant into a repo later with `arb idea plant NAME`."""
+    ctx = _idea_route()
+    if ctx is None:
+        if parent is not None:
+            raise ArbError("--parent is for ideas in a repo; a seed has no parent")
+        seed = _seed_new(name, gist, hypothesis, metric, f"arb idea new {name}")
+        from .notebooks import display_path
+
+        _info(SEED_RECORDED.format(path=display_path(seed["notebook"]), name=name))
+        return
+    if gist is not None:
+        raise ArbError(f"unexpected argument {gist!r}: in a repo an idea takes --hypothesis "
+                       "and --metric (a one-line gist is for seeds, outside any repo)")
+    missing = [o for o, v in (("--hypothesis", hypothesis), ("--metric", metric)) if v is None]
+    if missing:
+        raise ArbError(f"missing {' and '.join(missing)}: an idea in a repo needs both")
+    with Ledger(ctx.state_dir) as ledger:
         idea = ideas_mod.new_idea(ctx, ledger, name, hypothesis, metric, parent, warn=_warn)
     typer.echo(idea["worktree_path"])
     typer.echo(f"notebook: {idea['notebook']} (linked as notebook.py; open it in VS Code "
                f"with the marimo extension, or `marimo edit notebook.py` in the worktree)",
                err=True)
+
+
+@idea_app.command("list")
+@handle_errors
+def idea_list(
+    show_all: Annotated[bool, typer.Option("--all", help="Seeds: include dropped ones.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """List all ideas; outside any repo, the seeds (most recently edited first)."""
+    ctx = _idea_route()
+    if ctx is None:
+        _seed_list(show_all, as_json)
+        return
+    with Ledger(ctx.state_dir) as ledger:
+        rows = ideas_mod.list_ideas(ledger)
+    if as_json:
+        _echo_json(rows)
+        return
+    if not rows:
+        typer.echo("no ideas yet")
+        return
+    for r in rows:
+        parent = f" (from {r['parent_name']})" if r["parent_name"] else ""
+        typer.echo(f"{r['name']:<24} {r['status']:<7} {r['confidence']:<9} runs:{r['run_count']:<3} "
+                   f"{r['hypothesis'][:60]}{parent}")
+
+
+@idea_app.command("show")
+@handle_errors
+def idea_show(
+    name: Annotated[Optional[str], typer.Argument(help="Default (in a repo): the idea of the current directory.")] = None,
+    as_json: JsonOpt = False,
+) -> None:
+    """One idea, or (outside any repo) one seed.
+
+    An idea: hypothesis, metric, status, branch, notebook and runs. A seed: gist,
+    hypothesis, metric, status, notebook, where it was planted."""
+    ctx = _idea_route()
+    if ctx is None:
+        if name is None:
+            raise ArbError("which seed? pass its NAME (see `arb idea list`)")
+        _seed_show(name, as_json)
+        return
+    with Ledger(ctx.state_dir) as ledger:
+        i = ideas_mod.show_idea(ctx, ledger, name)
+    if as_json:
+        _echo_json(i)
+        return
+    typer.echo(f"{i['name']} · {i['status']} · {i['confidence']}")
+    typer.echo(f"假设：{i['hypothesis']}")
+    typer.echo(f"指标：{i['metric']}")
+    if i["parent_name"]:
+        typer.echo(f"来自：{i['parent_name']}")
+    typer.echo(f"分支：{i['branch']}" + (f" · 文件夹：{i['worktree_path']}"
+                                       if i["status"] == "open" else ""))
+    typer.echo(f"notebook：{i['notebook']}")
+    typer.echo(f"创建 {i['created_at'][:10]}"
+               + (f" · 结束 {i['closed_at'][:10]}" if i["closed_at"] else ""))
+    for r in i["runs"]:
+        typer.echo(f"  {r['id']:<5} {r['status']:<18} {r['change_reason'][:70]}")
+
+
+@idea_app.command("set")
+@handle_errors
+def idea_set(
+    name: Annotated[str, typer.Argument(help="Seed name.")],
+    gist: Annotated[Optional[str], typer.Option("--gist", help="One line (≤300 chars); \"\" clears it.")] = None,
+    hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="≤300 chars; \"\" clears it.")] = None,
+    metric: Annotated[Optional[str], typer.Option("--metric", help="≤200 chars; \"\" clears it.")] = None,
+) -> None:
+    """(Human only) change a seed's gist, hypothesis or metric (outside any repo)."""
+    seeds_mod.require_human(f"arb idea set {name}", "改种子")
+    _seed_only("set", name)
+    _seed_set(name, gist, hypothesis, metric)
+
+
+@idea_app.command("drop")
+@handle_errors
+def idea_drop(
+    name: Annotated[Optional[str], typer.Argument(help="Default (in a repo): the idea of the current directory.")] = None,
+    confidence: ConfidenceOpt = None,
+    allow_large: Annotated[bool, typer.Option("--allow-large", help="Snapshot large untracked files anyway.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """Drop an idea (= `close --drop`), or (outside any repo) a seed.
+
+    An idea: archive a final snapshot, remove its worktree and branch. A seed (human
+    only): give up on it; its notebook is kept."""
+    if _idea_route() is None:
+        seeds_mod.require_human(f"arb idea drop {name or 'NAME'}", "放弃一个种子")
+        if name is None:
+            raise ArbError("which seed? pass its NAME (see `arb idea list`)")
+        if confidence is not None or allow_large:
+            raise ArbError("--confidence and --allow-large are for ideas in a repo, not seeds")
+        _seed_drop(name, as_json)
+        return
+    _close(name, "drop", confidence, allow_large, as_json)
+
+
+@idea_app.command("revive")
+@handle_errors
+def idea_revive(name: Annotated[str, typer.Argument(help="Seed name.")]) -> None:
+    """(Human only) bring a dropped seed back to thinking (outside any repo)."""
+    seeds_mod.require_human(f"arb idea revive {name}", "恢复一个已放弃的种子")
+    _seed_only("revive", name)
+    _seed_revive(name)
+
+
+@idea_app.command("plant")
+@handle_errors
+def idea_plant(
+    name: Annotated[str, typer.Argument(help="Seed name.")],
+    repo: Annotated[Optional[Path], typer.Option("--repo", help="Target repo (default: the repo of the current directory); must be arb-initialized.")] = None,
+    as_: Annotated[Optional[str], typer.Option("--as", help="Idea name (default: the seed's name).")] = None,
+    hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="Default: the seed's.")] = None,
+    metric: Annotated[Optional[str], typer.Option("--metric", help="Default: the seed's.")] = None,
+    again: Annotated[bool, typer.Option("--again", help="Plant a seed that is already planted (into another repo, or under another name).")] = False,
+) -> None:
+    """(Human only) plant a seed into this repo as a new idea, whose notebook links back.
+
+    Run it inside the target repo (or pass --repo)."""
+    _seed_plant(name, repo, as_, hypothesis, metric, again, f"arb idea plant {name}")
 
 
 @idea_app.command("notebook")
@@ -174,25 +352,6 @@ def idea_notebook(
         typer.echo(f"{idea['name']} already has a notebook: {path} (left as is)")
 
 
-@idea_app.command("list")
-@handle_errors
-def idea_list(as_json: JsonOpt = False) -> None:
-    """List all ideas."""
-    _, ledger = _open()
-    with ledger:
-        rows = ideas_mod.list_ideas(ledger)
-    if as_json:
-        _echo_json(rows)
-        return
-    if not rows:
-        typer.echo("no ideas yet")
-        return
-    for r in rows:
-        parent = f" (from {r['parent_name']})" if r["parent_name"] else ""
-        typer.echo(f"{r['name']:<24} {r['status']:<7} {r['confidence']:<9} runs:{r['run_count']:<3} "
-                   f"{r['hypothesis'][:60]}{parent}")
-
-
 @idea_app.command("close")
 @handle_errors
 def idea_close(
@@ -206,15 +365,20 @@ def idea_close(
     """Close an idea with --merge or --drop; removes its worktree and branch."""
     if merge == drop:
         raise ArbError("choose exactly one of --merge or --drop")
+    _close(name, "merge" if merge else "drop", confidence, allow_large, as_json)
+
+
+def _close(name: str | None, mode: str, confidence: str | None, allow_large: bool,
+           as_json: bool) -> None:
     ctx, ledger = _open()
     with ledger:
-        idea = ideas_mod.close_idea(ctx, ledger, name, "merge" if merge else "drop", confidence,
+        idea = ideas_mod.close_idea(ctx, ledger, name, mode, confidence,
                                     allow_large=allow_large, warn=_warn)
     if as_json:
         _echo_json(idea)
         return
     info = idea["close"]
-    if merge:
+    if mode == "merge":
         typer.echo(f"merged {idea['branch']} into {info['merged_into']}; removed {idea['worktree_path']}")
     else:
         typer.echo(f"dropped {idea['name']}: final snapshot {info['final_commit'][:12]} "
@@ -223,12 +387,9 @@ def idea_close(
 
 
 # ---------------------------------------------------------------- seeds
-
-SEED_OPEN_HINT = "打开：VS Code（marimo 扩展），或 marimo edit {path}"
-
-
-def _info(msg: str) -> None:
-    typer.echo(msg, err=True)
+#
+# The seed side of `arb idea …`, and `arb seed …`, the older spelling kept as an alias
+# (hidden from --help).
 
 
 def _seed_line(s: dict[str, Any]) -> str:
@@ -239,16 +400,9 @@ def _seed_line(s: dict[str, Any]) -> str:
     return line
 
 
-@seed_app.command("new")
-@handle_errors
-def seed_new(
-    name: Annotated[str, typer.Argument(help="Slug: lowercase letters, digits, '-'.")],
-    gist: Annotated[Optional[str], typer.Argument(help="The idea in one line (≤300 chars).")] = None,
-    hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="What you expect and why (≤300 chars).")] = None,
-    metric: Annotated[Optional[str], typer.Option("--metric", help="How success would be measured (≤200 chars).")] = None,
-) -> None:
-    """(Human only) new seed and its notebook <home>/seeds/NAME.py (prints its path)."""
-    seeds_mod.require_human(f"arb seed new {name}", "写一个种子")
+def _seed_new(name: str, gist: str | None, hypothesis: str | None, metric: str | None,
+              command: str) -> dict[str, Any]:
+    seeds_mod.require_human(command, "写一个种子")
     h, ledger = seeds_mod.open_home(_info)
     with ledger:
         seed = seeds_mod.new_seed(h, ledger, name, gist, hypothesis, metric)
@@ -256,15 +410,10 @@ def seed_new(
     if seed["kept_existing_notebook"]:
         _warn(f"{seed['notebook']} already existed; left as is")
     _info(SEED_OPEN_HINT.format(path=seed["notebook"]))
+    return seed
 
 
-@seed_app.command("list")
-@handle_errors
-def seed_list(
-    show_all: Annotated[bool, typer.Option("--all", help="Include dropped seeds.")] = False,
-    as_json: JsonOpt = False,
-) -> None:
-    """Seeds, most recently edited first (dropped ones only with --all)."""
+def _seed_list(show_all: bool, as_json: bool) -> None:
     h, ledger = seeds_mod.open_home(_info)
     with ledger:
         rows = seeds_mod.list_seeds(h, ledger, include_dropped=show_all)
@@ -272,17 +421,13 @@ def seed_list(
         _echo_json(rows)
         return
     if not rows:
-        typer.echo('no seeds yet (arb seed new NAME "一句话想法")')
+        typer.echo('no seeds yet (outside any repo: arb idea new NAME "一句话想法")')
         return
     for r in rows:
         typer.echo(_seed_line(r))
 
 
-@seed_app.command("show")
-@handle_errors
-def seed_show(name: Annotated[str, typer.Argument(help="Seed name.")],
-              as_json: JsonOpt = False) -> None:
-    """One seed: gist, hypothesis, metric, status, notebook, where it was planted."""
+def _seed_show(name: str, as_json: bool) -> None:
     h, ledger = seeds_mod.open_home(_info)
     with ledger:
         s = seeds_mod.show(h, ledger, name)
@@ -299,6 +444,77 @@ def seed_show(name: Annotated[str, typer.Argument(help="Seed name.")],
         typer.echo(f"种在 {p['repo']} · idea {p['idea']}（{p['created_at'][:10]}）")
 
 
+def _seed_set(name: str, gist: str | None, hypothesis: str | None, metric: str | None) -> None:
+    if gist is None and hypothesis is None and metric is None:
+        raise ArbError("nothing to change: pass --gist, --hypothesis and/or --metric")
+    _, ledger = seeds_mod.open_home(_info)
+    with ledger:
+        seeds_mod.set_fields(ledger, name, gist=gist, hypothesis=hypothesis, metric=metric)
+    typer.echo(f"updated {name}")
+
+
+def _seed_drop(name: str, as_json: bool = False) -> None:
+    h, ledger = seeds_mod.open_home(_info)
+    with ledger:
+        seed = seeds_mod.drop(ledger, name)
+    if as_json:
+        _echo_json(seed)
+        return
+    typer.echo(f"dropped {name} (notebook kept: {h.notebook(name)})")
+
+
+def _seed_revive(name: str) -> None:
+    h, ledger = seeds_mod.open_home(_info)
+    with ledger:
+        seeds_mod.revive(ledger, name)
+    typer.echo(f"revived {name}: thinking again ({h.notebook(name)})")
+
+
+def _seed_plant(name: str, repo: Path | None, as_: str | None, hypothesis: str | None,
+                metric: str | None, again: bool, command: str) -> None:
+    seeds_mod.require_human(command, "会建分支和 worktree")
+    h = seeds_mod.ensure_home(_info)
+    if repo is None and h.contains(Path.cwd()):
+        raise ArbError("which repo? run this inside the target repo, or pass --repo PATH")
+    ctx = locate(repo)
+    with Ledger(h.state_dir) as ledger:
+        idea = seeds_mod.plant(h, ledger, name, ctx, idea_name=as_, hypothesis=hypothesis,
+                               metric=metric, again=again, warn=_warn)
+    typer.echo(idea["worktree_path"])
+    _info(f"planted {name} as idea {idea['name']} in {ctx.main}; notebook: {idea['notebook']} "
+          f"(linked as notebook.py)")
+
+
+@seed_app.command("new")
+@handle_errors
+def seed_new(
+    name: Annotated[str, typer.Argument(help="Slug: lowercase letters, digits, '-'.")],
+    gist: Annotated[Optional[str], typer.Argument(help="The idea in one line (≤300 chars).")] = None,
+    hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="What you expect and why (≤300 chars).")] = None,
+    metric: Annotated[Optional[str], typer.Option("--metric", help="How success would be measured (≤200 chars).")] = None,
+) -> None:
+    """(Human only) new seed and its notebook <home>/seeds/NAME.py (prints its path)."""
+    _seed_new(name, gist, hypothesis, metric, f"arb seed new {name}")
+
+
+@seed_app.command("list")
+@handle_errors
+def seed_list(
+    show_all: Annotated[bool, typer.Option("--all", help="Include dropped seeds.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """Seeds, most recently edited first (dropped ones only with --all)."""
+    _seed_list(show_all, as_json)
+
+
+@seed_app.command("show")
+@handle_errors
+def seed_show(name: Annotated[str, typer.Argument(help="Seed name.")],
+              as_json: JsonOpt = False) -> None:
+    """One seed: gist, hypothesis, metric, status, notebook, where it was planted."""
+    _seed_show(name, as_json)
+
+
 @seed_app.command("set")
 @handle_errors
 def seed_set(
@@ -309,12 +525,7 @@ def seed_set(
 ) -> None:
     """(Human only) change a seed's gist, hypothesis or metric."""
     seeds_mod.require_human(f"arb seed set {name}", "改种子")
-    if gist is None and hypothesis is None and metric is None:
-        raise ArbError("nothing to change: pass --gist, --hypothesis and/or --metric")
-    h, ledger = seeds_mod.open_home(_info)
-    with ledger:
-        seeds_mod.set_fields(ledger, name, gist=gist, hypothesis=hypothesis, metric=metric)
-    typer.echo(f"updated {name}")
+    _seed_set(name, gist, hypothesis, metric)
 
 
 @seed_app.command("drop")
@@ -322,10 +533,7 @@ def seed_set(
 def seed_drop(name: Annotated[str, typer.Argument(help="Seed name.")]) -> None:
     """(Human only) give up on a seed; its notebook is kept."""
     seeds_mod.require_human(f"arb seed drop {name}", "放弃一个种子")
-    h, ledger = seeds_mod.open_home(_info)
-    with ledger:
-        seeds_mod.drop(ledger, name)
-    typer.echo(f"dropped {name} (notebook kept: {h.notebook(name)})")
+    _seed_drop(name)
 
 
 @seed_app.command("revive")
@@ -333,10 +541,7 @@ def seed_drop(name: Annotated[str, typer.Argument(help="Seed name.")]) -> None:
 def seed_revive(name: Annotated[str, typer.Argument(help="Seed name.")]) -> None:
     """(Human only) bring a dropped seed back to thinking."""
     seeds_mod.require_human(f"arb seed revive {name}", "恢复一个已放弃的种子")
-    h, ledger = seeds_mod.open_home(_info)
-    with ledger:
-        seeds_mod.revive(ledger, name)
-    typer.echo(f"revived {name}: thinking again ({h.notebook(name)})")
+    _seed_revive(name)
 
 
 @seed_app.command("plant")
@@ -350,17 +555,7 @@ def seed_plant(
     again: Annotated[bool, typer.Option("--again", help="Plant a seed that is already planted (into another repo, or under another name).")] = False,
 ) -> None:
     """(Human only) plant a seed into a repo as a new idea, whose notebook links back."""
-    seeds_mod.require_human(f"arb seed plant {name}", "会建分支和 worktree")
-    h = seeds_mod.ensure_home(_info)
-    if repo is None and h.contains(Path.cwd()):
-        raise ArbError("which repo? run this inside the target repo, or pass --repo PATH")
-    ctx = locate(repo)
-    with Ledger(h.state_dir) as ledger:
-        idea = seeds_mod.plant(h, ledger, name, ctx, idea_name=as_, hypothesis=hypothesis,
-                               metric=metric, again=again, warn=_warn)
-    typer.echo(idea["worktree_path"])
-    _info(f"planted {name} as idea {idea['name']} in {ctx.main}; notebook: {idea['notebook']} "
-          f"(linked as notebook.py)")
+    _seed_plant(name, repo, as_, hypothesis, metric, again, f"arb seed plant {name}")
 
 
 # ---------------------------------------------------------------- runs
@@ -1025,7 +1220,7 @@ def claudemd_sync(
 # Kept in one table so the grouping reads at a glance; tests/test_cli_help.py checks that
 # every visible command is in exactly one panel.
 HELP_PANELS: dict[str, list[str]] = {
-    "你做的": ["idea", "submit", "card", "approve", "reject", "note", "status", "ui", "seed"],
+    "你做的": ["idea", "submit", "card", "approve", "reject", "note", "status", "ui"],
     "集群": ["watch", "poll", "cancel", "logs", "remote", "machine", "doctor"],
     "agent 做的": ["todo", "commands", "run", "lesson"],
     "安装与内部": ["init", "install-claude", "hook", "claudemd", "export"],

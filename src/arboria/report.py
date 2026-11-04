@@ -323,8 +323,9 @@ def export_markdown(ctx: RepoContext, ledger: Ledger) -> str:
 HOME_FOOTER = (
     "Seed home rules: this folder is the human's seed garden (ideas without a repo yet). "
     "`seeds/<name>.py` are the human's marimo notebooks: read them for context, never edit "
-    "them; never edit .arboria/. Read seeds with `arb seed list` / `arb seed show NAME`; "
-    "seeds are created, changed, dropped and planted only by the human (`arb seed ...`). "
+    "them; never edit .arboria/. Here (outside any repo) `arb idea` works on the seeds: read "
+    "them with `arb idea list` / `arb idea show NAME`; seeds are created, changed, dropped "
+    "and planted only by the human (`arb idea new/set/drop/revive/plant`). "
     "Work comes from the todos: `arb todo list`, finish with `arb todo done tNNN --result \"...\"`; "
     "a command todo here is a global command (read `arb commands guide` first)."
 )
@@ -350,9 +351,9 @@ def home_status(h: Any, ledger: Ledger, brief: bool = False) -> str:
         if not brief and s["hypothesis"]:
             lines.append(f"    假设：{s['hypothesis']}")
     if brief and len(seeds) > len(shown):
-        lines.append(f"  … 另有 {len(seeds) - len(shown)} 个，见 `arb seed list`")
+        lines.append(f"  … 另有 {len(seeds) - len(shown)} 个，见 `arb idea list`")
     if not seeds:
-        lines.append("还没有种子（人用 `arb seed new NAME \"一句话想法\"` 种下第一颗）")
+        lines.append("还没有种子（人在仓库外用 `arb idea new NAME \"一句话想法\"` 记下第一颗）")
     lines.extend(todo_lines(list_tasks(ledger), brief, with_idea=True))
     if brief:
         lines.append(HOME_FOOTER)

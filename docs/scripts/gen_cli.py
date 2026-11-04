@@ -26,13 +26,15 @@ PAGE = ROOT / "docs" / "src" / "content" / "docs" / "reference" / "cli.md"
 
 # (section title, intro, command paths). Commands not listed land in "其他".
 SECTIONS: list[tuple[str, str, list[str]]] = [
-    ("项目与 idea", "在实验代码仓库里：初始化、idea 的生命周期、本地 run、笔记和概览。", [
-        "init", "idea new", "idea list", "idea notebook", "idea close",
-        "run summary", "note", "status", "export",
+    ("idea 与种子", "`arb idea` 管一个 idea 的两个阶段：在初始化过的仓库里是 idea（分支 + "
+     "worktree）；在仓库外（或种子园 `~/arboria` 里）是种子，也就是还没有仓库的 idea。"
+     "在没有 `arb init` 的仓库里会报错，不会悄悄记成种子。`arb idea plant` 在目标仓库里运行，"
+     "把种子种成 idea。旧写法 `arb seed …` 仍然可用，是同一组种子命令的别名。", [
+        "idea new", "idea list", "idea show", "idea set", "idea drop", "idea revive",
+        "idea plant", "idea notebook", "idea close",
     ]),
-    ("种子", "还没有仓库的想法，放在种子园（默认 `~/arboria`）。任何目录下都能用。", [
-        "seed new", "seed list", "seed show", "seed set", "seed drop", "seed revive",
-        "seed plant",
+    ("项目、run 与笔记", "在实验代码仓库里：初始化、run 的结果、笔记和概览。", [
+        "init", "run summary", "note", "status", "export",
     ]),
     ("提交、批准与集群", "`submit` 只在本地生成审核单；只有 `approve` 会把作业交给 Slurm。", [
         "submit", "card", "approve", "reject", "cancel", "poll", "watch", "logs", "remote ls",

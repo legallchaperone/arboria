@@ -2,11 +2,12 @@
 
 A seed has a name (same slug rules as ideas), a one-line gist, optionally a hypothesis
 and a metric, and its own marimo notebook `<home>/seeds/<name>.py`. Everything is the
-human's: seeds are written through `arb seed ...` (or `lab.metric` in the seed notebook),
-Claude may read them (`arb seed list/show`, the notebooks) but never writes them: every
-command that changes a seed refuses inside Claude Code (`require_human`). When the idea is ready, the human
-plants it into a repo: `arb seed plant` creates a normal idea (branch, worktree,
-notebook) there through the same code path as `arb idea new`.
+human's: seeds are written through `arb idea ...` outside any repo (the older spelling
+`arb seed ...` is an alias; or `lab.metric` in the seed notebook). Claude may read them
+(`arb idea list/show` outside a repo, the notebooks) but never writes them: every
+command that changes a seed refuses inside Claude Code (`require_human`). When the idea
+is ready, the human plants it into a repo: `arb idea plant` creates a normal idea
+(branch, worktree, notebook) there through the same code path as `arb idea new`.
 
 The home (paths.Home, default `~/arboria/`) is not a git repo. Its `.arboria/` is a
 state dir like a project's: the same `db.Ledger` (locked writes, events, schema), the
@@ -32,9 +33,9 @@ from .paths import Home, RepoContext, home
 FIELDS = ("gist", "hypothesis", "metric")
 STATUS_LABELS = {"thinking": "思考中", "planted": "已种下", "dropped": "已放弃"}
 HUMAN_ONLY = ("{command} 只由人在自己的终端里做（{what}）；Claude 不能运行它。种子是人的："
-              "Claude 可以读（arb seed list / show、seeds/<名字>.py），不写")
+              "Claude 可以读（仓库外的 arb idea list / show、seeds/<名字>.py），不写")
 PLANT_NEEDS = ("种下需要假设和指标：种子 {name} 还没有{missing}。"
-               "用 --hypothesis / --metric 给出，或先 arb seed set {name} --hypothesis …")
+               "用 --hypothesis / --metric 给出，或先在仓库外 arb idea set {name} --hypothesis …")
 
 
 # ---------------------------------------------------------------- the home
@@ -98,7 +99,7 @@ def _decorate(h: Home, ledger: Ledger, row: dict[str, Any]) -> dict[str, Any]:
 def get_seed(ledger: Ledger, name: str) -> dict[str, Any]:
     row = ledger.one("SELECT * FROM seeds WHERE name = ?", (name,))
     if row is None:
-        raise ArbError(f"no seed named {name!r} (see `arb seed list`)")
+        raise ArbError(f"no seed named {name!r} (see `arb idea list` outside any repo)")
     return row
 
 
@@ -129,7 +130,7 @@ def new_seed(h: Home, ledger: Ledger, name: str, gist: str | None = None,
     validate_name(name, "seed")
     values = _fields(gist, hypothesis, metric)
     if ledger.one("SELECT id FROM seeds WHERE name = ?", (name,)):
-        raise ArbError(f"a seed named {name!r} already exists (see `arb seed show {name}`)")
+        raise ArbError(f"a seed named {name!r} already exists (see `arb idea show {name}` outside any repo)")
     path = h.notebook(name)
     existed = path.exists()
     ts = now()
@@ -214,7 +215,7 @@ def plant(h: Home, home_ledger: Ledger, name: str, ctx: RepoContext, *,
     the planting in both ledgers. Returns the new idea (+ `notebook`)."""
     seed = get_seed(home_ledger, name)
     if seed["status"] == "dropped":
-        raise ArbError(f"seed {name!r} is dropped; plant another one (`arb seed new`)")
+        raise ArbError(f"seed {name!r} is dropped; revive it first (`arb idea revive {name}` outside any repo)")
     done = plantings(home_ledger, seed["id"])
     if done and not again:
         where = "、".join(f"{p['repo']} · {p['idea']}" for p in done)

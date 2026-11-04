@@ -64,7 +64,7 @@ def new_idea(
 
     With `from_run`, the branch starts at that run's snapshot commit and the run's idea
     is the parent (it may be closed: the snapshot outlives the branch). `seed` (from
-    `arb seed plant`): name, notebook, markdown and home of the seed it grew from; the
+    `arb idea plant`): name, notebook, markdown and home of the seed it grew from; the
     notebook header links back to it and the idea_new event records it."""
     validate_name(name)
     hypothesis = validate_text("hypothesis", hypothesis)
@@ -159,6 +159,24 @@ def list_ideas(ledger: Ledger) -> list[dict[str, Any]]:
         " (SELECT COUNT(*) FROM runs r WHERE r.idea_id = i.id) AS run_count"
         " FROM ideas i LEFT JOIN ideas p ON p.id = i.parent_id ORDER BY i.id"
     )
+
+
+def show_idea(ctx: RepoContext, ledger: Ledger, name: str | None) -> dict[str, Any]:
+    """One idea (default: the current directory's) with its parent's name, notebook
+    path and runs."""
+    if name is None:
+        idea = current_idea(ctx, ledger)
+        if idea is None:
+            raise ArbError("not inside an idea worktree; pass the idea NAME (see `arb idea list`)")
+    else:
+        idea = get_idea(ledger, name)
+    parent = ledger.one("SELECT name FROM ideas WHERE id = ?", (idea["parent_id"],)) \
+        if idea["parent_id"] else None
+    runs = ledger.all("SELECT id, status, change_reason, summary, created_at FROM runs"
+                      " WHERE idea_id = ? ORDER BY id", (idea["id"],))
+    return idea | {"parent_name": parent["name"] if parent else None,
+                   "notebook": str(notebooks.notebook_path(ctx.state_dir, idea["name"])),
+                   "runs": runs}
 
 
 def _is_dirty(worktree: Path) -> bool:

@@ -10,7 +10,7 @@ Which idea a call is about is resolved explicitly, in this order (`resolve()`):
 
 A seed's notebook (`<home>/seeds/<name>.py`, see seeds.py) resolves to a `SeedTarget`:
 a seed has no repo, so everything about runs and ideas (`run`, `fork`, `prune`, …)
-refuses with a pointer to `arb seed plant`; `todo` / `todos` work on the home's ledger,
+refuses with a pointer to `arb idea plant`; `todo` / `todos` work on the home's ledger,
 `metric` sets the seed's metric, and global notebook commands can be called.
 
 Nothing here approves anything: `run()` only creates the card, like `arb submit`.
@@ -43,10 +43,10 @@ from .paths import Home, RepoContext, locate, seed_of_notebook
 HUMAN_ONLY = ("{what} 只由人在 notebook 里做；Claude 请用 `arb todo done tNNN --result \"...\"` "
               "或 `arb run summary RUN \"...\"`")
 
-SEED_NOT_PLANTED = "这是一个种子（{name}），还没种进仓库：先运行 arb seed plant {name} --repo …"
+SEED_NOT_PLANTED = "这是一个种子（{name}），还没种进仓库：先在目标仓库里运行 arb idea plant {name}"
 SEED_PLANTED = ("这是种子 {name} 的 notebook，它已种进 {where}：run、fork 这些在那个 idea 的 "
                 "notebook 里做")
-SEED_NO_CONF = "种子没有置信度：种下（arb seed plant）之后在 idea 的 notebook 里用 lab.conf"
+SEED_NO_CONF = "种子没有置信度：种下（arb idea plant）之后在 idea 的 notebook 里用 lab.conf"
 SEED_GLOBAL_ONLY = "种子没有仓库，只能用全局命令：去掉 scope=，或者写 scope=\"global\""
 
 _use: tuple[str, Path | None] | None = None

@@ -23,14 +23,21 @@ PROTECTED_PATHS = ["**/.arboria/notebooks/**", "**/.arboria/ledger.db*", "**/.ar
                    "**/.arboria/*.toml", "**/.arboria/sessions/**", "**/notebook.py"]
 EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 FILE_RULES = [f"{tool}({path})" for path in PROTECTED_PATHS for tool in EDIT_TOOLS]
-DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES]
-# The seed home (`arb install-claude --home`): the seed notebooks and the whole state dir
-# are the human's (its commands are the global ones, outside the home), and so are the
-# seed commands that write (they also refuse inside Claude Code).
+# Seeds are the human's: every command that writes one refuses inside Claude Code in
+# code (seeds.require_human), under either spelling. The commands that only ever write
+# seeds are also denied by prefix, everywhere (`arb idea plant` runs inside a repo):
+# `arb idea set/revive/plant` and the whole `arb seed` alias.
 SEED_RULES = ["Bash(arb seed new:*)", "Bash(arb seed set:*)", "Bash(arb seed drop:*)",
-              "Bash(arb seed revive:*)", "Bash(arb seed plant:*)"]
+              "Bash(arb seed revive:*)", "Bash(arb seed plant:*)",
+              "Bash(arb idea set:*)", "Bash(arb idea revive:*)", "Bash(arb idea plant:*)"]
+DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES, *SEED_RULES]
+# The seed home (`arb install-claude --home`): the seed notebooks and the whole state dir
+# are the human's (its commands are the global ones, outside the home). There `arb idea
+# new/drop` act on seeds too (in a repo they are the agent's to use), so they are denied
+# in the home as well.
+HOME_IDEA_RULES = ["Bash(arb idea new:*)", "Bash(arb idea drop:*)"]
 HOME_PROTECTED_PATHS = ["**/seeds/**", "**/.arboria/**"]
-HOME_DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *SEED_RULES,
+HOME_DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *SEED_RULES, *HOME_IDEA_RULES,
                    *(f"{tool}({path})" for path in HOME_PROTECTED_PATHS for tool in EDIT_TOOLS)]
 SETTINGS_NAME = "settings.json"
 LOCAL_NAME = "settings.local.json"  # per machine, not committed

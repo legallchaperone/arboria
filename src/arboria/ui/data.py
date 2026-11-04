@@ -333,7 +333,7 @@ def _check_version(ledger: ReadOnlyLedger) -> None:
     version = ledger.version()
     if version != SCHEMA_VERSION:
         raise ArbError(f"ledger schema v{version}, the dashboard reads v{SCHEMA_VERSION}: "
-                       "run any arb command (e.g. `arb seed list`) once to upgrade it, or "
+                       "run any arb command (e.g. `arb idea list`) once to upgrade it, or "
                        "upgrade arb")
 
 

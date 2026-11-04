@@ -888,13 +888,13 @@ def seeds_section(g: Garden) -> str:
         body = '<div class="seeds">' + "".join(seed_card(g, s) for s in live) + "</div>"
     else:
         body = ('<div class="muted">还没有种子 · '
-                f'{cmd("arb seed new NAME " + chr(34) + "一句话想法" + chr(34))}</div>')
+                f'{cmd("arb idea new NAME " + chr(34) + "一句话想法" + chr(34))}</div>')
     more = ""
     if dropped:
         rows = "".join(f'<div class="item">' + _line(
             f'<span class="id">{_e(s["name"])}</span>', _e(s.get("gist") or ""),
             f'<span class="when">{_e(age(s["last_edited"], g.loaded_at))}</span>'
-            + cmd(f"arb seed revive {s['name']}", alt=True)) + "</div>"
+            + cmd(f"arb idea revive {s['name']}", alt=True)) + "</div>"
             for s in dropped)
         more = (f'<details class="more"><summary>已放弃 {len(dropped)} 个</summary>'
                 f"{rows}</details>")

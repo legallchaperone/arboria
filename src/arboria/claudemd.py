@@ -54,8 +54,8 @@ HOME_RULES = """\
 ## 种子园（Arboria）
 - 这里是人的种子园：还没有仓库的研究想法。当前的种子和待办由会话开始时的 hook 注入。
 - `seeds/<名字>.py`（marimo）是人的 notebook：读它了解人的想法，绝不修改；也不要改 `.arboria/`。
-- 看种子用 `arb seed list`、`arb seed show NAME`。种子只由人写：`arb seed new/set/drop` 你都不能运行。
-- 种下（`arb seed plant NAME --repo …`）由人在自己的终端里做：它会在那个仓库里建 idea 的分支和 worktree。
+- 种子就是还没有仓库的 idea：在这里（仓库外）`arb idea` 管的是种子。看种子用 `arb idea list`、`arb idea show NAME`。种子只由人写：`arb idea new/set/drop/revive`（以及旧名 `arb seed …`）你都不能运行。
+- 种下（在目标仓库里 `arb idea plant NAME`）由人在自己的终端里做：它会在那个仓库里建 idea 的分支和 worktree。
 - 你的工作来自待办：`arb todo list` 查看，做完用 `arb todo done tNNN --result "..."`（≤600 字）交代结果。
 - 命令待办（人在种子 notebook 里调用了 `lab.<名字>(...)`）：先运行 `arb commands guide`，只写全局命令目录里的那个文件；种子没有 run，命令里不用 `ctx.run`。
 - 讨论想法时引用种子 notebook 里的内容；你的结论写进 `arb todo done --result`，不写进 notebook。"""

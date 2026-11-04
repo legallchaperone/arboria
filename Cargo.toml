@@ -2,7 +2,7 @@
 # The Python package (src/arboria/, pyproject.toml) is unaffected and stays usable.
 [workspace]
 resolver = "2"
-members = ["crates/arboria-core"]
+members = ["crates/arboria-core", "crates/arb"]
 
 [workspace.package]
 version = "0.1.0"

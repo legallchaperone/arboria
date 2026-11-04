@@ -17,7 +17,7 @@
 //!
 //! Real in phase 1: [`now`], [`connect`], [`open_read_only`], [`migrate`],
 //! [`Ledger::open`], [`Ledger::write`], [`WriteTx::event`], [`WriteTx::next_id`],
-//! [`Ledger::data_version`]. Stubbed: the backup repo.
+//! [`Ledger::data_version`], the backup repo and its dump ([`dump`]).
 
 use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
@@ -229,30 +229,53 @@ impl Ledger {
             tx.commit()?;
             Ok((value, events))
         })();
-        lock.unlock()?;
-        let (value, events) = result?;
-        let backup: Vec<String> = events
-            .iter()
-            .filter(|(k, _)| k.triggers_backup())
-            .map(|(k, s)| format!("{k} {s}").trim().to_string())
-            .collect();
-        if !backup.is_empty() {
-            if let Err(e) = self.backup(&backup.join("; ")) {
-                tracing::warn!("ledger backup failed: {e}");
-                eprintln!("warning: ledger backup failed: {e}");
+        let result = result.map(|(value, events)| {
+            let backup: Vec<String> = events
+                .iter()
+                .filter(|(k, _)| k.triggers_backup())
+                .map(|(k, s)| format!("{k} {s}").trim().to_string())
+                .collect();
+            // still under the lock, like Python: two backups never race on the git index
+            if !backup.is_empty() {
+                if let Err(e) = self.backup_unlocked(&backup.join("; ")) {
+                    tracing::warn!("ledger backup failed: {e}");
+                    eprintln!("warning: ledger backup failed: {e}");
+                }
             }
-        }
-        Ok(value)
+            value
+        });
+        lock.unlock()?;
+        result
     }
 
     /// Dump the db to `backup/ledger.sql` and commit it in the state dir's git repo
     /// (`arboria backup: <message>`); returns whether a commit was made. Idempotent.
+    /// Takes the ledger lock (call it outside [`Ledger::write`]).
     ///
-    /// The dump must stay stable across implementations to keep the backup history
-    /// readable (Python uses `sqlite3.Connection.iterdump`; rusqlite has none).
+    /// The dump is Python 3.13's `sqlite3.Connection.iterdump` ([`dump`]), so the backup
+    /// history stays readable across implementations.
     pub fn backup(&self, message: &str) -> Result<bool> {
-        let _ = message;
-        todo!("port of arboria.db.Ledger.backup")
+        let lock = lock_file(&self.state_dir)?;
+        let result = self.backup_unlocked(message);
+        lock.unlock()?;
+        result
+    }
+
+    fn backup_unlocked(&self, message: &str) -> Result<bool> {
+        require_backup_repo(&self.state_dir)?;
+        let backup_dir = self.state_dir.join("backup");
+        std::fs::create_dir_all(&backup_dir)?;
+        let version = schema_version(&self.conn)?;
+        let mut text = format!("PRAGMA user_version = {version};\n");
+        for line in dump(&self.conn)? {
+            text.push_str(&line);
+            text.push('\n');
+        }
+        let target = backup_dir.join("ledger.sql");
+        let tmp = backup_dir.join("ledger.sql.tmp");
+        std::fs::write(&tmp, text)?;
+        std::fs::rename(&tmp, &target)?;
+        commit_backup_unlocked(&self.state_dir, message)
     }
 }
 
@@ -298,12 +321,104 @@ impl WriteTx<'_> {
     /// The next sequential id (`r001`, `d001`, …): max numeric suffix in its table + 1,
     /// like Python `Ledger.next_id`.
     pub fn next_id<T: SeqId>(&self) -> Result<T> {
-        let mut stmt = self.tx.prepare(&format!("SELECT id FROM {}", T::TABLE))?;
-        let ids = stmt
-            .query_map([], |r| r.get::<_, String>(0))?
-            .collect::<rusqlite::Result<Vec<String>>>()?;
-        Ok(T::from_number(next_number(ids.iter().map(String::as_str))))
+        next_id_in(&self.tx)
     }
+}
+
+/// [`WriteTx::next_id`] on any connection (outside a write it is only a guess, e.g. the
+/// snapshot commit message `arboria snapshot r004`).
+pub fn next_id_in<T: SeqId>(conn: &Connection) -> Result<T> {
+    let mut stmt = conn.prepare(&format!("SELECT id FROM {}", T::TABLE))?;
+    let ids = stmt
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<String>>>()?;
+    Ok(T::from_number(next_number(ids.iter().map(String::as_str))))
+}
+
+// ---------------------------------------------------------------- rows
+
+/// A row as a JSON object keyed by column name (INTEGER → number, REAL → float,
+/// TEXT → string, NULL → null; BLOBs are not used by the ledger and read as null).
+pub fn row_map(row: &rusqlite::Row<'_>) -> rusqlite::Result<serde_json::Map<String, Value>> {
+    use rusqlite::types::ValueRef;
+    let stmt = row.as_ref();
+    let mut map = serde_json::Map::new();
+    for i in 0..stmt.column_count() {
+        let v = match row.get_ref(i)? {
+            ValueRef::Null | ValueRef::Blob(_) => Value::Null,
+            ValueRef::Integer(n) => Value::from(n),
+            ValueRef::Real(f) => serde_json::Number::from_f64(f).map_or(Value::Null, Value::Number),
+            ValueRef::Text(t) => Value::String(String::from_utf8_lossy(t).into_owned()),
+        };
+        map.insert(stmt.column_name(i)?.to_string(), v);
+    }
+    Ok(map)
+}
+
+/// A ledger table row type read with `SELECT *` (Python `Ledger.one` / `Ledger.all`).
+pub trait LedgerRow: serde::de::DeserializeOwned {
+    /// Adjust the column map before deserializing (e.g. decode a JSON column).
+    fn fix(map: &mut serde_json::Map<String, Value>) -> Result<()> {
+        let _ = map;
+        Ok(())
+    }
+
+    /// Deserialize one row.
+    fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        let mut map = row_map(row)?;
+        Self::fix(&mut map)?;
+        Ok(serde_json::from_value(Value::Object(map))?)
+    }
+}
+
+impl LedgerRow for crate::model::Idea {}
+impl LedgerRow for crate::model::Run {}
+impl LedgerRow for crate::model::Job {}
+impl LedgerRow for crate::model::Note {}
+impl LedgerRow for crate::model::Lesson {}
+impl LedgerRow for crate::model::Task {}
+impl LedgerRow for crate::model::Event {}
+impl LedgerRow for crate::model::Planting {}
+impl LedgerRow for crate::model::Inspection {}
+impl LedgerRow for crate::model::Decision {
+    /// `options_json` → `options`.
+    fn fix(map: &mut serde_json::Map<String, Value>) -> Result<()> {
+        let options = match map.remove("options_json") {
+            Some(Value::String(s)) if !s.is_empty() => serde_json::from_str(&s)?,
+            _ => Value::Array(Vec::new()),
+        };
+        map.insert("options".into(), options);
+        Ok(())
+    }
+}
+
+/// The first row of `sql`, or None.
+pub fn one<T: LedgerRow>(
+    conn: &Connection,
+    sql: &str,
+    params: impl rusqlite::Params,
+) -> Result<Option<T>> {
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params)?;
+    match rows.next()? {
+        Some(row) => Ok(Some(T::from_row(row)?)),
+        None => Ok(None),
+    }
+}
+
+/// Every row of `sql`.
+pub fn all<T: LedgerRow>(
+    conn: &Connection,
+    sql: &str,
+    params: impl rusqlite::Params,
+) -> Result<Vec<T>> {
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params)?;
+    let mut out = Vec::new();
+    while let Some(row) = rows.next()? {
+        out.push(T::from_row(row)?);
+    }
+    Ok(out)
 }
 
 /// `max + 1` over the numeric suffixes of `ids` (Python `Ledger.next_id`): the suffix is
@@ -359,27 +474,262 @@ pub const SEEDS_GITIGNORE: &str = "!/seeds/\n/seeds/*\n!/seeds/*.py\n";
 
 /// Make `.arboria/` a git repo (idempotent).
 pub fn init_backup_repo(state_dir: &Path) -> Result<()> {
-    let _ = state_dir;
-    todo!("port of arboria.db.init_backup_repo")
+    if !state_dir.join(".git").exists() {
+        backup_git(&["init", "-q"], state_dir)?;
+    }
+    ensure_backup_gitignore(state_dir)
 }
 
 /// Bring the backup repo's `.gitignore` up to date (also older ones).
 pub fn ensure_backup_gitignore(state_dir: &Path) -> Result<()> {
-    let _ = state_dir;
-    todo!("port of arboria.db.ensure_backup_gitignore")
+    let gi = state_dir.join(".gitignore");
+    let existing = match std::fs::read_to_string(&gi) {
+        Ok(t) => Some(t),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(e.into()),
+    };
+    let mut text = existing
+        .clone()
+        .unwrap_or_else(|| BACKUP_GITIGNORE.to_string());
+    let append = |text: &mut String, block: &str| {
+        if !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str(block);
+    };
+    if !text.contains("!/notebooks/") {
+        append(&mut text, NOTEBOOKS_GITIGNORE);
+    }
+    if !text.contains("!/commands/") {
+        append(&mut text, COMMANDS_GITIGNORE);
+    }
+    // a home only
+    if state_dir.join("seeds").is_dir() && !text.contains("!/seeds/") {
+        append(&mut text, SEEDS_GITIGNORE);
+    }
+    if existing.as_deref() != Some(text.as_str()) {
+        std::fs::write(&gi, text)?;
+    }
+    Ok(())
 }
 
-/// In a home: copy `<home>/seeds/*.py` into `.arboria/seeds/` (changed files only).
+/// In a home: copy `<home>/seeds/*.py` into `.arboria/seeds/` (changed files only), so
+/// the backup repo versions the human's seed notebooks. Copies of deleted notebooks stay
+/// (the backup is history, not a sync). Projects have no `.arboria/seeds/`: no-op. A file
+/// that cannot be copied only warns.
 pub fn mirror_seeds(state_dir: &Path) -> Result<()> {
-    let _ = state_dir;
-    todo!("port of arboria.db.mirror_seeds")
+    let mirror = state_dir.join("seeds");
+    let Some(source) = state_dir.parent().map(|p| p.join("seeds")) else {
+        return Ok(());
+    };
+    if !mirror.is_dir() || !source.is_dir() {
+        return Ok(());
+    }
+    let mut sources: Vec<PathBuf> = std::fs::read_dir(&source)?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "py"))
+        .collect();
+    // Python sorts the paths (str order = byte order for UTF-8 names)
+    sources.sort();
+    for src in sources {
+        let copy = || -> std::io::Result<()> {
+            if !src.is_file() {
+                return Ok(());
+            }
+            let data = std::fs::read(&src)?;
+            let name = src.file_name().expect("globbed file has a name");
+            let dst = mirror.join(name);
+            if dst.is_file() && std::fs::read(&dst)? == data {
+                return Ok(());
+            }
+            let mut tmp_name = std::ffi::OsString::from(".");
+            tmp_name.push(name);
+            tmp_name.push(".arboria-tmp");
+            let tmp = mirror.join(tmp_name);
+            std::fs::write(&tmp, &data)?;
+            std::fs::rename(&tmp, &dst)
+        };
+        if let Err(e) = copy() {
+            eprintln!("warning: could not back up {}: {e}", src.display());
+        }
+    }
+    Ok(())
+}
+
+/// `git -c commit.gpgsign=false -c core.hooksPath=/dev/null <args>` with the fallback
+/// identity (backup commits are arboria's, not the user's).
+fn backup_git(args: &[&str], state_dir: &Path) -> Result<String> {
+    let mut full = vec![
+        "-c",
+        "commit.gpgsign=false",
+        "-c",
+        "core.hooksPath=/dev/null",
+    ];
+    full.extend_from_slice(args);
+    crate::gitutil::out(&full, state_dir, crate::gitutil::FALLBACK_IDENTITY)
+}
+
+/// Refuse to run git in a state dir without its own repo: git would fall back to the
+/// enclosing project repo and commit the user's staged changes.
+fn require_backup_repo(state_dir: &Path) -> Result<()> {
+    if state_dir.join(".git").exists() {
+        Ok(())
+    } else {
+        Err(Error::Arb(format!(
+            "{} has no backup repository (.git); run `arb init` again to create it",
+            state_dir.display()
+        )))
+    }
 }
 
 /// Commit whatever the backup repo's `.gitignore` versions, if anything changed. Takes
-/// its own file lock and is idempotent (ADR 0001).
+/// the ledger lock (backups never race on the git index) and is idempotent (ADR 0001).
 pub fn commit_backup(state_dir: &Path, message: &str) -> Result<bool> {
-    let _ = (state_dir, message);
-    todo!("port of arboria.db.commit_backup")
+    let lock = lock_file(state_dir)?;
+    let result = commit_backup_unlocked(state_dir, message);
+    lock.unlock()?;
+    result
+}
+
+fn commit_backup_unlocked(state_dir: &Path, message: &str) -> Result<bool> {
+    require_backup_repo(state_dir)?;
+    mirror_seeds(state_dir)?;
+    ensure_backup_gitignore(state_dir)?;
+    backup_git(&["add", "-A", "--", "."], state_dir)?;
+    if crate::gitutil::ok(&["diff", "--cached", "--quiet"], state_dir)?
+        && crate::gitutil::ok(&["rev-parse", "--verify", "--quiet", "HEAD"], state_dir)?
+    {
+        return Ok(false);
+    }
+    backup_git(
+        &[
+            "commit",
+            "-q",
+            "--no-verify",
+            "-m",
+            &format!("arboria backup: {message}"),
+        ],
+        state_dir,
+    )?;
+    Ok(true)
+}
+
+// ---------------------------------------------------------------- dump
+
+fn quote_name(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+fn quote_value(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+/// The SQL dump of the db, line by line: Python 3.13's `sqlite3.Connection.iterdump()`
+/// (`Lib/sqlite3/dump.py`), statement for statement. Values come from SQLite's own
+/// `quote()`, as there.
+pub fn dump(conn: &Connection) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    let mut writable_schema = false;
+    let violations = {
+        let mut stmt = conn.prepare("PRAGMA foreign_key_check")?;
+        let mut rows = stmt.query([])?;
+        rows.next()?.is_some()
+    };
+    if violations {
+        out.push("PRAGMA foreign_keys=OFF;".to_string());
+    }
+    out.push("BEGIN TRANSACTION;".to_string());
+    let tables: Vec<(String, String)> = {
+        let mut stmt = conn.prepare(
+            "SELECT \"name\", \"type\", \"sql\" FROM \"sqlite_master\" \
+             WHERE \"sql\" NOT NULL AND \"type\" == 'table' ORDER BY \"name\"",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(2)?)))?;
+        rows.collect::<rusqlite::Result<_>>()?
+    };
+    let mut sqlite_sequence = Vec::new();
+    for (table, sql) in tables {
+        if table == "sqlite_sequence" {
+            sqlite_sequence.push("DELETE FROM \"sqlite_sequence\"".to_string());
+            let mut stmt = conn.prepare("SELECT * FROM \"sqlite_sequence\";")?;
+            let rows = stmt.query_map([], |r| {
+                let name: String = r.get(0)?;
+                let seq = match r.get_ref(1)? {
+                    rusqlite::types::ValueRef::Integer(n) => n.to_string(),
+                    rusqlite::types::ValueRef::Null => "None".to_string(),
+                    other => format!("{other:?}"),
+                };
+                Ok((name, seq))
+            })?;
+            for row in rows {
+                let (name, seq) = row?;
+                sqlite_sequence.push(format!(
+                    "INSERT INTO \"sqlite_sequence\" VALUES({},{seq})",
+                    quote_value(&name)
+                ));
+            }
+            continue;
+        } else if table == "sqlite_stat1" {
+            out.push("ANALYZE \"sqlite_master\";".to_string());
+        } else if table.starts_with("sqlite_") {
+            continue;
+        } else if sql.starts_with("CREATE VIRTUAL TABLE") {
+            if !writable_schema {
+                writable_schema = true;
+                out.push("PRAGMA writable_schema=ON;".to_string());
+            }
+            out.push(format!(
+                "INSERT INTO sqlite_master(type,name,tbl_name,rootpage,sql)VALUES('table',{0},{0},0,{1});",
+                quote_value(&table),
+                quote_value(&sql)
+            ));
+        } else {
+            out.push(format!("{sql};"));
+        }
+        let ident = quote_name(&table);
+        let columns: Vec<String> = {
+            let mut stmt = conn.prepare(&format!("PRAGMA table_info({ident})"))?;
+            let rows = stmt.query_map([], |r| {
+                Ok(match r.get_ref(1)? {
+                    rusqlite::types::ValueRef::Text(t) => String::from_utf8_lossy(t).into_owned(),
+                    other => format!("{other:?}"),
+                })
+            })?;
+            rows.collect::<rusqlite::Result<_>>()?
+        };
+        let select = format!(
+            "SELECT 'INSERT INTO {} VALUES('{}')' FROM {ident};",
+            ident.replace('\'', "''"),
+            columns
+                .iter()
+                .map(|c| format!("||quote({})||", quote_name(c)))
+                .collect::<Vec<_>>()
+                .join("','")
+        );
+        let mut stmt = conn.prepare(&select)?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        for row in rows {
+            out.push(format!("{};", row?));
+        }
+    }
+    {
+        let mut stmt = conn.prepare(
+            "SELECT \"name\", \"type\", \"sql\" FROM \"sqlite_master\" \
+             WHERE \"sql\" NOT NULL AND \"type\" IN ('index', 'trigger', 'view')",
+        )?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(2))?;
+        for sql in rows {
+            out.push(format!("{};", sql?));
+        }
+    }
+    if writable_schema {
+        out.push("PRAGMA writable_schema=OFF;".to_string());
+    }
+    for row in sqlite_sequence {
+        out.push(format!("{row};"));
+    }
+    out.push("COMMIT;".to_string());
+    Ok(out)
 }
 
 #[cfg(test)]

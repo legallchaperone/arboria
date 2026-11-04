@@ -381,3 +381,18 @@ def test_first_init_prints_next_steps(repo, arb):
     assert "arb idea new" in first.stdout and "arb install-claude" in first.stdout
     again = arb(repo, "init")
     assert "arb idea new" not in again.stdout
+
+
+def test_backup_refused_without_its_own_repo(repo: Path) -> None:
+    """Without .arboria/.git, git falls back to the project repo: never commit there."""
+    (repo / "staged.py").write_text("x = 1\n")
+    git(repo, "add", "staged.py")
+    head = git(repo, "rev-parse", "HEAD")
+    state = repo / ".arboria"
+    with Ledger(state) as ledger:
+        with pytest.raises(ArbError, match=r"has no backup repository \(\.git\)"):
+            ledger.backup("x")
+        with ledger.write():  # a backup event only warns; the write itself commits
+            ledger.event("note", "x")
+    assert git(repo, "rev-parse", "HEAD") == head
+    assert git(repo, "diff", "--cached", "--name-only") == "staged.py"

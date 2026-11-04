@@ -624,6 +624,11 @@ def init_backup_repo(state_dir: Path) -> None:
 def commit_backup(state_dir: Path, message: str) -> bool:
     """Commit backup/ledger.sql, the notebooks and the commands if anything changed. Returns True if a
     commit was made. What is versioned is decided by the backup repo's .gitignore."""
+    if not (Path(state_dir) / ".git").exists():
+        # git would fall back to the enclosing project repo and commit the user's
+        # staged changes
+        raise ArbError(f"{state_dir} has no backup repository (.git); "
+                       "run `arb init` again to create it")
     mirror_seeds(state_dir)
     ensure_backup_gitignore(state_dir)
     _backup_git(["add", "-A", "--", "."], state_dir)

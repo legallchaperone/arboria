@@ -9,7 +9,7 @@ import nbBottom from '../../../assets/shots/nb-bottom.webp';
 
 每个 idea 有一个 [marimo](https://marimo.io) notebook。你在里面整理思路、发起实验、分析结果，就像普通 notebook；Claude 能读，不能改，它的活来自你在 notebook 里留下的待办。
 
-<Shot src={nbTop} alt="idea warmup-long 的 notebook：假设、指标、动机，lab.runs() 的表格列出 r001、r002 两个成功的 run" caption="notebook 开头：idea 的假设和指标、你的动机，lab.runs() 列出这个 idea 的 run（演示数据）。" />
+<Shot src={nbTop} alt="idea warmup-long 的 notebook：假设、指标、动机，lab.runs() 的表格列出成功的 r001、r002 和待批准的 r003" caption="notebook 开头：idea 的假设和指标、你的动机，lab.runs() 列出这个 idea 的 run（演示数据）。" />
 
 ## 放在哪里
 
@@ -68,7 +68,7 @@ lab.prune("loss 不降")   # = arb idea drop，理由记成你的笔记
 
 在 notebook 里，一个 run 显示成两行：第一行是 `r003 · 待批准 · 原因 · 来自 r002`；第二行随状态变化：待批准时是 `arb approve r003`，运行中是已运行多久（分段时是第几段），成功时是用时、SU 和 wandb 链接，失败时是失败原因（`arb watch` 记下的那一行日志）。审核单、作业表和 run 总结折叠在下面。
 
-<Shot src={nbBottom} alt="notebook 下半部分：初步结论，lab.run 生成的 r003 待批准和 arb approve r003 提示，以及 lab.svd 命令还不存在、已交给 Claude（t001）" caption="写下结论，发起下一个 run；还不存在的命令 lab.svd 交给了 Claude（演示数据）。" />
+<Shot src={nbBottom} alt={'notebook 下半部分：初步结论，lab.run 生成的 r003 待批准和 arb approve r003 提示，以及 lab.svd(r2, ask="前 20 个奇异值") 命令还不存在、已交给 agent（t002）'} caption="写下结论，发起下一个 run；还不存在的命令 lab.svd 交给了 agent（演示数据）。" />
 
 ### lab.runs() 的列
 

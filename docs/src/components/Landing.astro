@@ -171,12 +171,12 @@ const col = '(min-width: 72rem) 40rem, (min-width: 60rem) 56vw, 94vw';
 			<figure class="shot">
 				<div class="cell">
 					<pre class="code"><span class="f">lab.plot</span>([<span class="s">"r001"</span>, <span class="s">"r002"</span>, <span class="s">"r004"</span>], <span class="s">"val/loss"</span>)</pre>
-					<Image src={plot} widths={[640, 960, 1300]} sizes={col} alt={zh ? 'lab.plot 的输出：r001、r002、r004 三个 run 的 val/loss 曲线画在一起' : 'Output of lab.plot: the val/loss curves of r001, r002 and r004 in one chart'} />
+					<Image src={plot} widths={[640, 960, 1288]} sizes={col} alt={zh ? 'lab.plot 的输出：r001、r002、r004 三个 run 的 val/loss 曲线画在一起' : 'Output of lab.plot: the val/loss curves of r001, r002 and r004 in one chart'} />
 				</div>
 				<figcaption>{c.bench.plot}</figcaption>
 			</figure>
 			<figure class="shot">
-				<Image class="framed" src={cmdBuiltin} widths={[640, 960, 1304]} sizes={col} alt={zh ? '命令表里的内置分析：runs、compare、plot、diff、spend，各一句说明' : 'Built-in analyses in the command table: runs, compare, plot, diff, spend, each with a one-line description'} />
+				<Image class="framed" src={cmdBuiltin} widths={[640, 960, 1420]} sizes={col} alt={zh ? '命令表里的内置分析：runs、compare、plot、diff、spend，各一句说明' : 'Built-in analyses in the command table: runs, compare, plot, diff, spend, each with a one-line description'} />
 				<figcaption>{c.bench.table}</figcaption>
 			</figure>
 		</div>
@@ -192,12 +192,12 @@ const col = '(min-width: 72rem) 40rem, (min-width: 60rem) 56vw, 94vw';
 		</header>
 		<div class="figs">
 			<figure class="shot">
-				<Image class="framed" src={nbSvd} widths={[819]} sizes={col} alt={zh ? 'notebook 里调用 lab.svd，命令还不存在，cell 显示已交给 Claude（t001），写好后会自动重跑' : 'Calling lab.svd in the notebook: the command does not exist yet, so the cell says it was handed over (t001) and will re-run'} />
+				<Image class="framed" src={nbSvd} widths={[640, 1144]} sizes={col} alt={zh ? 'notebook 里调用 lab.svd(r2, ask="前 20 个奇异值")，命令还不存在，cell 显示已交给 agent（t002），写好后会自动重跑' : 'Calling lab.svd(r2, ask="…") in the notebook: the command does not exist yet, so the cell says it was handed to the agent (t002) and will re-run'} />
 				<figcaption>{c.mine.first}</figcaption>
 			</figure>
 			<p class="then" aria-hidden="true">↓</p>
 			<figure class="shot">
-				<Image class="framed" src={cmdMine} widths={[640, 960, 1509]} sizes={col} alt={zh ? '命令表里的项目命令 attn_entropy、svd 和全局命令 loss_curve，各带版本号和说明' : 'Project commands attn_entropy and svd and the global command loss_curve in the command table, each with a version and a description'} />
+				<Image class="framed" src={cmdMine} widths={[640, 960, 1720]} sizes={col} alt={zh ? '命令表里的项目命令 attn_entropy、svd 和全局命令 loss_curve，各带版本号和说明' : 'Project commands attn_entropy and svd and the global command loss_curve in the command table, each with a version and a description'} />
 				<figcaption>{c.mine.after}</figcaption>
 			</figure>
 		</div>
@@ -236,7 +236,7 @@ const col = '(min-width: 72rem) 40rem, (min-width: 60rem) 56vw, 94vw';
 		</header>
 		<div class="figs">
 			<figure class="shot">
-				<Image class="framed" src={nbCard} widths={[640, 960, 1094]} sizes={col} alt={zh ? 'lab.run 的输出：r003 待批准，下面展开的单子列出检查、资源、估计、预算和哈希' : 'Output of lab.run: r003 awaiting approval, with the slip expanded: checks, resources, estimate, budget and hash'} />
+				<Image class="framed" src={nbCard} widths={[640, 1072]} sizes={col} alt={zh ? 'lab.run 给出的 r003 审核单（节选）：快照和检查，资源（4 GPU、12h、命令），估计上限 48 SU，项目和 idea 的预算' : 'Excerpt of the slip lab.run gives for r003: snapshot and checks, resources (4 GPUs, 12h, the command), an estimate of at most 48 SU, the project and idea budget'} />
 				<figcaption>{c.approve.card}</figcaption>
 			</figure>
 		</div>

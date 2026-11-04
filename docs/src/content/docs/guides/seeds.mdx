@@ -33,7 +33,7 @@ cd ~/code/lm && arb idea plant rank-schedule       # 在这个仓库里建 idea
 
 旧写法 `arb seed new/list/show/set/drop/revive/plant` 仍然可用（`--help` 里不再列出），在任何目录下都作用于种子。
 
-<Shot src={seedNb} alt="种子 loss-spikes 的 notebook：一句话想法、假设、指标，然后是观察、猜想，一个画 |m/√v| 的玩具实验，最后一个给 Claude 的待办" caption="种子 notebook（演示数据）：观察、猜想、一个玩具实验，最后给 Claude 留了一个查文献的待办。" />
+<Shot src={seedNb} alt="种子 loss-spikes 的 notebook：一句话想法、假设、指标，然后是观察、猜想，一个画 |m/√v| 的玩具实验，最后一个 lab.todo，显示已交给 agent（t001）" caption="种子 notebook（演示数据）：观察、猜想、一个玩具实验，最后给 agent 留了一个查文献的待办。" />
 
 ## 种子园
 
@@ -78,7 +78,7 @@ arb idea plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--a
 
 `arb ui` 在任何仓库之外运行（或 `arb ui --home`）打开种子园：顶部是三种状态的个数，下面是种子卡片（按最近编辑排序：名字、状态、一句话想法、假设、种在哪里、`marimo edit` 命令和 VS Code 链接），已放弃的折叠在最后（每个旁边是 `arb idea revive NAME` 的命令文本），右边是等 agent 的待办。和项目看板一样只读。
 
-<Shot src={garden} alt="种子园看板：思考中 3、已种下 1、已放弃 1；四张种子卡片；右边一个等 Claude 的待办" caption="种子园看板（演示数据）。" />
+<Shot src={garden} alt="种子园看板：思考中 3、已种下 1、已放弃 1；四张种子卡片；右边一个等 agent 的待办" caption="种子园看板（演示数据）。" />
 
 在仓库里，`arb ui` 仍然是项目看板，标题下多一行灰字“种子园：N 个在思考中 · arb ui --home”。
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-nb-load"
+description = "Enables the nb_load command without any pre-configured scope."
+commands.allow = ["nb_load"]
+
+[[permission]]
+identifier = "deny-nb-load"
+description = "Denies the nb_load command without any pre-configured scope."
+commands.deny = ["nb_load"]

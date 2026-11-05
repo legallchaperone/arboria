@@ -57,6 +57,12 @@ pub enum Action {
         hypothesis: Option<String>,
         metric: Option<String>,
     },
+    /// `arb idea migrate NAME` (marimo → the app's notebook) in the project or seed home.
+    Migrate { name: String },
+    /// `arb agent queue TASK`: hand a todo to the background agent (or retry it).
+    AgentQueue { task: String },
+    /// `arb agent stop TASK`.
+    AgentStop { task: String },
 }
 
 #[derive(Debug, Serialize)]
@@ -225,6 +231,19 @@ pub fn argv(
             a.extend([s("--"), name.clone()]);
             a
         }
+        Action::Migrate { name } => {
+            slug("idea 名字", name)?;
+            vec![s("idea"), s("migrate"), s("--"), name.clone()]
+        }
+        Action::AgentQueue { task } | Action::AgentStop { task } => {
+            id('t', "待办 id", task)?;
+            let verb = if matches!(action, Action::AgentQueue { .. }) {
+                "queue"
+            } else {
+                "stop"
+            };
+            vec![s("agent"), s(verb), s("--"), task.clone()]
+        }
     };
     Ok((cwd, args))
 }
@@ -298,6 +317,13 @@ mod tests {
                 hypothesis: None,
                 metric: None,
             },
+            Action::Migrate { name: "old".into() },
+            Action::AgentQueue {
+                task: "t004".into(),
+            },
+            Action::AgentStop {
+                task: "t004".into(),
+            },
         ]
     }
 
@@ -361,6 +387,12 @@ mod tests {
             },
             Action::TodoDrop {
                 task: "r001".into(),
+            },
+            Action::AgentQueue {
+                task: "--all".into(),
+            },
+            Action::Migrate {
+                name: "../x".into(),
             },
             Action::Note {
                 idea: "x".into(),

@@ -39,6 +39,15 @@ fn main() {
         "act",
         "remove_project",
         "reveal",
+        "nb_load",
+        "nb_save",
+        "nb_run",
+        "nb_interrupt",
+        "nb_restart",
+        "agent_rows",
+        "agent_log",
+        "agent_settings",
+        "agent_save_settings",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

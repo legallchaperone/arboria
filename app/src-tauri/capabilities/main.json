@@ -45,6 +45,15 @@
     "allow-remove-project",
     "allow-reveal",
     "allow-notification-status",
-    "allow-notification-test"
+    "allow-notification-test",
+    "allow-nb-load",
+    "allow-nb-save",
+    "allow-nb-run",
+    "allow-nb-interrupt",
+    "allow-nb-restart",
+    "allow-agent-rows",
+    "allow-agent-log",
+    "allow-agent-settings",
+    "allow-agent-save-settings"
   ]
 }

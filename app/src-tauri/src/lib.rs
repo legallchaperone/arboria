@@ -14,7 +14,9 @@
 //!   and asks for Touch ID. Nothing here can approve without the human's finger.
 
 mod actions;
+mod agentq;
 mod clone;
+mod nb;
 mod notebook;
 mod pty;
 mod watch;
@@ -71,6 +73,15 @@ pub const COMMANDS: &[&str] = &[
     "act",
     "remove_project",
     "reveal",
+    "nb_load",
+    "nb_save",
+    "nb_run",
+    "nb_interrupt",
+    "nb_restart",
+    "agent_rows",
+    "agent_log",
+    "agent_settings",
+    "agent_save_settings",
 ];
 
 type Res<T> = Result<T, String>;
@@ -86,6 +97,7 @@ pub struct AppState {
     shown: Mutex<HashMap<(String, String), (String, Instant)>>,
     ptys: pty::Ptys,
     notebooks: notebook::Notebooks,
+    kernels: nb::Kernels,
 }
 
 #[derive(Debug, Serialize)]
@@ -641,6 +653,98 @@ async fn notification_test() -> Res<String> {
     .map_err(err)?
 }
 
+// ---------------------------------------------------------------- the notebook (ADR 0005)
+
+/// A notebook of a listed project (or the seed home): its text, blocks and last results.
+#[tauri::command]
+async fn nb_load(state: tauri::State<'_, AppState>, root: String, idea: String) -> Res<nb::NbView> {
+    let root = listed(&root)?;
+    nb::load(&state.kernels, &root, &idea)
+}
+
+#[derive(Debug, Serialize)]
+struct Saved {
+    text: String,
+    doc: arboria_core::nbdoc::Doc,
+}
+
+/// Save the notebook's text (canonical form and ids come back).
+#[tauri::command]
+async fn nb_save(root: String, idea: String, text: String) -> Res<Saved> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = listed(&root)?;
+        let (text, doc) = nb::save(&root, &idea, &text)?;
+        Ok(Saved { text, doc })
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Run one block in the notebook's kernel; streams come as `nb-event`.
+#[tauri::command]
+async fn nb_run(
+    app: tauri::AppHandle,
+    root: String,
+    idea: String,
+    block: String,
+    code: String,
+) -> Res<arboria_core::nbout::Cached> {
+    use tauri::Manager as _;
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = listed(&root)?;
+        let state = app.state::<AppState>();
+        nb::run(&app, &state.kernels, &root, &idea, &block, &code)
+    })
+    .await
+    .map_err(err)?
+}
+
+#[tauri::command]
+fn nb_interrupt(state: tauri::State<'_, AppState>, root: String, idea: String) -> Res<()> {
+    let root = listed(&root)?;
+    nb::interrupt(&state.kernels, &root, &idea)
+}
+
+#[tauri::command]
+fn nb_restart(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    root: String,
+    idea: String,
+) -> Res<()> {
+    let root = listed(&root)?;
+    nb::restart(&app, &state.kernels, &root, &idea)
+}
+
+// ---------------------------------------------------------------- the agent queue
+
+#[tauri::command]
+async fn agent_rows(root: String) -> Res<Vec<agentq::Row>> {
+    tauri::async_runtime::spawn_blocking(move || agentq::rows(&listed(&root)?))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn agent_log(root: String, task: String) -> Res<Vec<arboria_core::agent::LogLine>> {
+    tauri::async_runtime::spawn_blocking(move || agentq::log(&listed(&root)?, &task))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+fn agent_settings() -> Res<arboria_core::agent::Settings> {
+    arboria_core::agent::load_settings().map_err(err)
+}
+
+#[tauri::command]
+fn agent_save_settings(
+    settings: arboria_core::agent::Settings,
+) -> Res<arboria_core::agent::Settings> {
+    arboria_core::agent::save_settings(&settings).map_err(err)?;
+    arboria_core::agent::load_settings().map_err(err)
+}
+
 /// Start the app.
 pub fn run() {
     adopt_login_path();
@@ -662,6 +766,7 @@ pub fn run() {
         .manage(AppState::default())
         .setup(|app| {
             watch::start(app.handle().clone());
+            agentq::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -702,6 +807,15 @@ pub fn run() {
             act,
             remove_project,
             reveal,
+            nb_load,
+            nb_save,
+            nb_run,
+            nb_interrupt,
+            nb_restart,
+            agent_rows,
+            agent_log,
+            agent_settings,
+            agent_save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Arboria");

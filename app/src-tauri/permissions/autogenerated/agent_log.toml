@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-log"
+description = "Enables the agent_log command without any pre-configured scope."
+commands.allow = ["agent_log"]
+
+[[permission]]
+identifier = "deny-agent-log"
+description = "Denies the agent_log command without any pre-configured scope."
+commands.deny = ["agent_log"]

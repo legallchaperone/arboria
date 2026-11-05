@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-nb-run"
+description = "Enables the nb_run command without any pre-configured scope."
+commands.allow = ["nb_run"]
+
+[[permission]]
+identifier = "deny-nb-run"
+description = "Denies the nb_run command without any pre-configured scope."
+commands.deny = ["nb_run"]

@@ -191,3 +191,30 @@ fn only_the_human_check_confirms() {
         }
     }
 }
+
+#[test]
+fn only_submission_asks_for_touch_id() {
+    // human::confirm_on_device turns a Touch ID success into Confirmed; only
+    // submission::approve_on_device asks for it, and arboria_macos is reached only
+    // through it.
+    for (file, text) in sources() {
+        if !["human.rs", "submission.rs"].contains(&file.as_str()) {
+            assert!(
+                code_hits(&text, "confirm_on_device").is_empty(),
+                "{file} calls confirm_on_device"
+            );
+        }
+        if file != "human.rs" {
+            assert!(
+                code_hits(&text, "arboria_macos").is_empty(),
+                "{file} uses arboria_macos"
+            );
+        }
+        if file != "submission.rs" {
+            assert!(
+                code_hits(&text, "approve_on_device").is_empty(),
+                "{file} calls approve_on_device"
+            );
+        }
+    }
+}

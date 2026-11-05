@@ -661,6 +661,33 @@ pub fn approve(
     )
 }
 
+/// The app's approval (ADR 0004): the human read the card whose hash is `shown_hash` for
+/// `shown_for`, then confirms with Touch ID ([`human::confirm_on_device`]). The same path
+/// as `arb approve` after that: the Decision is bound to the card hash, then submitted.
+pub fn approve_on_device(
+    ctx: &RepoContext,
+    ledger: &mut Ledger,
+    run_id: &RunId,
+    shown_hash: &str,
+    shown_for: std::time::Duration,
+) -> Result<ApproveResult> {
+    let run = records::get_run(ledger, run_id)?;
+    if run.card_hash.as_deref() != Some(shown_hash) {
+        return Err(Error::arb(CARD_CHANGED_SINCE_SHOWN));
+    }
+    approve_confirmed(
+        ctx,
+        ledger,
+        run_id,
+        &mut |_: &str| {},
+        &mut |id| human::confirm_on_device(id, shown_hash, shown_for),
+        None,
+    )
+}
+
+/// The card the app showed is not the run's card any more.
+pub const CARD_CHANGED_SINCE_SHOWN: &str = "审核单在你看过之后变了：请重新打开它再签字";
+
 /// [`approve`] after the terminal check. `confirm` is [`human::confirm`] (a unit test
 /// passes its test-only token); `backend` overrides the profile's (unit tests).
 fn approve_confirmed(
@@ -986,6 +1013,27 @@ mod tests {
     fn poll(w: &mut World, run: &str) -> monitor::PollOutcome {
         let fake = w.fake.clone();
         monitor::poll_run(&w.ctx, &mut w.ledger, &rid(run), Some(&fake)).unwrap()
+    }
+
+    #[test]
+    fn approve_on_device_needs_the_shown_card_and_touch_id() {
+        let mut w = world("device");
+        let s = submit_run(&mut w, "12h");
+        let hash = s.run.card_hash.clone().unwrap();
+        let long = std::time::Duration::from_secs(3);
+        let e = approve_on_device(&w.ctx, &mut w.ledger, &s.run.id, "0000", long).unwrap_err();
+        assert_eq!(e.to_string(), CARD_CHANGED_SINCE_SHOWN);
+        let short = std::time::Duration::from_millis(500);
+        let e = approve_on_device(&w.ctx, &mut w.ledger, &s.run.id, &hash, short).unwrap_err();
+        assert!(matches!(e, Error::NotHuman(_)), "{e}");
+        if !cfg!(target_os = "macos") {
+            let e = approve_on_device(&w.ctx, &mut w.ledger, &s.run.id, &hash, long).unwrap_err();
+            assert!(e.to_string().contains("arb approve r001"), "{e}");
+        }
+        assert!(approval_decision(&w.ledger, &s.run.id).unwrap().is_none());
+        let run = records::get_run(&w.ledger, &s.run.id).unwrap();
+        assert_eq!(run.status, RunStatus::AwaitingApproval);
+        assert!(w.fake.clone().jobs().unwrap_or_default().is_empty());
     }
 
     #[test]

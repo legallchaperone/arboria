@@ -1,0 +1,20 @@
+[package]
+name = "arboria-macos"
+description = "The macOS pieces of the core: Touch ID (LocalAuthentication). Empty elsewhere."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# objc2 family (ADR 0001: system integration uses objc2). Only built on macOS.
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "=0.6.2"
+objc2 = "=0.6.3"
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSString", "NSError"] }
+objc2-local-authentication = { version = "=0.3.2", default-features = false, features = ["std", "LAContext", "block2"] }
+
+# Not the workspace lints: calling Objective-C needs `unsafe` (each block says why).
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"

@@ -2,7 +2,9 @@
 # The Python package (src/arboria/, pyproject.toml) is unaffected and stays usable.
 [workspace]
 resolver = "2"
-members = ["crates/arboria-core", "crates/arb"]
+members = ["crates/arboria-core", "crates/arboria-macos", "crates/arb"]
+# The app is its own workspace (its own Cargo.lock; needs webkit on Linux): ADR 0004.
+exclude = ["app/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
@@ -19,6 +21,7 @@ publish = false
 # pin it the same way.
 [workspace.dependencies]
 arboria-core = { path = "crates/arboria-core" }
+arboria-macos = { path = "crates/arboria-macos" }
 anyhow = "=1.0.104"
 clap = { version = "=4.6.7", features = ["derive"] }
 # [watch] fail_patterns (Python `re` syntax; what `regex` cannot compile is refused).

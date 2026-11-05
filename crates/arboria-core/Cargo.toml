@@ -10,6 +10,8 @@ publish.workspace = true
 
 # Synchronous on purpose: no tokio (ADR 0001). git / ssh are the system commands.
 [dependencies]
+# Touch ID for approving in the app (ADR 0004); it refuses on other systems.
+arboria-macos.workspace = true
 regex.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

@@ -7,7 +7,10 @@
 //!   environment (any value, even empty), or when stdin is not a TTY. Then the human
 //!   types the id ([`confirm_typed`]). The provenance goes into the Decision payload.
 //! - There is no approval function anywhere else, and no code path that approves
-//!   automatically. The app's approval panel (Touch ID) will be the second entry point.
+//!   automatically. The app's approval panel is the second entry point (ADR 0004):
+//!   [`confirm_on_device`] refuses inside Claude Code, refuses a card shown for less than
+//!   [`MIN_SHOWN`], then asks for Touch ID (`arboria_macos::authenticate`; refused on
+//!   other systems). Only a passed check becomes a [`Confirmed`].
 //! - A guard rail, not a sandbox: the hard guarantee is
 //!   [`crate::submission`]'s guarded submit, which needs a human Decision in the ledger.
 //!
@@ -30,6 +33,18 @@ pub const CLAUDE_ENV_VARS: &[&str] = &["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"];
 pub const REFUSAL: &str = "批准只能在你自己的终端里做：请在终端运行 {command}";
 /// A mistyped confirmation.
 pub const MISMATCH: &str = "输入的 {got} 与 {expected} 不符，已取消（没有做任何改动）";
+/// The app shows the whole card at least this long before the human may sign.
+pub const MIN_SHOWN: std::time::Duration = std::time::Duration::from_secs(2);
+/// `{command}` is `arb approve rNNN`.
+pub const DEVICE_UNAVAILABLE: &str =
+    "这里不能用触控 ID 批准（{why}）：请在你自己的终端运行 {command}";
+/// The app was started from Claude Code.
+pub const DEVICE_IN_CLAUDE: &str =
+    "app 是从 Claude Code 里启动的（有 {var}），不能在这里批准：请在你自己的终端运行 {command}";
+/// The card was not shown long enough.
+pub const DEVICE_TOO_FAST: &str = "审核单要完整显示至少 2 秒才能签字";
+/// Touch ID did not pass.
+pub const DEVICE_FAILED: &str = "触控 ID 没有通过（{why}），没有批准";
 /// How many ancestors [`process_chain`] records.
 pub const MAX_ANCESTORS: usize = 6;
 
@@ -197,6 +212,55 @@ pub fn confirm(expected: &str) -> Result<Confirmed> {
     })
 }
 
+/// The rule of [`confirm_on_device`] before Touch ID, inputs explicit (tests).
+pub fn check_device(
+    command: &str,
+    claude_var: Option<&str>,
+    shown: std::time::Duration,
+) -> Result<()> {
+    if let Some(var) = claude_var {
+        return Err(Error::NotHuman(
+            DEVICE_IN_CLAUDE
+                .replace("{var}", var)
+                .replace("{command}", command),
+        ));
+    }
+    if shown < MIN_SHOWN {
+        return Err(Error::NotHuman(DEVICE_TOO_FAST.into()));
+    }
+    Ok(())
+}
+
+/// What the Touch ID prompt says (the run and the card the human just read).
+pub fn device_reason(run_id: &str, card_hash: &str) -> String {
+    let short: String = card_hash.chars().take(8).collect();
+    format!("批准 run {run_id}（审核单 {short}）提交到集群")
+}
+
+/// The app's approval (ADR 0004): the human read the card with `card_hash` for `shown`
+/// and confirms with Touch ID (or the account password). Refused inside Claude Code, for
+/// a card shown under [`MIN_SHOWN`], and on systems without Touch ID.
+pub fn confirm_on_device(
+    run_id: &str,
+    card_hash: &str,
+    shown: std::time::Duration,
+) -> Result<Confirmed> {
+    let command = format!("arb approve {run_id}");
+    check_device(&command, in_claude_code(), shown)?;
+    if !cfg!(target_os = "macos") {
+        return Err(Error::NotHuman(
+            DEVICE_UNAVAILABLE
+                .replace("{why}", "不是 Mac")
+                .replace("{command}", &command),
+        ));
+    }
+    arboria_macos::authenticate(&device_reason(run_id, card_hash))
+        .map_err(|why| Error::NotHuman(DEVICE_FAILED.replace("{why}", &why)))?;
+    let mut provenance = provenance();
+    provenance.confirmed_by = "Touch ID in Arboria.app".into();
+    Ok(Confirmed { provenance })
+}
+
 /// [`require_terminal`], then [`confirm_typed`]; returns the provenance.
 pub fn require_human(command: &str, expected: &str) -> Result<Provenance> {
     require_terminal(command)?;
@@ -218,6 +282,37 @@ mod tests {
         );
         assert!(check_terminal("arb approve r001", Some("CLAUDE_CODE_ENTRYPOINT"), true).is_err());
         assert!(check_terminal("arb lesson accept l001", None, false).is_err());
+    }
+
+    #[test]
+    fn device_approval_refusals() {
+        use std::time::Duration;
+        let cmd = "arb approve r001";
+        assert!(check_device(cmd, None, Duration::from_secs(2)).is_ok());
+        assert_eq!(
+            check_device(cmd, Some("CLAUDECODE"), Duration::from_secs(9))
+                .unwrap_err()
+                .to_string(),
+            "app 是从 Claude Code 里启动的（有 CLAUDECODE），不能在这里批准：请在你自己的终端运行 arb approve r001"
+        );
+        assert_eq!(
+            check_device(cmd, None, Duration::from_millis(1999))
+                .unwrap_err()
+                .to_string(),
+            DEVICE_TOO_FAST
+        );
+        assert_eq!(
+            device_reason("r014", "3f9ac21e77aa"),
+            "批准 run r014（审核单 3f9ac21e）提交到集群"
+        );
+        if !cfg!(target_os = "macos") && in_claude_code().is_none() {
+            let e = confirm_on_device("r001", "abc", Duration::from_secs(3)).unwrap_err();
+            assert!(matches!(e, Error::NotHuman(_)));
+            assert_eq!(
+                e.to_string(),
+                "这里不能用触控 ID 批准（不是 Mac）：请在你自己的终端运行 arb approve r001"
+            );
+        }
     }
 
     #[test]

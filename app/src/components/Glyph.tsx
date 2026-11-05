@@ -3,6 +3,16 @@ import type { JSX } from "react";
 import type { GlyphName, Tone } from "../lib/format";
 
 const PATHS: Record<GlyphName, JSX.Element> = {
+  trash: <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" />,
+  pen: <path d="M10.5 3l2.5 2.5-7 7H3.5V10z" />,
+  merge: (
+    <>
+      <circle cx="5" cy="3.5" r="1.25" />
+      <circle cx="5" cy="12.5" r="1.25" />
+      <circle cx="11" cy="8" r="1.25" />
+      <path d="M5 4.75v6.5M5 5.5c0 2 2 2.5 4.75 2.5" />
+    </>
+  ),
   check: <path d="M3.5 8.5l3 3 6-7" />,
   play: <path className="solid" d="M5 3.2v9.6l7.6-4.8z" />,
   touch: (

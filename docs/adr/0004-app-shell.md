@@ -62,6 +62,7 @@ webview 的边界：只有主窗口（label `main`）里 app 自带的页面有 
 
 ## app
 - 界面（2026-11-05 第一次实机使用后重做，参照 Linear）：左侧栏（收件箱、项目和它们进行中的 idea、种子园、设置），中间是页面，右边是详情面板（run、待签字的审核单：摘要在上，全文折叠），终端可停在下 / 左 / 右；正文用无衬线（PingFang SC / Noto Sans SC），等宽只给代码、id、数字；设置页用表单改 clusters.toml 和 arboria.toml（核心 `settings`，toml_edit 保留注释，按 arb 的读法检查后才写）。原来的三个主界面（主界面画布，都选 A）：**收件箱**（没打开 idea 时的首页：一列，按类分组，⏎ 打开）、**全局**（idea 和 run 的时间线、花费条、种子、每台机器的 probe 卡）、**idea**（第 2 期：标题、假设、指标、run 列表和状态、笔记、待办，“打开 notebook”开 marimo 窗口）。标题栏：面包屑、“待你处理 N”、⌘P 换 idea、⌘K 命令、⌘` 终端。
+- 日常操作（2026-11-05 补上，之前都只给“去终端里敲”的命令文本）：从列表移除项目（`registry::remove`，文件不动）、在 Finder 中显示、新建 idea（可选父 idea）、写笔记（可挂在 run 上）、合并 / 放弃 idea、拒绝 run、取消作业、放弃待办、种子的新建 / 放弃 / 恢复 / 种下。每个都是 `app/src-tauri/src/actions.rs` 里一个带类型的 `Action`，固定地映射成一条 `arb` 命令行（名字和 id 在这里先查，自由文字放在 `--` 后面，不能变成选项），用人自己的 `arb` 跑：长度校验、只由人的检查（app 从 Claude Code 里启动时写笔记和改种子被拒绝）都还在 `arb` 里，只有一份。界面不传 argv。没有一个会批准（`nothing_here_approves` 测试；签字只走 `approve_on_device`）。`with_the_real_arb` 测试（`ARBORIA_TEST_ARB=<arb>`）在临时仓库和种子园里用真的 `arb` 把每个操作跑一遍。
 - 审核单（ab-slip）：全文、资源、花费、哈希；“签字 ⌘⏎”在显示满 2 秒前不可按；“稍后 esc”。
 - 终端：xterm.js + portable-pty，在项目主 worktree 里开登录 shell；“Claude Code”按钮开一个运行 `claude` 的标签；需要登录时提示“在终端里登录 <机器>”并给出命令。
 - 账本变化：后台每秒查每个项目的 `PRAGMA data_version` 和 `notifications.log` 的大小，变了就发 `ledger-changed`，界面重读。

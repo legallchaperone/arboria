@@ -178,11 +178,12 @@ pub fn set_setting(key: &str, val: serde_json::Value) -> Result<(), String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     /// Both tests below set the process-wide ARBORIA_CONFIG_DIR.
-    static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// Tests that set process-wide variables (also `actions`).
+    pub(crate) static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn repo_links() {

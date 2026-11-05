@@ -34,6 +34,9 @@ fn main() {
         "app_settings",
         "set_notifications",
         "helper_uninstall",
+        "act",
+        "remove_project",
+        "reveal",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

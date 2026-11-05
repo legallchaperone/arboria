@@ -3,6 +3,8 @@
 
 import type { Board, HelperStatus, ProjectSummary } from "../types";
 import { Glyph } from "../components/Glyph";
+import { MenuButton } from "../components/Menu";
+import { projectMenu, useActions } from "./actions";
 import type { Route } from "./route";
 
 function ideaDot(b: Board, idea: string): string {
@@ -23,6 +25,7 @@ export function Sidebar(props: {
   onLogin: (machine: string) => void;
 }) {
   const r = props.route;
+  const a = useActions();
   const projects = props.projects.filter((p) => p.kind === "project");
   const home = props.projects.find((p) => p.kind === "home");
   const login = Object.entries(props.helper?.needs_login ?? {});
@@ -52,6 +55,7 @@ export function Sidebar(props: {
           const on = (r.k === "project" || r.k === "idea") && r.root === p.root;
           return (
             <div key={p.root}>
+              <div className="side-row">
               <button
                 type="button"
                 className={"nav" + (r.k === "project" && r.root === p.root ? " is-on" : "")}
@@ -62,6 +66,8 @@ export function Sidebar(props: {
                 <span className="lbl">{p.name}</span>
                 {p.error ? <span className="dot bad" title={p.error} /> : p.inbox.length > 0 && <span className="count">{p.inbox.length}</span>}
               </button>
+              <MenuButton label={<Glyph name="more" />} ariaLabel={`${p.name} 的操作`} items={projectMenu(a, p, b)} />
+              </div>
               {(on || open.length <= 6) &&
                 open.map((i) => (
                   <button
@@ -77,7 +83,7 @@ export function Sidebar(props: {
             </div>
           );
         })}
-        {home && (
+        {(
           <>
             <div className="side-group">
               <span>想法</span>
@@ -85,7 +91,7 @@ export function Sidebar(props: {
             <button type="button" className={"nav" + (r.k === "seeds" ? " is-on" : "")} onClick={() => props.go({ k: "seeds" })}>
               <Glyph name="sparkle" />
               <span className="lbl">种子园</span>
-              {home.seeds > 0 && <span className="count">{home.seeds}</span>}
+              {home && home.seeds > 0 && <span className="count">{home.seeds}</span>}
             </button>
           </>
         )}

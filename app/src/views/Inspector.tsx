@@ -8,6 +8,7 @@ import { api, message } from "../api";
 import type { Approved, Board, CardView, Platform } from "../types";
 import { ago, su, STATUS_TEXT, statusTone } from "../lib/format";
 import { Glyph } from "../components/Glyph";
+import { cancelRun, rejectRun, useActions, writeNote } from "./actions";
 import type { Inspect } from "./route";
 
 const TONE: Record<string, string> = { ok: "ok", ink: "ok", accent: "run", warn: "warn", bad: "bad", muted: "" };
@@ -129,6 +130,7 @@ export function Inspector(props: {
   onSigned: () => void;
 }) {
   const w = props.what;
+  const a = useActions();
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && props.onClose();
     window.addEventListener("keydown", k);
@@ -157,6 +159,23 @@ export function Inspector(props: {
           {r.status === "awaiting_approval" && props.platform && (
             <Sign root={w.root} run={r.id} platform={props.platform} now={props.now} onTerminal={props.onTerminal} onDone={props.onSigned} />
           )}
+          <div className="app-row">
+            {r.status === "awaiting_approval" && (
+              <button type="button" className="ab-btn body" onClick={() => a.ask(rejectRun(a, w.root, r.id))}>
+                <Glyph name="cross" /> 拒绝
+              </button>
+            )}
+            {["approved", "queued", "running"].includes(r.status) && (
+              <button type="button" className="ab-btn body" onClick={() => a.ask(cancelRun(a, w.root, r.id, r.machine))}>
+                <Glyph name="cross" /> 取消作业
+              </button>
+            )}
+            {b?.ideas.find((i) => i.name === r.idea)?.stage === "open" && (
+              <button type="button" className="ab-btn body" onClick={() => a.ask(writeNote(a, w.root, r.idea, r.id))}>
+                <Glyph name="pen" /> 写笔记
+              </button>
+            )}
+          </div>
           <dl className="kv">
             <dt>机器</dt>
             <dd>
@@ -229,6 +248,25 @@ export function Inspector(props: {
           <div className="section">
             <div className="small muted">agent 的结果</div>
             <p className="pre">{t.result}</p>
+          </div>
+        )}
+        {t.status !== "done" && t.status !== "dropped" && (
+          <div className="app-row">
+            <button
+              type="button"
+              className="ab-btn body"
+              onClick={() =>
+                a.ask({
+                  title: `放弃待办 ${t.id}`,
+                  body: "agent 不再做它。",
+                  confirm: "放弃",
+                  danger: true,
+                  run: () => a.act(w.root, { kind: "todo_drop", task: t.id }, `已放弃 ${t.id}`),
+                })
+              }
+            >
+              <Glyph name="trash" /> 放弃这个待办
+            </button>
           </div>
         )}
       </>

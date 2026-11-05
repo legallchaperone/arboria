@@ -127,7 +127,7 @@ body.is-resizing .app-term-box { pointer-events: none; }
 .app-menu { position: relative; display: inline-flex; }
 .app-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-muted); cursor: pointer; }
 .app-icon-btn:hover, .app-icon-btn.is-on { background: var(--fill-hover); color: var(--ink); }
-.app-menu-list { position: absolute; top: calc(100% + 4px); z-index: 30; min-width: 15em; padding: var(--space-1); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-float); }
+.app-menu-list { position: absolute; top: calc(100% + 4px); z-index: 30; min-width: 15em; width: max-content; max-width: 24em; padding: var(--space-1); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-float); }
 .app-menu-list.is-right { right: 0; }
 .app-menu-list.is-left { left: 0; }
 .app-term.is-bottom .app-menu-list { top: auto; bottom: calc(100% + 4px); }
@@ -149,3 +149,24 @@ button.app-choice:hover { background: var(--fill); }
 .app-choice > span, .app-choice-body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .app-choice .ab-glyph { margin-top: 4px; }
 .app-field { padding: var(--space-1) var(--col-1); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-raised); }
+
+/* dialogs (components/Dialog.tsx) */
+.app-dialog { width: min(34em, 100%); display: flex; flex-direction: column; gap: var(--space-3); }
+.app-dialog h2 { margin: 0; }
+.app-dialog-field { display: flex; flex-direction: column; gap: var(--space-1); }
+.app-dialog-field textarea { resize: vertical; font: inherit; color: var(--ink); }
+.app-dialog-field select, .app-dialog-field input { color: var(--ink); font: inherit; }
+.app-dialog-actions { justify-content: flex-end; }
+
+/* a row with a "⋯" menu that shows on hover (the sidebar's projects) */
+.side-row { position: relative; display: flex; align-items: center; }
+.side-row > .nav { flex: 1 1 auto; }
+.side-row > .app-menu { position: absolute; right: 2px; opacity: 0; }
+.side-row:hover > .app-menu, .side-row > .app-menu:focus-within { opacity: 1; }
+.side-row:hover > .nav .count, .side-row:hover > .nav .dot.bad { visibility: hidden; }
+
+/* the note box under an idea's notes */
+.note-new { display: flex; flex-direction: column; gap: var(--space-1); }
+.note-new textarea { resize: vertical; font: inherit; color: var(--ink); min-height: 4.5em; }
+.head-actions { display: flex; gap: var(--space-1); align-items: center; margin-left: auto; }
+.row.has-menu { grid-template-columns: 20px minmax(0, 1fr) auto auto; }

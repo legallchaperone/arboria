@@ -171,7 +171,7 @@ def summary(b):
 
 out = {
     "now": NOW,
-    "platform": {"os": "macos", "touch_id": True, "touch_id_why": None, "in_claude_code": None, "min_shown_ms": 2000},
+    "platform": {"os": "macos", "touch_id": True, "touch_id_why": None, "in_claude_code": None, "min_shown_ms": 2000, "home": "/Users/you/arboria"},
     "helper": {"service": "/Users/you/Library/LaunchAgents/world.cwx.arboria.helper.plist",
                "installed": True, "running": True, "last_tick": "2026-11-04T11:58:00Z",
                "needs_login": {}, "errors": []},

@@ -5,7 +5,8 @@
     "touch_id": true,
     "touch_id_why": null,
     "in_claude_code": null,
-    "min_shown_ms": 2000
+    "min_shown_ms": 2000,
+    "home": "/Users/you/arboria"
   },
   "helper": {
     "service": "/Users/you/Library/LaunchAgents/world.cwx.arboria.helper.plist",

@@ -82,7 +82,13 @@ export function layout(b: Board, nTicks = 6): Layout {
   }
   const ticks = Array.from({ length: nTicks }, (_, k) => {
     const frac = nTicks === 1 ? 0 : k / (nTicks - 1);
-    return { x: frac, label: day(new Date(t0 + frac * (t1 - t0)).toISOString(), now) };
+    const t = new Date(t0 + frac * (t1 - t0));
+    // under two days every tick would be the same date: show the (local) time instead
+    const label =
+      t1 - t0 < 2 * 86_400_000
+        ? `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`
+        : day(t.toISOString(), now);
+    return { x: frac, label };
   });
   return {
     lanes,

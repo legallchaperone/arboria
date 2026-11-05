@@ -32,6 +32,8 @@ app 看的是**登记过的项目**：`arb init` 会自动登记；已有的仓�
 
 种子园总在列表里。
 
+不要了的项目：侧栏里项目名右边的「⋯」（鼠标移上去才出现）→「从列表移除…」。只是不在 app 里显示，文件、账本和 worktree 都不动，以后可以再加回来（命令行是 `arb projects remove`）。同一个菜单里还有「新建 idea…」「在这里开终端」「在 Finder 中显示」「项目设置」。
+
 窗口：标题栏上除按钮以外的地方都可以按住拖动，双击放大。
 
 ```bash
@@ -79,7 +81,7 @@ arb projects remove ~/code/old
 
 <Shot src={overviewLight} dark={overviewDark} alt="项目页：idea 和 run 的时间线，每个 idea 一行，竖线表示从父 run 分出；下面是花费条和机器" caption="项目页（演示数据）。" />
 
-点侧栏里的项目名：idea 列表（状态、run 数、花费），下面是时间线、花费和机器。
+点侧栏里的项目名：idea 列表（状态、run 数、花费），下面是时间线、花费和机器。右上角「新建 idea」：填名字、假设、指标，可以选从哪个进行中的 idea 分出；app 运行 `arb idea new`，建好分支、worktree 和 notebook 后打开它。
 
 - **时间线**：每个 idea 一行，横轴是时间，run 按提交时间排在行上（✓ 完成、▶ 运行中、指纹 待签字、× 失败）；竖线是从父 idea 的某个 run 分出来。点 idea 名打开它。
 - **花费**：已用 / 预算，按 idea 分。
@@ -87,7 +89,17 @@ arb projects remove ~/code/old
 
 ## idea
 
-两个标签：**概览**（假设、指标、花费、从哪个 run 分出；run 列表，点一个在右边看详情或签字；agent 在做的待办；笔记）和 **Notebook**（这个 idea 的 marimo notebook，直接嵌在 app 里：第一次打开时在 worktree 里起 `marimo edit notebook.py`，只听 `127.0.0.1`、带 token，之后复用，退出 app 时停掉；notebook 文件不存在时先补一个，不覆盖已有的）。
+两个标签：**概览**（假设、指标、花费、从哪个 run 分出；run 列表，点一个在右边看详情或签字；agent 在做的待办；笔记，下面的框里直接写一条，⌘⏎ 保存，选中了 run 时可以记在那个 run 上）和 **Notebook**（这个 idea 的 marimo notebook，直接嵌在 app 里：第一次打开时在 worktree 里起 `marimo edit notebook.py`，只听 `127.0.0.1`、带 token，之后复用，退出 app 时停掉；notebook 文件不存在时先补一个，不覆盖已有的）。
+
+标签栏右边的「⋯」：写笔记、从这里分出新 idea、在 worktree 里开终端、在 Finder 中显示，以及**合并进主分支**（`arb idea close --merge`）和**放弃这个 idea**（`arb idea drop`：先存最终快照、打 tag，再删 worktree 和分支）。两个都会先让你确认；账本、run 和笔记都留着。
+
+run 的详情里：待签字的 run 有「拒绝」（可以写原因，记成笔记，不提交）；已批准、排队或在跑的 run 有「取消作业」（`arb cancel`，要能 ssh 上去）；都可以「写笔记」。agent 的待办可以「放弃」。
+
+## 种子园
+
+还没有仓库的想法。「新的种子」：名字和一句话（假设、指标可以以后再填）。每个种子的「⋯」：**种进项目…**（选项目，填假设和指标，可以改名；在那个项目里新建 idea，notebook 链回种子）、放弃（移到「已放弃」，点「恢复」回来）。种过的在「已种下」里。
+
+这些按钮都是 app 替你运行对应的 `arb` 命令（同样的检查、同样的错误信息），没有一个会批准 run：签字只有上面那张审核单。app 是从 Claude Code 里启动的话，写笔记和改种子会被 `arb` 拒绝，和命令行一样。
 
 ## 终端
 

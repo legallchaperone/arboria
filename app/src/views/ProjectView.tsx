@@ -4,6 +4,8 @@ import type { Board } from "../types";
 import { ago, su } from "../lib/format";
 import { Glyph } from "../components/Glyph";
 import { Timeline } from "./Timeline";
+import { MenuButton } from "../components/Menu";
+import { newIdea, projectMenu, useActions } from "./actions";
 
 export function ProjectView(props: {
   board: Board | null;
@@ -13,6 +15,7 @@ export function ProjectView(props: {
   onSettings: () => void;
 }) {
   const b = props.board;
+  const a = useActions();
   if (!b) return <div className="empty">{props.error ?? "读取中…"}</div>;
   const ideas = b.ideas.filter((i) => i.stage !== "seed");
   const open = ideas.filter((i) => i.stage === "open");
@@ -21,7 +24,15 @@ export function ProjectView(props: {
   return (
     <div className="page is-wide">
       <div className="page-head">
-        <h1 className="title">{b.project.name}</h1>
+        <div className="app-row">
+          <h1 className="title">{b.project.name}</h1>
+          <span className="head-actions">
+            <button type="button" className="ab-btn ab-btn-primary body" onClick={() => a.ask(newIdea(a, b))}>
+              <Glyph name="plus" /> 新建 idea
+            </button>
+            <MenuButton label={<Glyph name="more" />} ariaLabel="项目的操作" items={projectMenu(a, { root: b.project.root, name: b.project.name }, b, { newIdea: false })} />
+          </span>
+        </div>
         <div className="chips">
           <span className="chip">
             <b>{open.length}</b> 个进行中
@@ -38,9 +49,6 @@ export function ProjectView(props: {
               <Glyph name="touch" tone="warn" /> <b>{waiting}</b> 等你签字
             </span>
           )}
-          <button type="button" className="link small" onClick={props.onSettings}>
-            项目设置
-          </button>
         </div>
         {b.project.config_error && <div className="err-box">{b.project.config_error}</div>}
       </div>
@@ -50,7 +58,9 @@ export function ProjectView(props: {
           <h2 className="heading">idea</h2>
         </div>
         {ideas.length === 0 ? (
-          <p className="small muted">还没有 idea：在 Claude Code 里让它用 arb idea new 建一个。</p>
+          <p className="small muted">
+            还没有 idea。点「新建 idea」，或者在 Claude Code 里让它用 arb idea new 建一个。
+          </p>
         ) : (
           <div className="rows">
             {[...open, ...closed].map((i) => {

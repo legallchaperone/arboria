@@ -5,12 +5,15 @@
 //! - Only the main window's own pages may call these commands (`capabilities/main.json`).
 //!   The embedded marimo notebook is a 127.0.0.1 iframe: another origin with no
 //!   capability. `app/src/lib/rules.test.ts` keeps it so.
-//! - Reads go through `arboria_core::view` (read-only). The only writes: adding a project,
-//!   installing the helper, making a missing notebook, and approving.
+//! - Reads go through `arboria_core::view` (read-only). Writes: adding / removing a
+//!   project in the list, installing the helper, making a missing notebook, the settings
+//!   pages, approving, and the everyday actions in `actions.rs` (each a fixed `arb`
+//!   command line, none of which approves).
 //! - Approving: `card_shown` records which card (hash) the window showed and when;
 //!   `approve` refuses another hash, then `submission::approve_on_device` checks the 2 s
 //!   and asks for Touch ID. Nothing here can approve without the human's finger.
 
+mod actions;
 mod clone;
 mod notebook;
 mod pty;
@@ -63,6 +66,9 @@ pub const COMMANDS: &[&str] = &[
     "app_settings",
     "set_notifications",
     "helper_uninstall",
+    "act",
+    "remove_project",
+    "reveal",
 ];
 
 type Res<T> = Result<T, String>;
@@ -90,6 +96,8 @@ struct Platform {
     /// The app was started from Claude Code (approving here is refused).
     in_claude_code: Option<&'static str>,
     min_shown_ms: u64,
+    /// The seed home (种子园), made on the first seed.
+    home: PathBuf,
 }
 
 #[tauri::command]
@@ -101,6 +109,7 @@ fn platform() -> Platform {
         touch_id_why: device.err(),
         in_claude_code: human::in_claude_code(),
         min_shown_ms: human::MIN_SHOWN.as_millis() as u64,
+        home: paths::home_root(),
     }
 }
 
@@ -448,6 +457,78 @@ async fn helper_uninstall() -> Res<()> {
     .map_err(err)?
 }
 
+/// A listed project (or the seed home) at `root`; anything else is refused.
+fn listed(root: &str) -> Res<PathBuf> {
+    let p = paths::resolve(Path::new(root));
+    if p == paths::home_root() || registry::list().map_err(err)?.iter().any(|e| e.path == p) {
+        Ok(p)
+    } else {
+        Err(format!("{root} 不在项目列表里"))
+    }
+}
+
+/// One of the everyday actions (`actions::Action`) in the project at `root`.
+#[tauri::command]
+async fn act(root: String, action: actions::Action) -> Res<actions::Done> {
+    tauri::async_runtime::spawn_blocking(move || -> Res<actions::Done> {
+        let root = listed(&root)?;
+        let board = view::board(&root).ok();
+        let worktree = |idea: &str| {
+            board.as_ref().and_then(|b| {
+                b.ideas
+                    .iter()
+                    .find(|i| i.name == idea && i.stage == "open")
+                    .and_then(|i| i.worktree.clone())
+                    .map(PathBuf::from)
+                    .filter(|p| p.is_dir())
+            })
+        };
+        let home = paths::home_root();
+        let (cwd, args) = actions::argv(&root, &action, worktree, &home)?;
+        if cwd == home {
+            // the first seed: arb makes the seed home in the folder it runs in
+            std::fs::create_dir_all(&home).map_err(err)?;
+        }
+        actions::run(&arb_exe()?, &cwd, &args)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Take a project off the list (`arb projects remove`); its files and ledger stay.
+#[tauri::command]
+fn remove_project(path: String) -> Res<bool> {
+    registry::remove(Path::new(&path)).map_err(err)
+}
+
+/// Show a listed project's folder (or an idea's worktree in it) in Finder.
+#[tauri::command]
+fn reveal(root: String, path: Option<String>) -> Res<()> {
+    let root = listed(&root)?;
+    let target = match path {
+        Some(p) => {
+            let board = view::board(&root).map_err(err)?;
+            if !board
+                .ideas
+                .iter()
+                .any(|i| i.worktree.as_deref() == Some(p.as_str()))
+            {
+                return Err(format!("{p} 不是这个项目的 worktree"));
+            }
+            PathBuf::from(p)
+        }
+        None => root,
+    };
+    let mut cmd = if cfg!(target_os = "macos") {
+        let mut c = std::process::Command::new("open");
+        c.arg("-R");
+        c
+    } else {
+        std::process::Command::new("xdg-open")
+    };
+    cmd.arg(&target).spawn().map(|_| ()).map_err(err)
+}
+
 /// What the terminal's "+" menu offers.
 #[tauri::command]
 fn terminal_launchers() -> Vec<pty::Launcher> {
@@ -552,6 +633,9 @@ pub fn run() {
             app_settings,
             set_notifications,
             helper_uninstall,
+            act,
+            remove_project,
+            reveal,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Arboria");

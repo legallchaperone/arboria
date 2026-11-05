@@ -174,6 +174,8 @@ export interface Platform {
   touch_id_why: string | null;
   in_claude_code: string | null;
   min_shown_ms: number;
+  /** The seed home (种子园). */
+  home: string;
 }
 
 export interface HelperStatus {
@@ -280,3 +282,16 @@ export interface AppSettings {
   clone_dir: string;
   helper: HelperStatus;
 }
+
+/** src-tauri/src/actions.rs `Action` (serde tag `kind`). */
+export type Action =
+  | { kind: "idea_new"; name: string; hypothesis: string; metric: string; parent: string | null }
+  | { kind: "idea_close"; name: string; merge: boolean }
+  | { kind: "note"; idea: string; text: string; run: string | null }
+  | { kind: "reject"; run: string; reason: string | null }
+  | { kind: "cancel"; run: string }
+  | { kind: "todo_drop"; task: string }
+  | { kind: "seed_new"; name: string; gist: string; hypothesis: string | null; metric: string | null }
+  | { kind: "seed_drop"; name: string }
+  | { kind: "seed_revive"; name: string }
+  | { kind: "seed_plant"; name: string; as_name: string | null; hypothesis: string | null; metric: string | null };

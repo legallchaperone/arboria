@@ -60,7 +60,7 @@ mockIPC(
     const a = (args ?? {}) as Record<string, unknown>;
     switch (cmd) {
       case "platform":
-        return fixture.platform;
+        return { ...fixture.platform, home: fixture.projects.find((p: { kind: string }) => p.kind === "home")?.root ?? "/Users/you/arboria" };
       case "projects":
         return fixture.projects;
       case "board":
@@ -134,6 +134,11 @@ mockIPC(
         return "data:text/html;charset=utf-8," + encodeURIComponent(
           '<body style="font:14px -apple-system,sans-serif;margin:0;background:#fff;color:#1a211e"><div style="padding:24px 48px"><div style="color:#888;font-size:12px">marimo · notebook.py</div><h2>warmup-long</h2><p>r011 在 1.2k 到 3k 步之间有三次尖峰，都出现在 lr 爬到 2e-4 左右的时候。</p><pre style="background:#f3f4f3;padding:12px;border-radius:6px">lab.plot(lab.runs(), "val/loss")</pre><svg width="560" height="160"><path d="M0 20 L60 60 L80 40 L120 90 L200 120 L320 135 L560 140" fill="none" stroke="#0072b2" stroke-width="2"/><path d="M0 30 L100 90 L200 118 L320 132 L560 142" fill="none" stroke="#cb5900" stroke-width="2"/></svg></div></body>',
         );
+      case "act":
+        return { output: "ok" };
+      case "remove_project":
+        return true;
+      case "reveal":
       case "close_notebook":
       case "pty_write":
       case "pty_resize":

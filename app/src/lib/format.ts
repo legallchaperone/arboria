@@ -88,7 +88,10 @@ export type GlyphName =
   | "folder"
   | "link"
   | "panel"
-  | "search";
+  | "search"
+  | "trash"
+  | "pen"
+  | "merge";
 
 /** "一句话的第一行" cut to n chars. */
 export function clip(s: string | null | undefined, n: number): string {

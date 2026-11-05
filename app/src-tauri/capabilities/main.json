@@ -40,6 +40,9 @@
     "allow-app-settings",
     "allow-set-notifications",
     "allow-helper-uninstall",
-    "allow-close-notebook"
+    "allow-close-notebook",
+    "allow-act",
+    "allow-remove-project",
+    "allow-reveal"
   ]
 }

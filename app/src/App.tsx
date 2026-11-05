@@ -6,10 +6,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, message, onChange } from "./api";
-import type { Board, HelperStatus, Launcher, Platform, ProjectSummary } from "./types";
+import type { Action, Board, HelperStatus, Launcher, Platform, ProjectSummary } from "./types";
 import { Palette, type Choice } from "./components/Palette";
 import { TerminalPanel, type Dock, type TabSpec } from "./components/Terminal";
 import { AddProject } from "./components/AddProject";
+import { Dialog, type DialogSpec } from "./components/Dialog";
+import { ActionsContext, newIdea, newSeed, type Actions } from "./views/actions";
 import { Glyph } from "./components/Glyph";
 import type { Entry } from "./lib/inbox";
 import { Sidebar } from "./views/Sidebar";
@@ -48,7 +50,9 @@ function remember(key: string, value: unknown) {
 
 /** Pressing on a header (not on a control) drags the window; double-click zooms. */
 function drag(e: MouseEvent) {
-  if (e.button !== 0 || (e.target as HTMLElement).closest("button, input, a, select, textarea")) return;
+  const interactive =
+    "button, input, a, select, textarea, label, [role=menu], [role=menuitem], [role=option], [role=button], [role=tab], [role=dialog], [role=separator]";
+  if (e.button !== 0 || (e.target as HTMLElement).closest(interactive)) return;
   const w = getCurrentWindow();
   if (e.detail === 2) void w.toggleMaximize().catch(() => undefined);
   else void w.startDragging().catch(() => undefined);
@@ -71,10 +75,16 @@ export function App() {
   const [termSize, setTermSize] = useState<Record<Dock, number>>(() => remembered("arboria.term.size", { bottom: 300, left: 520, right: 520 }));
   const [launchers, setLaunchers] = useState<Launcher[]>([{ id: "shell", label: "新终端", installed: true, group: null }]);
   const [adding, setAdding] = useState(false);
+  const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [ideaTab, setIdeaTab] = useState<"overview" | "notebook">("overview");
   const [now, setNow] = useState(clock.now());
   const nextTab = useRef(1);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const loadBoard = useCallback(async (root: string) => {
     try {
@@ -130,8 +140,8 @@ export function App() {
   const home = projects.find((p) => p.kind === "home");
 
   const openTab = useCallback(
-    (program: string | null, type?: string) => {
-      const cwd = currentRoot ?? home?.root ?? "/";
+    (program: string | null, type?: string, at?: string) => {
+      const cwd = at ?? currentRoot ?? home?.root ?? "/";
       const key = nextTab.current++;
       const id = program ?? "shell";
       const l = launchers.find((x) => x.id === id);
@@ -154,6 +164,32 @@ export function App() {
     } catch (e) {
       setToast(message(e));
     }
+  };
+
+  const actions: Actions = {
+    ask: setDialog,
+    act: async (root: string, action: Action, done?: string) => {
+      const out = await api.act(root, action);
+      setToast(done ?? (out.output || "好了"));
+      await loadBoard(root);
+      if (home && root !== home.root && action.kind === "seed_plant") await loadBoard(home.root);
+      if (action.kind === "seed_new" && !home) await loadAll();
+      else api.projects().then(setProjects, () => undefined);
+      if (action.kind === "idea_new") go({ k: "idea", root, idea: action.name });
+      if (action.kind === "seed_plant") go({ k: "idea", root, idea: action.as_name ?? action.name });
+      if (action.kind === "idea_close" && route.k === "idea" && route.idea === action.name) go({ k: "project", root });
+    },
+    terminalAt: (cwd: string) => openTab(null, undefined, cwd),
+    reveal: (root: string, path?: string) => void api.reveal(root, path).catch((e) => setToast(message(e))),
+    removeProject: async (root: string) => {
+      await api.removeProject(root);
+      setBoards(({ [root]: _, ...rest }) => rest);
+      if ((route.k === "project" || route.k === "idea") && route.root === root) go({ k: "inbox" });
+      setToast("已从列表移除（文件没动）");
+      await loadAll();
+    },
+    projectSettings: (root: string) => go({ k: "settings", tab: "project", root }),
+    projects,
   };
 
   const inspectEntry = (e: Entry) => {
@@ -213,6 +249,10 @@ export function App() {
         kind: "终端",
         run: () => openTab(l.id),
       })),
+    ...(currentRoot && boards[currentRoot]
+      ? [{ key: "new-idea", name: "新建 idea…", desc: boards[currentRoot].project.name, run: () => setDialog(newIdea(actions, boards[currentRoot])) }]
+      : []),
+    ...(platform ? [{ key: "new-seed", name: "新的种子…", desc: "种子园", run: () => setDialog(newSeed(actions, home?.root ?? platform.home)) }] : []),
     { key: "add", name: "添加项目…", desc: "本机的仓库，或者从仓库链接克隆", run: () => setAdding(true) },
     { key: "settings", name: "设置", desc: "⌘,", run: () => go({ k: "settings", tab: "general" }) },
     { key: "machines", name: "机器", desc: "集群、账户、分区、路径", kind: "设置", run: () => go({ k: "settings", tab: "machines" }) },
@@ -279,7 +319,7 @@ export function App() {
       ) : (
         <div className="empty">{errors[route.root] ?? "读取中…"}</div>
       );
-  else if (route.k === "seeds") page = <SeedsView board={home ? boards[home.root] ?? null : null} now={now} />;
+  else if (route.k === "seeds") page = <SeedsView board={home ? boards[home.root] ?? null : null} homeRoot={platform?.home ?? null} now={now} />;
   else
     page = (
       <SettingsView
@@ -294,6 +334,7 @@ export function App() {
     );
 
   return (
+    <ActionsContext.Provider value={actions}>
     <div className={"shell" + (platform?.os === "macos" ? " is-mac" : "")}>
       <div onMouseDown={drag} style={{ display: "contents" }}>
         <Sidebar
@@ -393,6 +434,7 @@ export function App() {
           }}
         />
       )}
+      {dialog && <Dialog spec={dialog} onClose={() => setDialog(null)} />}
       {palette && (
         <Palette placeholder={palette === "ideas" ? "换 idea…" : "搜索或输入命令…"} choices={palette === "ideas" ? ideaChoices : commands} onClose={() => setPalette(null)} />
       )}
@@ -407,5 +449,6 @@ export function App() {
         </div>
       )}
     </div>
+    </ActionsContext.Provider>
   );
 }

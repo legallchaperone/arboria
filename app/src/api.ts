@@ -4,6 +4,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  Action,
   AppSettings,
   MachineForm,
   MachinesPage,
@@ -52,6 +53,12 @@ export const api = {
   appSettings: () => invoke<AppSettings>("app_settings"),
   setNotifications: (on: boolean) => invoke<boolean>("set_notifications", { on }),
   helperUninstall: () => invoke<void>("helper_uninstall"),
+  /** An everyday action (src-tauri/src/actions.rs): a fixed `arb` command line. */
+  act: (root: string, action: Action) => invoke<{ output: string }>("act", { root, action }),
+  /** Off the list only: the files and the ledger stay. */
+  removeProject: (path: string) => invoke<boolean>("remove_project", { path }),
+  /** Finder: the project's folder, or one of its ideas' worktrees. */
+  reveal: (root: string, path?: string) => invoke<void>("reveal", { root, path: path ?? null }),
   ptyOpen: (
     cwd: string,
     program: string | null,

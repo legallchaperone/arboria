@@ -65,17 +65,13 @@ export function Machines(props: { onToast: (m: string) => void; onTerminal: (typ
   });
 
   return (
-    <main className="app-main">
-      <div className="app-wide">
-        <div className="app-head-block">
-          <div className="app-head">
-            <h1 className="title">机器配置</h1>
-            <span className="small ab-muted code">{saved?.path ?? "…"}</span>
-          </div>
-          <p className="small ab-muted app-pad0">
-            每台机器一个 <code className="code">[名字]</code> 表（集群、账户、分区、路径）。所有项目共用这一个文件。
-            {saved && !saved.exists && "现在还没有这个文件：下面是示例，<尖括号> 里的值要换成你的，保存后才生效。"}
-          </p>
+    <div className="form">
+        <div className="page-head">
+          <div className="strong">clusters.toml 原文</div>
+          <span className="small muted">
+            <span className="mono">{saved?.path ?? "…"}</span> · 一般用「机器」里的表单就够了；这里给要直接改文件的时候。
+            {saved && !saved.exists && " 现在还没有这个文件：下面是示例，<尖括号> 里的值要换成你的，保存后才生效。"}
+          </span>
         </div>
         <div className="app-editor">
           <textarea
@@ -126,7 +122,6 @@ export function Machines(props: { onToast: (m: string) => void; onTerminal: (typ
             </p>
           </aside>
         </div>
-      </div>
-    </main>
+    </div>
   );
 }

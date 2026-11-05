@@ -43,6 +43,8 @@ describe("rules", () => {
     expect(conf.app.security.capabilities).toEqual(["main"]);
     expect(conf.app.windows.map((w: { label: string }) => w.label)).toEqual(["main"]);
     expect(conf.app.security.csp["connect-src"]).toBe("ipc: http://ipc.localhost");
+    // the embedded notebook: only marimo on this machine
+    expect(conf.app.security.csp["frame-src"]).toBe("http://127.0.0.1:*");
     const lib = readFileSync(join(app, "src-tauri/src/lib.rs"), "utf8");
     const build = readFileSync(join(app, "src-tauri/build.rs"), "utf8");
     const listed = [...lib.matchAll(/^    "([a-z_]+)",$/gm)].map((m) => m[1]);

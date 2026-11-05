@@ -1,26 +1,33 @@
-// The window: title bar, one of three screens (收件箱 / 全局 / idea), the approval card,
-// the palettes and the terminal panel. Data comes from the core's read-only views and is
-// re-read when the Rust side says a ledger changed.
+// The window (Linear-like): the sidebar (收件箱, projects and their ideas, 种子园, 设置), a
+// header, the page, the inspector on the right (a run, the card to sign), the terminal
+// (bottom / left / right). Data comes from the core's read-only views and is re-read when
+// the Rust side says a ledger changed.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, message, onChange } from "./api";
 import type { Board, HelperStatus, Launcher, Platform, ProjectSummary } from "./types";
-import { TitleBar, type Crumb } from "./components/TitleBar";
-import { ApprovalSheet } from "./components/ApprovalSheet";
 import { Palette, type Choice } from "./components/Palette";
 import { TerminalPanel, type Dock, type TabSpec } from "./components/Terminal";
-import { Inbox } from "./screens/Inbox";
-import { Overview } from "./screens/Overview";
-import { Idea } from "./screens/Idea";
-import { Machines } from "./screens/Machines";
 import { AddProject } from "./components/AddProject";
+import { Glyph } from "./components/Glyph";
 import type { Entry } from "./lib/inbox";
+import { Sidebar } from "./views/Sidebar";
+import { Inspector } from "./views/Inspector";
+import { InboxView } from "./views/InboxView";
+import { ProjectView } from "./views/ProjectView";
+import { IdeaPage, SeedsView } from "./views/IdeaView";
+import { SettingsView } from "./views/SettingsView";
+import type { Inspect, Route } from "./views/route";
 
-type View =
-  | { k: "inbox" }
-  | { k: "overview"; root: string }
-  | { k: "idea"; root: string; idea: string }
-  | { k: "machines" };
+/** The clock (the screenshots pin it to the fixture's time). */
+export const clock = { now: () => Date.now() };
+
+/** `ssh host` out of the core's NeedLogin message. */
+export function loginCommand(msg: string): string | null {
+  const m = /`(ssh [^`]+)`/.exec(msg);
+  return m ? m[1] : null;
+}
 
 /** Per-viewer conveniences (the terminal's place and size); never state that matters. */
 function remembered<T>(key: string, fallback: T): T {
@@ -39,13 +46,12 @@ function remember(key: string, value: unknown) {
   }
 }
 
-/** The clock (the screenshots pin it to the fixture's time). */
-export const clock = { now: () => Date.now() };
-
-/** `ssh host` out of the core's NeedLogin message. */
-export function loginCommand(msg: string): string | null {
-  const m = /`(ssh [^`]+)`/.exec(msg);
-  return m ? m[1] : null;
+/** Pressing on a header (not on a control) drags the window; double-click zooms. */
+function drag(e: MouseEvent) {
+  if (e.button !== 0 || (e.target as HTMLElement).closest("button, input, a, select, textarea")) return;
+  const w = getCurrentWindow();
+  if (e.detail === 2) void w.toggleMaximize().catch(() => undefined);
+  else void w.startDragging().catch(() => undefined);
 }
 
 export function App() {
@@ -54,20 +60,19 @@ export function App() {
   const [boards, setBoards] = useState<Record<string, Board>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [helper, setHelper] = useState<HelperStatus | null>(null);
-  const [view, setView] = useState<View>({ k: "inbox" });
-  const [sheet, setSheet] = useState<{ root: string; run: string } | null>(null);
+  const [route, setRoute] = useState<Route>({ k: "inbox" });
+  const [inspect, setInspect] = useState<Inspect | null>(null);
+  const [inboxSel, setInboxSel] = useState<string | null>(null);
   const [palette, setPalette] = useState<"commands" | "ideas" | null>(null);
   const [termOpen, setTermOpen] = useState(false);
-  const [dock, setDock] = useState<Dock>(() => remembered<Dock>("arboria.term.dock", "bottom"));
-  const [termSize, setTermSize] = useState<Record<Dock, number>>(() =>
-    remembered("arboria.term.size", { bottom: 320, left: 560, right: 560 }),
-  );
   const [tabs, setTabs] = useState<TabSpec[]>([]);
   const [activeTab, setActiveTab] = useState<number | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [dock, setDock] = useState<Dock>(() => remembered<Dock>("arboria.term.dock", "bottom"));
+  const [termSize, setTermSize] = useState<Record<Dock, number>>(() => remembered("arboria.term.size", { bottom: 300, left: 520, right: 520 }));
   const [launchers, setLaunchers] = useState<Launcher[]>([{ id: "shell", label: "新终端", installed: true, group: null }]);
   const [adding, setAdding] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [ideaTab, setIdeaTab] = useState<"overview" | "notebook">("overview");
   const [now, setNow] = useState(clock.now());
   const nextTab = useRef(1);
 
@@ -83,7 +88,6 @@ export function App() {
       setErrors((m) => ({ ...m, [root]: message(e) }));
     }
   }, []);
-
   const loadAll = useCallback(async () => {
     try {
       const ps = await api.projects();
@@ -115,41 +119,48 @@ export function App() {
     };
   }, [loadAll, loadBoard]);
 
-  const firstProject = projects.find((p) => p.kind === "project" && !p.error) ?? projects[0];
-  const currentRoot = view.k === "inbox" || view.k === "machines" ? firstProject?.root : view.root;
+  const go = (r: Route) => {
+    if (r.k !== "idea" || route.k !== "idea" || r.idea !== route.idea || r.root !== route.root) setIdeaTab("overview");
+    setRoute(r);
+    setInspect(null);
+  };
+  const firstProject = projects.find((p) => p.kind === "project" && !p.error);
+  const currentRoot = route.k === "project" || route.k === "idea" ? route.root : firstProject?.root;
   const waiting = projects.reduce((n, p) => n + p.inbox.length, 0);
+  const home = projects.find((p) => p.kind === "home");
 
   const openTab = useCallback(
     (program: string | null, type?: string) => {
-      const cwd = currentRoot ?? "/";
+      const cwd = currentRoot ?? home?.root ?? "/";
       const key = nextTab.current++;
       const id = program ?? "shell";
       const l = launchers.find((x) => x.id === id);
       const title = id === "shell" ? `终端 ${key}` : id.startsWith("ssh:") ? id.slice(4) : l?.label ?? id;
-      program = id;
       setTabs((t) => [...t, { key, title, cwd, program: id, type }]);
       setActiveTab(key);
       setTermOpen(true);
     },
-    [currentRoot, launchers],
+    [currentRoot, launchers, home],
   );
 
   const addProject = async (path?: string) => {
     try {
       const entry = path ? await api.addProject(path) : await api.pickProject();
-      if (!entry) return; // cancelled
+      if (!entry) return;
       setAdding(false);
       setToast(`已添加 ${entry.path}`);
       await loadAll();
+      go({ k: "project", root: entry.path });
     } catch (e) {
       setToast(message(e));
     }
   };
 
-  const openEntry = (e: Entry) => {
-    if (e.kind === "approve" && e.run) setSheet({ root: e.root, run: e.run });
-    else if (e.idea) setView({ k: "idea", root: e.root, idea: e.idea });
-    else if (e.command) setToast(`在你自己的终端运行：${e.command}`);
+  const inspectEntry = (e: Entry) => {
+    setInboxSel(e.key);
+    if (e.run) setInspect({ k: "run", root: e.root, run: e.run });
+    else if (e.task) setInspect({ k: "todo", root: e.root, task: e.task });
+    else if (e.command) setInspect({ k: "command", title: e.title, text: e.meta, command: e.command });
   };
 
   const ideas = useMemo(
@@ -161,34 +172,27 @@ export function App() {
       ),
     [boards],
   );
-  const recent = useMemo(
-    () =>
-      [...ideas]
-        .filter((x) => x.idea.stage === "open")
-        .sort((a, b) => (a.idea.last_active < b.idea.last_active ? 1 : -1))
-        .slice(0, 3)
-        .map((x) => ({ root: x.root, idea: x.idea.name })),
-    [ideas],
-  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key.toLowerCase() === "k") {
+      const k = e.key.toLowerCase();
+      if (mod && k === "k") {
         e.preventDefault();
         setPalette("commands");
-      } else if (mod && e.key.toLowerCase() === "p") {
+      } else if (mod && k === "p") {
         e.preventDefault();
         setPalette("ideas");
-      } else if (mod && e.key.toLowerCase() === "t") {
+      } else if (mod && k === "t") {
         e.preventDefault();
         openTab(null);
       } else if (mod && e.key === "`") {
         e.preventDefault();
-        if (!termOpen && tabs.length === 0) openTab(null);
+        if (tabs.length === 0) openTab(null);
         else setTermOpen((o) => !o);
-      } else if (e.key === "Escape" && !sheet && !palette && view.k !== "inbox") {
-        setView({ k: "inbox" });
+      } else if (mod && e.key === ",") {
+        e.preventDefault();
+        go({ k: "settings", tab: "general" });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -196,180 +200,207 @@ export function App() {
   });
 
   const commands: Choice[] = [
-    { key: "inbox", name: "收件箱", desc: "待你处理的事", run: () => setView({ k: "inbox" }) },
-    ...(firstProject ? [{ key: "overview", name: "全局", desc: "idea 树、花费、机器", run: () => setView({ k: "overview", root: currentRoot ?? firstProject.root }) }] : []),
+    { key: "inbox", name: "收件箱", run: () => go({ k: "inbox" }) },
+    ...projects
+      .filter((p) => p.kind === "project")
+      .map((p) => ({ key: "p" + p.root, name: p.name, desc: "项目概览", kind: "项目", run: () => go({ k: "project", root: p.root }) })),
     ...launchers
       .filter((l) => l.installed)
       .map((l) => ({
         key: "term-" + l.id,
         name: l.label,
-        desc: l.id === "shell" ? "在项目主 worktree 里（⌘T）" : l.group === "ssh" ? "ssh 到这台机器（Duo 过期时在这里登录）" : "在终端标签里",
+        desc: l.id === "shell" ? "⌘T" : l.group === "ssh" ? "ssh 到这台机器" : "在终端标签里",
+        kind: "终端",
         run: () => openTab(l.id),
       })),
     { key: "add", name: "添加项目…", desc: "本机的仓库，或者从仓库链接克隆", run: () => setAdding(true) },
-    { key: "machines", name: "机器配置", desc: "编辑 clusters.toml（集群、账户、分区、路径）", run: () => setView({ k: "machines" }) },
+    { key: "settings", name: "设置", desc: "⌘,", run: () => go({ k: "settings", tab: "general" }) },
+    { key: "machines", name: "机器", desc: "集群、账户、分区、路径", kind: "设置", run: () => go({ k: "settings", tab: "machines" }) },
     { key: "reload", name: "重新读取", desc: "所有项目的账本", run: () => void loadAll() },
-    { key: "helper", name: "安装后台小助手", desc: "登录时启动，盯作业、发通知", run: () => void installHelper() },
   ];
   const ideaChoices: Choice[] = [...ideas]
     .sort((a, b) => (a.idea.last_active < b.idea.last_active ? 1 : -1))
     .map((x) => ({
-    key: x.root + x.idea.name,
-    name: x.idea.name,
-    desc: x.idea.hypothesis ?? x.idea.gist ?? "",
-    kind: x.idea.stage === "seed" ? "种子" : x.project,
-    run: () => setView({ k: "idea", root: x.root, idea: x.idea.name }),
-  }));
+      key: x.root + x.idea.name,
+      name: x.idea.name,
+      desc: x.idea.hypothesis ?? x.idea.gist ?? "",
+      kind: x.idea.stage === "seed" ? "种子" : x.project,
+      run: () => (x.idea.stage === "seed" ? go({ k: "seeds" }) : go({ k: "idea", root: x.root, idea: x.idea.name })),
+    }));
 
-  async function installHelper() {
-    try {
-      const path = await api.helperInstall();
-      setToast(`小助手已安装：${path}`);
-      setHelper(await api.helperStatus());
-    } catch (e) {
-      setToast(message(e));
-    }
-  }
+  // header crumbs
+  const board = route.k === "project" || route.k === "idea" ? boards[route.root] ?? null : null;
+  const idea = route.k === "idea" ? board?.ideas.find((i) => i.name === route.idea) : undefined;
+  const crumbs: { label: string; to?: Route }[] =
+    route.k === "inbox"
+      ? [{ label: "收件箱" }]
+      : route.k === "seeds"
+        ? [{ label: "种子园" }]
+        : route.k === "settings"
+          ? [{ label: "设置" }]
+          : route.k === "project"
+            ? [{ label: board?.project.name ?? "项目" }]
+            : [{ label: board?.project.name ?? "项目", to: { k: "project", root: route.root } }, { label: route.idea }];
 
-  const board = view.k === "overview" || view.k === "idea" ? boards[view.root] ?? null : null;
-  const crumbs: Crumb[] = [];
-  if (view.k === "inbox") crumbs.push({ label: "待你处理" });
-  else if (view.k === "machines") crumbs.push({ label: "机器配置" });
-  else {
-    const name = board?.project.name ?? view.root;
-    crumbs.push({ label: name, onClick: () => setView({ k: "overview", root: view.root }) });
-    if (view.k === "idea") crumbs.push({ label: view.idea });
-    else crumbs.push({ label: "全局" });
-  }
-  const idea = view.k === "idea" ? board?.ideas.find((i) => i.name === view.idea) : undefined;
+  let page: ReactNode = null;
+  if (route.k === "inbox")
+    page = (
+      <InboxView
+        projects={projects}
+        now={now}
+        selected={inboxSel}
+        onSelect={inspectEntry}
+        onOpen={(e) => e.idea && go({ k: "idea", root: e.root, idea: e.idea })}
+        onAdd={() => setAdding(true)}
+      />
+    );
+  else if (route.k === "project")
+    page = (
+      <ProjectView
+        board={board}
+        error={errors[route.root] ?? null}
+        now={now}
+        onIdea={(i) => go({ k: "idea", root: route.root, idea: i })}
+        onSettings={() => go({ k: "settings", tab: "project", root: route.root })}
+      />
+    );
+  else if (route.k === "idea")
+    page =
+      board && idea ? (
+        <IdeaPage
+          board={board}
+          idea={idea}
+          now={now}
+          tab={ideaTab}
+          onTab={setIdeaTab}
+          selectedRun={inspect?.k === "run" ? inspect.run : null}
+          onRun={(run) => setInspect({ k: "run", root: route.root, run })}
+        />
+      ) : (
+        <div className="empty">{errors[route.root] ?? "读取中…"}</div>
+      );
+  else if (route.k === "seeds") page = <SeedsView board={home ? boards[home.root] ?? null : null} now={now} />;
+  else
+    page = (
+      <SettingsView
+        tab={route.tab}
+        root={route.root}
+        projects={projects}
+        now={now}
+        go={(tab) => setRoute({ k: "settings", tab, root: route.root })}
+        toast={setToast}
+        onTerminal={(cmd) => openTab(null, cmd)}
+      />
+    );
 
   return (
-    <div className={"app" + (platform?.os === "macos" ? " is-mac" : "")}>
-      <TitleBar
-        crumbs={crumbs}
-        waiting={waiting}
-        terminalOpen={termOpen}
-        onInbox={() => setView({ k: "inbox" })}
-        onOverview={() => firstProject && setView({ k: "overview", root: currentRoot ?? firstProject.root })}
-        onSwitch={() => setPalette("ideas")}
-        onCommands={() => setPalette("commands")}
-        onTerminal={() => (tabs.length === 0 ? openTab(null) : setTermOpen((o) => !o))}
-      />
-      <div className={`app-work is-${dock}`}>
-      <div className="app-body">
-        {view.k === "inbox" && (
-          <Inbox
-            projects={projects}
-            now={now}
-            onOpen={openEntry}
-            recent={recent}
-            onIdea={(root, idea) => setView({ k: "idea", root, idea })}
-            onAddProject={(p) => (p ? void addProject(p) : setAdding(true))}
-          />
-        )}
-        {view.k === "overview" && (
-          <Overview
-            board={board}
-            error={errors[view.root] ?? null}
-            projects={projects}
-            helper={helper}
-            now={now}
-            onIdea={(i) => setView({ k: "idea", root: view.root, idea: i })}
-            onProject={(root) => setView({ k: "overview", root })}
-            onInstallHelper={() => void installHelper()}
-            onLogin={(m) => openTab(null, loginCommand(helper?.needs_login[m] ?? "") ?? `ssh ${m}`)}
-            onMachines={() => setView({ k: "machines" })}
-            onEditConfig={(path) => api.openInEditor(path).catch((e) => setToast(message(e)))}
-          />
-        )}
-        {view.k === "idea" && board && idea && (
-          <Idea
-            board={board}
-            idea={idea}
-            now={now}
-            busy={busy}
-            onCard={(run) => setSheet({ root: view.root, run })}
-            onNotebook={() => {
-              setBusy("正在启动 marimo…");
-              api
-                .openNotebook(view.root, idea.name)
-                .catch((e) => setToast(message(e)))
-                .finally(() => setBusy(null));
-            }}
-          />
-        )}
-        {view.k === "machines" && <Machines onToast={setToast} onTerminal={(cmd) => openTab(null, cmd)} />}
-        {view.k === "idea" && (!board || !idea) && (
-          <main className="app-main">
-            <p className="small ab-muted">{errors[view.root] ?? `读取 ${view.idea}…`}</p>
-          </main>
-        )}
-      </div>
-      <TerminalPanel
-        tabs={tabs}
-        active={activeTab}
-        visible={termOpen}
-        dock={dock}
-        size={termSize[dock]}
-        onSelect={setActiveTab}
-        onNew={(p) => openTab(p)}
-        launchers={launchers}
-        onClose={(k) => {
-          const rest = tabs.filter((x) => x.key !== k);
-          setTabs(rest);
-          if (activeTab === k) setActiveTab(rest.at(-1)?.key ?? null);
-          if (rest.length === 0) setTermOpen(false);
-        }}
-        onDock={(d) => {
-          setDock(d);
-          remember("arboria.term.dock", d);
-        }}
-        onSize={(px) =>
-          setTermSize((m) => {
-            const next = { ...m, [dock]: px };
-            remember("arboria.term.size", next);
-            return next;
-          })
-        }
-        onHide={() => setTermOpen(false)}
-      />
-      </div>
-      {sheet && platform && (
-        <ApprovalSheet
-          root={sheet.root}
-          run={sheet.run}
-          platform={platform}
-          now={clock.now}
-          onClose={() => setSheet(null)}
-          onRunInTerminal={(cmd) => {
-            setSheet(null);
-            openTab(null, cmd);
-          }}
+    <div className={"shell" + (platform?.os === "macos" ? " is-mac" : "")}>
+      <div onMouseDown={drag} style={{ display: "contents" }}>
+        <Sidebar
+          route={route}
+          projects={projects}
+          boards={boards}
+          waiting={waiting}
+          helper={helper}
+          go={go}
+          onAdd={() => setAdding(true)}
+          onLogin={(m) => openTab(`ssh:${m}`, undefined)}
         />
-      )}
+      </div>
+      <div className="work">
+        <header className="head" onMouseDown={drag}>
+          <span className="crumbs">
+            {crumbs.map((c, i) => (
+              <span key={i} style={{ display: "contents" }}>
+                {i > 0 && <span className="sep">/</span>}
+                {c.to ? (
+                  <button type="button" onClick={() => go(c.to!)}>
+                    {c.label}
+                  </button>
+                ) : (
+                  <span className="here">{c.label}</span>
+                )}
+              </span>
+            ))}
+          </span>
+          <button type="button" className="icon-btn" aria-label="搜索和命令（⌘K）" title="搜索和命令 ⌘K" onClick={() => setPalette("commands")}>
+            <Glyph name="search" />
+          </button>
+          <button
+            type="button"
+            className={"icon-btn" + (termOpen ? " is-on" : "")}
+            aria-label="终端（⌘`）"
+            title="终端 ⌘`"
+            onClick={() => (tabs.length === 0 ? openTab(null) : setTermOpen((o) => !o))}
+          >
+            <Glyph name="terminal" />
+          </button>
+        </header>
+        <div className={`app-work is-${dock}`}>
+          <div className="body-split app-body">
+            <main className={"content" + (route.k === "idea" ? " is-fill" : "")}>{page}</main>
+            {inspect && (
+              <Inspector
+                what={inspect}
+                boards={boards}
+                platform={platform}
+                now={clock.now}
+                onClose={() => setInspect(null)}
+                onTerminal={(cmd) => openTab(null, cmd)}
+                onIdea={(root, i) => go({ k: "idea", root, idea: i })}
+                onSigned={() => currentRoot && void loadBoard(currentRoot)}
+              />
+            )}
+          </div>
+          <TerminalPanel
+            tabs={tabs}
+            active={activeTab}
+            visible={termOpen}
+            dock={dock}
+            size={termSize[dock]}
+            launchers={launchers}
+            onSelect={setActiveTab}
+            onNew={(p) => openTab(p)}
+            onClose={(k) => {
+              const rest = tabs.filter((x) => x.key !== k);
+              setTabs(rest);
+              if (activeTab === k) setActiveTab(rest.at(-1)?.key ?? null);
+              if (rest.length === 0) setTermOpen(false);
+            }}
+            onDock={(d) => {
+              setDock(d);
+              remember("arboria.term.dock", d);
+            }}
+            onSize={(px) =>
+              setTermSize((m) => {
+                const next = { ...m, [dock]: px };
+                remember("arboria.term.size", next);
+                return next;
+              })
+            }
+            onHide={() => setTermOpen(false)}
+          />
+        </div>
+      </div>
       {adding && (
         <AddProject
           onClose={() => setAdding(false)}
           onFolder={() => void addProject()}
           onCloned={(c) => {
             setAdding(false);
-            setToast(`已克隆并初始化 ${c.path}：在它的 arboria.toml 里填 default_machine 等设置`);
-            void loadAll().then(() => setView({ k: "overview", root: c.path }));
+            setToast(`已克隆并初始化 ${c.path}`);
+            void loadAll().then(() => go({ k: "settings", tab: "project", root: c.path }));
           }}
         />
       )}
       {palette && (
-        <Palette
-          placeholder={palette === "ideas" ? "换 idea…" : "命令…"}
-          choices={palette === "ideas" ? ideaChoices : commands}
-          onClose={() => setPalette(null)}
-        />
+        <Palette placeholder={palette === "ideas" ? "换 idea…" : "搜索或输入命令…"} choices={palette === "ideas" ? ideaChoices : commands} onClose={() => setPalette(null)} />
       )}
       {toast && (
         <div className="app-toasts">
           <div className="ab-toast small" role="status">
             <span>{toast}</span>
-            <button type="button" className="app-link ab-muted" onClick={() => setToast(null)} aria-label="关闭">
+            <button type="button" className="link muted" onClick={() => setToast(null)} aria-label="关闭">
               ×
             </button>
           </div>

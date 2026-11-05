@@ -4,6 +4,7 @@ import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/bundle.css";
 import "./styles/app.css";
+import "./styles/base.css";
 import { App } from "./App";
 
 // The design system's dark theme follows the system.

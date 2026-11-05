@@ -4,6 +4,11 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  AppSettings,
+  MachineForm,
+  MachinesPage,
+  ProjectForm,
+  ProjectSettings,
   Approved,
   ClustersCheck,
   Cloned,
@@ -25,7 +30,9 @@ export const api = {
     invoke<Approved>("approve", { root, run, cardHash }),
   helperStatus: () => invoke<HelperStatus>("helper_status"),
   helperInstall: () => invoke<string>("helper_install"),
-  openNotebook: (root: string, idea: string) => invoke<void>("open_notebook", { root, idea }),
+  /** The notebook server's URL (started on first use) for the embedded iframe. */
+  openNotebook: (root: string, idea: string) => invoke<string>("open_notebook", { root, idea }),
+  closeNotebook: (root: string, idea: string) => invoke<void>("close_notebook", { root, idea }),
   terminalLaunchers: () => invoke<Launcher[]>("terminal_launchers"),
   pickFolder: () => invoke<string | null>("pick_folder"),
   cloneDir: (set?: string) => invoke<string>("clone_dir", { set: set ?? null }),
@@ -35,6 +42,16 @@ export const api = {
   clustersCheck: (text: string) => invoke<ClustersCheck>("clusters_check", { text }),
   clustersSave: (text: string) => invoke<ClustersCheck>("clusters_save", { text }),
   openInEditor: (path: string) => invoke<void>("open_in_editor", { path }),
+  settingsMachines: () => invoke<MachinesPage>("settings_machines"),
+  blankMachine: (name: string) => invoke<MachineForm>("settings_blank_machine", { name }),
+  saveMachine: (original: string | null, form: MachineForm) =>
+    invoke<MachinesPage>("settings_save_machine", { original, form }),
+  removeMachine: (name: string) => invoke<MachinesPage>("settings_remove_machine", { name }),
+  settingsProject: (root: string) => invoke<ProjectSettings>("settings_project", { root }),
+  saveProject: (root: string, form: ProjectForm) => invoke<ProjectSettings>("settings_save_project", { root, form }),
+  appSettings: () => invoke<AppSettings>("app_settings"),
+  setNotifications: (on: boolean) => invoke<boolean>("set_notifications", { on }),
+  helperUninstall: () => invoke<void>("helper_uninstall"),
   ptyOpen: (
     cwd: string,
     program: string | null,

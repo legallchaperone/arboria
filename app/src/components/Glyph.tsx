@@ -46,6 +46,12 @@ const PATHS: Record<GlyphName, JSX.Element> = {
       <path d="M2.5 9.5h11" />
     </>
   ),
+  search: (
+    <>
+      <circle cx="7" cy="7" r="4.25" />
+      <path d="M10.2 10.2l3.3 3.3" />
+    </>
+  ),
   bell: (
     <>
       <path d="M4.5 11V7.5a3.5 3.5 0 0 1 7 0V11l1 1.5h-9z" />

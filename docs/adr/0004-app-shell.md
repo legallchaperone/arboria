@@ -45,7 +45,7 @@ app 是单独的 Cargo 工作区（`app/src-tauri/Cargo.lock`），根工作区 
 
 不变的：`Confirmed` 只在 `human.rs` 里造（`confirm`、`confirm_on_device`），源码扫描守住；没有任何自动批准的路径；Touch ID 实现在 `arboria-macos`，核心只在 macOS 上链接它。
 
-webview 的边界：只有主窗口（label `main`，加载 app 自带的页面）有 IPC 权限（`app/src-tauri/capabilities/main.json`）；marimo 窗口加载 `http://127.0.0.1:…`，没有任何 capability，notebook 里的代码调不到 `approve`。CSP 只许 app 自己的资源和 `ipc:`。测试读 capabilities 文件守住。嵌入终端里的 Claude Code 是 pty 的子进程，碰不到 webview 的 IPC；`arb approve` 在那里照样被 `require_terminal` 拒绝。护栏，不是沙箱：硬保证仍然是 Touch ID 要人的手指，和提交前查账本里人的 Decision。
+webview 的边界：只有主窗口（label `main`）里 app 自带的页面有 IPC 权限（`app/src-tauri/capabilities/main.json`）；内嵌的 marimo 是 `http://127.0.0.1:…` 的 iframe，另一个源，没有任何 capability，也碰不到主页面，notebook 里的代码调不到 `approve`。CSP 只许 app 自己的资源和 `ipc:`。测试读 capabilities 文件守住。嵌入终端里的 Claude Code 是 pty 的子进程，碰不到 webview 的 IPC；`arb approve` 在那里照样被 `require_terminal` 拒绝。护栏，不是沙箱：硬保证仍然是 Touch ID 要人的手指，和提交前查账本里人的 Decision。
 
 ## 小助手（`helper`）
 - `arb helper run [--every 秒] [--once]`：每轮对每个登记的项目和种子园：
@@ -61,11 +61,11 @@ webview 的边界：只有主窗口（label `main`，加载 app 自带的页面�
 系统通知只是提醒，内容只由校验过的字段拼成（run id、状态、SU、机器名）。macOS 用 `osascript`（参数经 `on run argv` 传，不拼进脚本），Linux 用 `notify-send`（没有就跳过）。任何失败都静默。`ARBORIA_NOTIFY=0` 关掉（测试里默认关）。
 
 ## app
-- 三个主界面（定稿见主界面画布，都选 A）：**收件箱**（没打开 idea 时的首页：一列，按类分组，⏎ 打开）、**全局**（idea 和 run 的时间线、花费条、种子、每台机器的 probe 卡）、**idea**（第 2 期：标题、假设、指标、run 列表和状态、笔记、待办，“打开 notebook”开 marimo 窗口）。标题栏：面包屑、“待你处理 N”、⌘P 换 idea、⌘K 命令、⌘` 终端。
+- 界面（2026-11-05 第一次实机使用后重做，参照 Linear）：左侧栏（收件箱、项目和它们进行中的 idea、种子园、设置），中间是页面，右边是详情面板（run、待签字的审核单：摘要在上，全文折叠），终端可停在下 / 左 / 右；正文用无衬线（PingFang SC / Noto Sans SC），等宽只给代码、id、数字；设置页用表单改 clusters.toml 和 arboria.toml（核心 `settings`，toml_edit 保留注释，按 arb 的读法检查后才写）。原来的三个主界面（主界面画布，都选 A）：**收件箱**（没打开 idea 时的首页：一列，按类分组，⏎ 打开）、**全局**（idea 和 run 的时间线、花费条、种子、每台机器的 probe 卡）、**idea**（第 2 期：标题、假设、指标、run 列表和状态、笔记、待办，“打开 notebook”开 marimo 窗口）。标题栏：面包屑、“待你处理 N”、⌘P 换 idea、⌘K 命令、⌘` 终端。
 - 审核单（ab-slip）：全文、资源、花费、哈希；“签字 ⌘⏎”在显示满 2 秒前不可按；“稍后 esc”。
 - 终端：xterm.js + portable-pty，在项目主 worktree 里开登录 shell；“Claude Code”按钮开一个运行 `claude` 的标签；需要登录时提示“在终端里登录 <机器>”并给出命令。
 - 账本变化：后台每秒查每个项目的 `PRAGMA data_version` 和 `notifications.log` 的大小，变了就发 `ledger-changed`，界面重读。
-- marimo 窗口：`open_notebook(root, idea)` 先 `ideas::ensure_notebook`（只补缺的 notebook，不覆盖），再在 worktree 里起 `marimo edit notebook.py --headless --host 127.0.0.1 --port <空闲> --token`，开一个新窗口加载它；窗口关了就停进程。
+- notebook（2026-11-05 改为内嵌）：`open_notebook(root, idea)` 先 `ideas::ensure_notebook`（只补缺的 notebook，不覆盖），再在 worktree 里起 `marimo edit notebook.py --headless --host 127.0.0.1 --port <空闲> --token`，把 URL 交给页面，idea 页的 Notebook 标签用带 sandbox 的 iframe 嵌入（CSP `frame-src` 只许 `http://127.0.0.1:*`）；每个 idea 一个进程，复用到 app 退出。
 - 样式：设计系统的 `tokens.css` + `bundle.css`（ab-* 组件）原样放进 `app/src/styles/`，app 自己的 CSS 只准用 token（测试扫描：不许出现 token 以外的颜色字面量）。不加 Tailwind（方案里写了 Tailwind；设计系统已经给了组件 CSS，再加一层没有好处）。字体 Maple Mono CN 用包里 vendored 的那份（`src/arboria/ui/fonts/`）。
 - 测试：`npm test`（vitest，纯函数：收件箱分组、时间线布局、格式化）；`npm run check`（tsc，fixture JSON 要符合类型）；Playwright 截图（`app/scripts/screens.mjs`，用 `@tauri-apps/api/mocks` 的假 IPC 和 fixture）。fixture `app/src/fixtures/board.json` 由核心测试生成（`UPDATE_FIXTURES=1 cargo test -p arboria-core --test view`），测试检查它是最新的：Rust 输出和 TypeScript 类型对得上。
 

@@ -13,3 +13,13 @@
   font-style: normal;
   font-display: block;
 }
+
+/* UI text: the system's Chinese sans on macOS (PingFang SC); elsewhere the vendored
+   Noto Sans SC (SIL OFL 1.1). Monospace (Maple Mono CN) is only for code, ids, numbers. */
+@font-face {
+  font-family: "Noto Sans SC";
+  src: url("@fonts/NotoSansSC-VF.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}

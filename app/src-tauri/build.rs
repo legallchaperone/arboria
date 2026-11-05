@@ -11,6 +11,7 @@ fn main() {
         "helper_status",
         "helper_install",
         "open_notebook",
+        "close_notebook",
         "pty_open",
         "pty_write",
         "pty_resize",

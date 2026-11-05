@@ -2,9 +2,9 @@
 //! `arboria-core`. The core does the work; this crate only adapts it to the webview.
 //!
 //! Invariants:
-//! - Only the main window (the app's own pages) may call these commands
-//!   (`capabilities/main.json`; the marimo windows load http://127.0.0.1 pages and get no
-//!   capability). `tests/capabilities.rs` keeps it so.
+//! - Only the main window's own pages may call these commands (`capabilities/main.json`).
+//!   The embedded marimo notebook is a 127.0.0.1 iframe: another origin with no
+//!   capability. `app/src/lib/rules.test.ts` keeps it so.
 //! - Reads go through `arboria_core::view` (read-only). The only writes: adding a project,
 //!   installing the helper, making a missing notebook, and approving.
 //! - Approving: `card_shown` records which card (hash) the window showed and when;
@@ -40,6 +40,7 @@ pub const COMMANDS: &[&str] = &[
     "helper_status",
     "helper_install",
     "open_notebook",
+    "close_notebook",
     "pty_open",
     "pty_write",
     "pty_resize",
@@ -234,14 +235,19 @@ async fn helper_install() -> Res<String> {
     .map_err(err)?
 }
 
+/// The URL of the idea's marimo notebook (started on first use), for the page's iframe.
 #[tauri::command]
 async fn open_notebook(
-    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     root: String,
     idea: String,
-) -> Res<()> {
-    notebook::open(&app, &state.notebooks, &root, &idea).await
+) -> Res<String> {
+    notebook::open(&state.notebooks, &root, &idea).await
+}
+
+#[tauri::command]
+fn close_notebook(state: tauri::State<'_, AppState>, root: String, idea: String) -> Res<()> {
+    notebook::close(&state.notebooks, &root, &idea)
 }
 
 /// The native “choose a folder” dialog, then `arb init` (when the repo has none) and
@@ -523,6 +529,7 @@ pub fn run() {
             helper_status,
             helper_install,
             open_notebook,
+            close_notebook,
             pty_open,
             pty_write,
             pty_resize,

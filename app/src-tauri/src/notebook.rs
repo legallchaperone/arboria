@@ -1,7 +1,9 @@
-//! The idea's marimo notebook in its own window (ADR 0004; the app's own notebook is
-//! phase 3). `marimo edit` runs in the idea's worktree on 127.0.0.1 with a token from a
-//! 0600 file; the window loads it and gets no IPC capability (only `main` has one). The
-//! process stops when its window closes.
+//! The idea's marimo notebook, embedded in the main window (ADR 0004; the app's own
+//! notebook is phase 3). `marimo edit` runs in the idea's worktree on 127.0.0.1 with a
+//! token from a 0600 file; the page shows it in a sandboxed iframe (CSP `frame-src` allows
+//! only 127.0.0.1). The iframe is another origin: it cannot reach the page, and Tauri gives
+//! that origin no capability, so notebook code cannot call `approve`. One server per idea,
+//! reused while the app runs, stopped with it.
 
 use std::collections::HashMap;
 use std::io::Read as _;
@@ -14,12 +16,18 @@ use std::time::{Duration, Instant};
 use arboria_core::db::Ledger;
 use arboria_core::model::IdeaName;
 use arboria_core::{commands, ideas, paths};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
-/// Window label → the marimo process behind it.
+/// A running notebook server.
+struct Server {
+    child: Child,
+    url: String,
+    token_file: PathBuf,
+}
+
+/// (root, idea) key → the marimo server behind it.
 #[derive(Default)]
 pub struct Notebooks {
-    procs: Arc<Mutex<HashMap<String, Child>>>,
+    procs: Arc<Mutex<HashMap<String, Server>>>,
 }
 
 fn err(e: impl std::fmt::Display) -> String {
@@ -75,11 +83,18 @@ fn target(worktree: Option<&str>, file: &Path) -> (PathBuf, PathBuf) {
     (dir, name)
 }
 
-pub async fn open(app: &AppHandle, nbs: &Notebooks, root: &str, idea: &str) -> Result<(), String> {
+/// The URL of the idea's notebook server, starting it when it is not running.
+pub async fn open(nbs: &Notebooks, root: &str, idea: &str) -> Result<String, String> {
     let label = label_for(root, idea);
-    if let Some(w) = app.get_webview_window(&label) {
-        let _ = w.set_focus();
-        return Ok(());
+    {
+        let mut procs = nbs.procs.lock().map_err(err)?;
+        if let Some(s) = procs.get_mut(&label) {
+            if s.child.try_wait().ok().flatten().is_none() {
+                return Ok(s.url.clone());
+            }
+            let _ = std::fs::remove_file(&s.token_file);
+            procs.remove(&label);
+        }
     }
     let (r, i) = (root.to_string(), idea.to_string());
     let (cwd, file) =
@@ -145,34 +160,39 @@ pub async fn open(app: &AppHandle, nbs: &Notebooks, root: &str, idea: &str) -> R
         }
         std::thread::sleep(Duration::from_millis(150));
     }
-    let base = format!("http://127.0.0.1:{port}");
-    let url: tauri::Url = format!("{base}/?access_token={tok}").parse().map_err(err)?;
-    let allowed = base.clone();
-    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(url))
-        .title(format!("{idea} · notebook"))
-        .inner_size(1200.0, 860.0)
-        .on_navigation(move |u| u.as_str().starts_with(&allowed))
-        .build()
-        .map_err(err)?;
-    nbs.procs.lock().map_err(err)?.insert(label.clone(), child);
-    let procs = nbs.procs.clone();
-    window.on_window_event(move |e| {
-        if let tauri::WindowEvent::Destroyed = e {
-            if let Some(mut c) = procs.lock().ok().and_then(|mut p| p.remove(&label)) {
-                let _ = c.kill();
-                let _ = c.wait();
-            }
-            let _ = std::fs::remove_file(&tok_path);
-        }
-    });
+    let url = format!("http://127.0.0.1:{port}/?access_token={tok}");
+    nbs.procs.lock().map_err(err)?.insert(
+        label,
+        Server {
+            child,
+            url: url.clone(),
+            token_file: tok_path,
+        },
+    );
+    Ok(url)
+}
+
+/// Stop the idea's notebook server (if it runs).
+pub fn close(nbs: &Notebooks, root: &str, idea: &str) -> Result<(), String> {
+    if let Some(mut s) = nbs
+        .procs
+        .lock()
+        .map_err(err)?
+        .remove(&label_for(root, idea))
+    {
+        let _ = s.child.kill();
+        let _ = s.child.wait();
+        let _ = std::fs::remove_file(&s.token_file);
+    }
     Ok(())
 }
 
 impl Drop for Notebooks {
     fn drop(&mut self) {
         if let Ok(mut p) = self.procs.lock() {
-            for (_, mut c) in p.drain() {
-                let _ = c.kill();
+            for (_, mut s) in p.drain() {
+                let _ = s.child.kill();
+                let _ = std::fs::remove_file(&s.token_file);
             }
         }
     }

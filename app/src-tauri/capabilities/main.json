@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "The main window, which loads only the app's own pages, and nothing else: the notebook windows (marimo on 127.0.0.1) get no capability (ADR 0004).",
+  "description": "The main window's own pages, and nothing else: the embedded marimo notebook (a 127.0.0.1 iframe, another origin) gets no capability (ADR 0004).",
   "windows": [
     "main"
   ],
@@ -39,6 +39,7 @@
     "allow-settings-save-project",
     "allow-app-settings",
     "allow-set-notifications",
-    "allow-helper-uninstall"
+    "allow-helper-uninstall",
+    "allow-close-notebook"
   ]
 }

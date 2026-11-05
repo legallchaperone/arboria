@@ -222,3 +222,61 @@ export interface Cloned {
   actions: string[];
   warnings: string[];
 }
+
+/** core settings::PartitionForm / MachineForm / Machines */
+export interface PartitionForm {
+  name: string;
+  max_walltime: string;
+  charge: number;
+}
+export interface MachineForm {
+  name: string;
+  kind: string;
+  host: string;
+  account: string;
+  arch: string;
+  gpus_per_node: number;
+  cpus_per_gpu: number;
+  mem_per_gpu_gb: number;
+  default_partition: string;
+  max_segments: number;
+  billing_per_su: number;
+  balance_cmd: string;
+  prelude: string[];
+  env_activate: string[];
+  partitions: PartitionForm[];
+  paths: Record<string, string>;
+  root: string | null;
+}
+export interface MachinesPage {
+  path: string;
+  machines: { form: MachineForm; error: string | null }[];
+  syntax_error: string | null;
+}
+
+/** core settings::ProjectForm / ProjectSettings */
+export interface ProjectForm {
+  default_machine: string;
+  total_su: number;
+  wandb_entity: string;
+  wandb_project: string;
+  run_command: string;
+  override_style: string;
+  observation_minutes: number;
+  fail_patterns: string[];
+}
+export interface ProjectSettings {
+  root: string;
+  path: string;
+  project_id: string | null;
+  form: ProjectForm;
+  error: string | null;
+  machines: string[];
+  override_styles: string[];
+}
+
+export interface AppSettings {
+  notifications: boolean;
+  clone_dir: string;
+  helper: HelperStatus;
+}

@@ -29,7 +29,8 @@
         "style-src": "'self' 'unsafe-inline'",
         "img-src": "'self' data:",
         "font-src": "'self' data:",
-        "connect-src": "ipc: http://ipc.localhost"
+        "connect-src": "ipc: http://ipc.localhost",
+        "frame-src": "http://127.0.0.1:*"
       },
       "capabilities": [
         "main"

@@ -275,7 +275,7 @@ pub fn cache_dir() -> PathBuf {
     base.join("arboria")
 }
 
-/// `(home, seed name)` if `path` is `<home>/seeds/<name>.py` of an initialized home.
+/// `(home, seed name)` if `path` is `<home>/seeds/<name>.py` (or `.md`) of an initialized home.
 pub fn seed_of_notebook(path: &Path) -> Option<(Home, String)> {
     let p = std::path::absolute(path).ok()?;
     if !p.exists() {
@@ -283,7 +283,7 @@ pub fn seed_of_notebook(path: &Path) -> Option<(Home, String)> {
     }
     // the notebook may be a link: resolve its directory, keep its own name
     let p = p.parent()?.canonicalize().ok()?.join(p.file_name()?);
-    if p.extension()? != "py" || p.parent()?.file_name()? != SEEDS_DIR {
+    if !matches!(p.extension()?.to_str()?, "py" | "md") || p.parent()?.file_name()? != SEEDS_DIR {
         return None;
     }
     let home = Home {

@@ -165,7 +165,7 @@ def cache_dir() -> Path:
 
 
 def seed_of_notebook(path: Path | str) -> tuple[Home, str] | None:
-    """(home, seed name) if `path` is `<home>/seeds/<name>.py` of an initialized home
+    """(home, seed name) if `path` is `<home>/seeds/<name>.py` (or `.md`) of an initialized home
     (any home: the notebook's own location decides, not $ARBORIA_HOME)."""
     try:
         p = Path(path).absolute()
@@ -174,7 +174,7 @@ def seed_of_notebook(path: Path | str) -> tuple[Home, str] | None:
         p = p.parent.resolve() / p.name
     except (OSError, RuntimeError):
         return None
-    if p.suffix != ".py" or p.parent.name != SEEDS_DIR:
+    if p.suffix not in (".py", ".md") or p.parent.name != SEEDS_DIR:
         return None
     h = Home(p.parent.parent)
     return (h, p.stem) if h.initialized else None

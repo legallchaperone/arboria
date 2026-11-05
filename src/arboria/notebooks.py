@@ -39,12 +39,13 @@ def notebook_path(state_dir: Path, idea_name: str) -> Path:
 
 
 def idea_of_notebook(path: Path | str) -> tuple[Path, str] | None:
-    """(state dir, idea name) if `path` (symlinks resolved) is `.arboria/notebooks/<idea>.py`."""
+    """(state dir, idea name) if `path` (symlinks resolved) is `.arboria/notebooks/<idea>.py`
+    (marimo) or `.md` (the app's notebook, ADR 0005)."""
     try:
         p = Path(path).resolve()
     except (OSError, RuntimeError):
         return None
-    if (p.suffix == ".py" and p.parent.name == NOTEBOOKS_DIR
+    if (p.suffix in (".py", ".md") and p.parent.name == NOTEBOOKS_DIR
             and p.parent.parent.name == STATE_DIR_NAME):
         return p.parent.parent, p.stem
     return None

@@ -66,6 +66,22 @@ class View:
     def _style(self, i: int) -> str:
         return self.styles[i] if i < len(self.styles) else ""
 
+    def output(self) -> list[dict[str, Any]]:
+        """The app notebook's structured form (arboria.output): a table, then text."""
+        out: list[dict[str, Any]] = []
+        if self.rows:
+            width = max(len(r) for r in self.rows)
+            head = list(self.head) if self.head else [""] * width
+            out.append({"kind": "table", "columns": head, "rows": [list(r) for r in self.rows],
+                        "total": len(self.rows), **({"title": self.title} if self.title else {})})
+        elif self.title:
+            out.append({"kind": "text", "text": self.title})
+        if self.pre:
+            out.append({"kind": "text", "text": self.pre})
+        if self.foot:
+            out.append({"kind": "text", "text": "\n".join(self.foot)})
+        return out
+
     def html(self) -> str:
         out = []
         if self.title:
@@ -145,6 +161,9 @@ class Shown:
 
     def _repr_html_(self) -> str:
         return self.view().html()
+
+    def _arboria_(self) -> list[dict[str, Any]]:
+        return self.view().output()
 
     def __str__(self) -> str:
         return self.view().text()
@@ -230,6 +249,14 @@ class Plot(Shown):
     series: list[Series]
     skipped: list[tuple[str, str]] = field(default_factory=list)  # (run, why)
     log: bool = False
+
+    def _arboria_(self) -> dict[str, Any]:
+        """A line chart the app draws itself (uPlot), every point kept."""
+        note = "；".join(f"{run}：{why}" for run, why in self.skipped) or None
+        return {"kind": "plot", "y": self.key, "x": "step", "log": self.log, "style": "line",
+                "series": [{"name": s.run, "x": [p[0] for p in s.points],
+                            "y": [p[1] for p in s.points]} for s in self.series],
+                **({"note": note} if note else {})}
 
     @property
     def data(self) -> list[dict[str, Any]]:

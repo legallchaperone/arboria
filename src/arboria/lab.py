@@ -147,9 +147,10 @@ def resolve(file: str | Path | None = None,
         if target is not None:
             return target
     cwd = Path(cwd if cwd is not None else os.getcwd())
-    target = _from_notebook(cwd / notebooks.LINK_NAME, "cwd")
-    if target is not None:
-        return target
+    for link in (notebooks.LINK_NAME, "notebook.md"):
+        target = _from_notebook(cwd / link, "cwd")
+        if target is not None:
+            return target
     ctx = locate(cwd).require_initialized()
     with Ledger(ctx.state_dir) as ledger:
         idea = ideas.current_idea(ctx, ledger)
@@ -547,6 +548,10 @@ class Run:
 
     def _repr_markdown_(self) -> str:
         return self._view().markdown()
+
+    def _arboria_(self) -> dict[str, Any]:
+        v = self._view()
+        return {"kind": "run", "run": self.id, "status": v.status, "text": v.markdown()}
 
     def __repr__(self) -> str:
         return f"Run({self.id!r})"
@@ -1063,6 +1068,11 @@ class Result:
     def __repr__(self) -> str:
         return f"{self.value!r}\n({self.provenance})"
 
+    def _arboria_(self) -> list[dict[str, Any]]:
+        from . import output
+
+        return [*output.to_outputs(self.value), {"kind": "text", "text": self.provenance}]
+
 
 class Pending:
     """What a call to a missing command returns: never raises, renders as a short note."""
@@ -1084,6 +1094,17 @@ class Pending:
 
     def _repr_markdown_(self) -> str:
         return self.text()
+
+    def _arboria_(self) -> dict[str, Any]:
+        """In the app the block re-runs by itself once the todo is done."""
+        if self.error:
+            text = self.text()
+        elif self.kind == "command_revise":
+            text = f"已请 agent 修改命令 {self.name}（{self.task_id}）。改好后这里会自动重跑。"
+        else:
+            text = f"命令 {self.name} 还不存在，已交给 agent（{self.task_id}）。写好后这里会自动重跑。"
+        return {"kind": "pending", "task": self.task_id, "what": "command", "name": self.name,
+                "text": text}
 
     def __repr__(self) -> str:
         return self.text()
@@ -1375,6 +1396,14 @@ class Inspection:
         answer = self._state.answer
         return answer["result"] if answer else None
 
+    def _arboria_(self) -> dict[str, Any]:
+        """The answer's validated fields; the app draws them as text (never HTML)."""
+        note = self._note().replace("这个 cell 会自动重跑", "这里会自动重跑").replace(
+            "重新运行这个 cell", "重新运行这一块")
+        return {"kind": "inspect", "task": self.task_id, "status": self.status,
+                "question": self.question, "view": self.view, "result": self.result,
+                "text": note}
+
     def refresh(self) -> "Inspection":
         """Ask the agent again, for the code as it is now (only when it has changed since
         the answer, or the last request was dropped)."""
@@ -1643,6 +1672,9 @@ class CommandTable(_abc.Sequence):
 
     def _repr_html_(self) -> str:
         return self.view().html()
+
+    def _arboria_(self) -> list[dict[str, Any]]:
+        return self.view().output()
 
     def __str__(self) -> str:
         return self.view().text()

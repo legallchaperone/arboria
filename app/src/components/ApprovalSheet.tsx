@@ -133,7 +133,7 @@ export function ApprovalSheet(props: {
             <span className="ab-note small">
               {props.platform.in_claude_code
                 ? "app 是从 Claude Code 里启动的，不能在这里签字："
-                : "这里没有触控 ID："}
+                : `这里不能用触控 ID（${props.platform.touch_id_why ?? "不是 Mac"}）：`}
               在你自己的终端运行 <code className="code">{command}</code>
             </span>
           )}

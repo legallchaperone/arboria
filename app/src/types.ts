@@ -171,6 +171,7 @@ export interface ProjectSummary {
 export interface Platform {
   os: string;
   touch_id: boolean;
+  touch_id_why: string | null;
   in_claude_code: string | null;
   min_shown_ms: number;
 }

@@ -63,6 +63,24 @@ pub fn authenticate(reason: &str) -> Result<(), String> {
     }
 }
 
+/// Whether this Mac can confirm the device owner (Touch ID or the account password):
+/// asks the system only, shows nothing.
+#[cfg(target_os = "macos")]
+pub fn available() -> Result<(), String> {
+    use objc2_local_authentication::{LAContext, LAPolicy};
+    // SAFETY: `+[LAContext new]` has no preconditions.
+    let ctx = unsafe { LAContext::new() };
+    // SAFETY: a valid context and policy; the error out-parameter is handled by objc2.
+    unsafe { ctx.canEvaluatePolicy_error(LAPolicy::DeviceOwnerAuthentication) }
+        .map_err(|e| e.localizedDescription().to_string())
+}
+
+/// Not macOS: never.
+#[cfg(not(target_os = "macos"))]
+pub fn available() -> Result<(), String> {
+    Err("Touch ID needs macOS".to_string())
+}
+
 /// Not macOS: always refused.
 #[cfg(not(target_os = "macos"))]
 pub fn authenticate(_reason: &str) -> Result<(), String> {
@@ -71,6 +89,20 @@ pub fn authenticate(_reason: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    /// On a Mac (CI's macos runners too): the LocalAuthentication query runs and answers
+    /// without prompting (a VM usually has no Touch ID: then it says why).
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn asks_the_system_without_prompting() {
+        match super::available() {
+            Ok(()) => println!("device owner authentication available"),
+            Err(why) => {
+                println!("not available: {why}");
+                assert!(!why.is_empty());
+            }
+        }
+    }
+
     #[cfg(not(target_os = "macos"))]
     #[test]
     fn refuses_off_macos() {

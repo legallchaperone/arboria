@@ -3,6 +3,7 @@
   "platform": {
     "os": "macos",
     "touch_id": true,
+    "touch_id_why": null,
     "in_claude_code": null,
     "min_shown_ms": 2000
   },

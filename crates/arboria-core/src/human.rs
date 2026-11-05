@@ -237,6 +237,12 @@ pub fn device_reason(run_id: &str, card_hash: &str) -> String {
     format!("批准 run {run_id}（审核单 {short}）提交到集群")
 }
 
+/// Whether [`confirm_on_device`] can ask here (macOS with Touch ID or a password the
+/// system will take); Err says why not. Asks the system, shows nothing.
+pub fn device_available() -> std::result::Result<(), String> {
+    arboria_macos::available()
+}
+
 /// The app's approval (ADR 0004): the human read the card with `card_hash` for `shown`
 /// and confirms with Touch ID (or the account password). Refused inside Claude Code, for
 /// a card shown under [`MIN_SHOWN`], and on systems without Touch ID.

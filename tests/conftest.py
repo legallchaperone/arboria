@@ -62,6 +62,18 @@ def no_real_claude_session(tmp_path_factory: pytest.TempPathFactory,
 
 
 @pytest.fixture(autouse=True)
+def plain_help(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Help text without colours, as in a plain terminal. typer forces a coloured rich
+    console when GITHUB_ACTIONS / FORCE_COLOR / PY_COLORS is set, decided at import time,
+    so CI's help output had escape codes the help tests could not match."""
+    import typer.rich_utils
+
+    for var in ("GITHUB_ACTIONS", "FORCE_COLOR", "PY_COLORS"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(typer.rich_utils, "FORCE_TERMINAL", None)
+
+
+@pytest.fixture(autouse=True)
 def isolated_home(tmp_path_factory: pytest.TempPathFactory,
                   monkeypatch: pytest.MonkeyPatch) -> Path:
     """The seed home (`~/arboria`) is a fresh, not yet created folder in every test."""

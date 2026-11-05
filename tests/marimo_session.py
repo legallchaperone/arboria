@@ -10,7 +10,7 @@ usage: marimo_session.py NOTEBOOK COMMAND_FILE COMMAND_TEXT EXPECT [COMMAND_TEXT
 With COMMAND_FILE `--exec`, each COMMAND_TEXT is a JSON argv list that is run (in the
 notebook's folder) instead of written, e.g. `arb inspect done t001 --file answer.json`.
 """
-import asyncio, json, sys
+import asyncio, json, os, sys, threading
 from pathlib import Path
 
 
@@ -94,7 +94,11 @@ async def main(nb: str, cmdfile: str, steps: list[tuple[str, str]], timeout: flo
         print("TIMEOUT", outputs[-5:])
         return 1
     finally:
-        session.close()
+        # closing waits for the kernel process; under load that can outlast the test's
+        # timeout, and the result is already printed: give it 10 s, then move on
+        closer = threading.Thread(target=session.close, daemon=True)
+        closer.start()
+        closer.join(10)
 
 
 if __name__ == "__main__":
@@ -105,4 +109,5 @@ if __name__ == "__main__":
     except (ImportError, TypeError, AttributeError) as exc:
         print(f"SKIP marimo internals changed: {exc!r}")
         code = 77
-    sys.exit(code)
+    sys.stdout.flush()
+    os._exit(code)  # do not wait for a kernel that is still shutting down

@@ -63,6 +63,8 @@ struct Platform {
     os: &'static str,
     /// The approval panel can ask for Touch ID here.
     touch_id: bool,
+    /// Why not, when it cannot.
+    touch_id_why: Option<String>,
     /// The app was started from Claude Code (approving here is refused).
     in_claude_code: Option<&'static str>,
     min_shown_ms: u64,
@@ -70,9 +72,11 @@ struct Platform {
 
 #[tauri::command]
 fn platform() -> Platform {
+    let device = human::device_available();
     Platform {
         os: std::env::consts::OS,
-        touch_id: cfg!(target_os = "macos"),
+        touch_id: device.is_ok(),
+        touch_id_why: device.err(),
         in_claude_code: human::in_claude_code(),
         min_shown_ms: human::MIN_SHOWN.as_millis() as u64,
     }

@@ -83,3 +83,55 @@ jobs:
       - name: Build (the bundled pages, as tauri build does)
         working-directory: app/src-tauri
         run: cargo build --locked --features tauri/custom-protocol
+
+      # ---- macOS acceptance (ADR 0004): what can run without a person at the machine
+
+      - name: Bundle Arboria.app (unsigned)
+        if: runner.os == 'macOS'
+        run: npx tauri build --bundles app --ci
+
+      - name: Upload Arboria.app
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Arboria.app
+          path: app/src-tauri/target/release/bundle/macos/
+
+      - name: Touch ID query, a real notification, the LaunchAgent helper
+        if: runner.os == 'macOS'
+        working-directory: .
+        env:
+          ARBORIA_TEST_NOTIFY: "1"
+        run: |
+          set -euo pipefail
+          cargo test --locked -p arboria-macos -- --nocapture
+          cargo test --locked -p arboria-core --lib notifier -- --nocapture
+          cargo install --locked --path crates/arb --root "$RUNNER_TEMP/arb"
+          export PATH="$RUNNER_TEMP/arb/bin:$PATH"
+          export ARBORIA_CACHE_DIR="$RUNNER_TEMP/cache" ARBORIA_CONFIG_DIR="$RUNNER_TEMP/cfg" ARBORIA_HOME="$RUNNER_TEMP/home"
+          arb helper install
+          for i in $(seq 45); do grep -q '"last_tick": "' "$ARBORIA_CACHE_DIR/helper.json" 2>/dev/null && break; sleep 2; done
+          launchctl print "gui/$(id -u)/world.cwx.arboria.helper" | grep -E "state =|program ="
+          arb helper status
+          grep '"last_tick": "' "$ARBORIA_CACHE_DIR/helper.json"
+          arb helper uninstall
+          ! launchctl print "gui/$(id -u)/world.cwx.arboria.helper" 2>/dev/null
+
+      - name: Start the bundled app and take a screenshot
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        working-directory: .
+        run: |
+          open app/src-tauri/target/release/bundle/macos/Arboria.app
+          sleep 10
+          pgrep -fl "Arboria.app/Contents/MacOS" 
+          screencapture -x "$RUNNER_TEMP/app.png"
+          osascript -e 'tell application "Arboria" to quit' || true
+
+      - name: Upload the screenshot
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-screenshot
+          path: ${{ runner.temp }}/app.png

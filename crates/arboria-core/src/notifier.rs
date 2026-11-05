@@ -84,6 +84,22 @@ pub fn send(title: &str, body: &str) {
 mod tests {
     use super::*;
 
+    /// Shows a real notification (CI's macos job sets ARBORIA_TEST_NOTIFY=1): the
+    /// command runs and succeeds. Skipped otherwise, so `cargo test` stays quiet.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn a_real_notification() {
+        if std::env::var("ARBORIA_TEST_NOTIFY").as_deref() != Ok("1") {
+            return;
+        }
+        let (program, args) = command("Arboria", "CI: r001 跑完了（11.86 SU）").unwrap();
+        let out = std::process::Command::new(&program)
+            .args(&args)
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{program}: {out:?}");
+    }
+
     #[test]
     fn text_is_cleaned_and_passed_as_arguments() {
         assert_eq!(clean(" r001\n跑完了\t"), "r001 跑完了");

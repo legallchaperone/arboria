@@ -48,6 +48,15 @@ struct Project {
 
 /// An initialized repo `<tmp>/WaveFront` with one commit.
 fn project() -> Project {
+    // the core's own git calls (merge) need an identity; CI machines have no global one
+    for (k, v) in [
+        ("GIT_AUTHOR_NAME", "t"),
+        ("GIT_AUTHOR_EMAIL", "t@t"),
+        ("GIT_COMMITTER_NAME", "t"),
+        ("GIT_COMMITTER_EMAIL", "t@t"),
+    ] {
+        std::env::set_var(k, v);
+    }
     let tmp = TempDir::new("ideas");
     let root = tmp.path().canonicalize().unwrap();
     let main = root.join("WaveFront");

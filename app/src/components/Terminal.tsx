@@ -8,12 +8,16 @@ import { Terminal as Xterm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { api, message } from "../api";
+import type { Launcher } from "../types";
+import { MenuButton, type MenuItem } from "./Menu";
+import { Glyph } from "./Glyph";
 
 export interface TabSpec {
   key: number;
   title: string;
   cwd: string;
-  program: string | null;
+  /** A launcher id (`shell`, `claude`, `ssh:deltaai`…); the Rust side resolves it. */
+  program: string;
   /** Typed into the shell once it is up (e.g. `arb approve r014`, not run: no newline). */
   type?: string;
 }
@@ -105,7 +109,8 @@ export function TerminalPanel(props: {
   size: number;
   onSelect: (key: number) => void;
   onClose: (key: number) => void;
-  onNew: (program: string | null) => void;
+  onNew: (launcher: string) => void;
+  launchers: Launcher[];
   onDock: (d: Dock) => void;
   onSize: (px: number) => void;
   onHide: () => void;
@@ -150,29 +155,23 @@ export function TerminalPanel(props: {
             </button>
           </span>
         ))}
+        <MenuButton label={<Glyph name="plus" />} ariaLabel="新建终端标签" align="left" items={newItems(props.launchers, props.onNew)} />
         <span className="ab-spacer" />
-        <button type="button" className="ab-btn small" onClick={() => props.onNew(null)}>
-          新终端
-        </button>
-        <button type="button" className="ab-btn small" onClick={() => props.onNew("claude")}>
-          Claude Code
-        </button>
-        <span className="app-seg" role="group" aria-label="终端位置">
-          {(["left", "bottom", "right"] as Dock[]).map((d) => (
-            <button
-              key={d}
-              type="button"
-              className={"app-link small" + (props.dock === d ? " is-on" : "")}
-              aria-pressed={props.dock === d}
-              onClick={() => props.onDock(d)}
-            >
-              {d === "left" ? "左" : d === "bottom" ? "下" : "右"}
-            </button>
-          ))}
-        </span>
-        <button type="button" className="app-link ab-muted" aria-label="收起终端（⌘`）" onClick={props.onHide}>
-          ⌄
-        </button>
+        <MenuButton
+          label={<Glyph name="more" />}
+          ariaLabel="终端选项"
+          items={[
+            ...(["bottom", "left", "right"] as Dock[]).map((d, i) => ({
+              key: d,
+              label: d === "bottom" ? "放在下面" : d === "left" ? "放在左边" : "放在右边",
+              checked: props.dock === d,
+              glyph: "panel" as const,
+              divider: i === 0 ? false : undefined,
+              run: () => props.onDock(d),
+            })),
+            { key: "hide", label: "收起", hint: "⌘`", glyph: "chevron" as const, divider: true, run: props.onHide },
+          ]}
+        />
       </div>
       {props.tabs.map((t) => (
         <Pane key={t.key} tab={t} active={props.visible && t.key === props.active} onExit={() => undefined} />
@@ -180,4 +179,18 @@ export function TerminalPanel(props: {
       {props.tabs.length === 0 && <p className="small ab-muted app-pad">没有打开的终端。</p>}
     </section>
   );
+}
+
+/** The "+" menu: the shell, the agent CLIs, then ssh to each machine. */
+function newItems(launchers: Launcher[], onNew: (id: string) => void): MenuItem[] {
+  const glyph = (l: Launcher) => (l.group === "ssh" ? "server" : l.id === "shell" ? "terminal" : l.id === "claude" ? "sparkle" : "cube");
+  return launchers.map((l, i) => ({
+    key: l.id,
+    label: l.label,
+    glyph: glyph(l),
+    hint: !l.installed ? "未安装" : l.id === "shell" ? "⌘T" : undefined,
+    disabled: !l.installed,
+    divider: i > 0 && launchers[i - 1].group !== l.group,
+    run: () => onNew(l.id),
+  }));
 }

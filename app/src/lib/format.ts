@@ -80,7 +80,14 @@ export type GlyphName =
   | "chevron"
   | "terminal"
   | "plus"
-  | "bell";
+  | "bell"
+  | "sparkle"
+  | "cube"
+  | "server"
+  | "more"
+  | "folder"
+  | "link"
+  | "panel";
 
 /** "一句话的第一行" cut to n chars. */
 export function clip(s: string | null | undefined, n: number): string {

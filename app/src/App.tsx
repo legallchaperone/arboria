@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, message, onChange } from "./api";
-import type { Board, HelperStatus, Platform, ProjectSummary } from "./types";
+import type { Board, HelperStatus, Launcher, Platform, ProjectSummary } from "./types";
 import { TitleBar, type Crumb } from "./components/TitleBar";
 import { ApprovalSheet } from "./components/ApprovalSheet";
 import { Palette, type Choice } from "./components/Palette";
@@ -13,6 +13,7 @@ import { Inbox } from "./screens/Inbox";
 import { Overview } from "./screens/Overview";
 import { Idea } from "./screens/Idea";
 import { Machines } from "./screens/Machines";
+import { AddProject } from "./components/AddProject";
 import type { Entry } from "./lib/inbox";
 
 type View =
@@ -64,6 +65,8 @@ export function App() {
   const [tabs, setTabs] = useState<TabSpec[]>([]);
   const [activeTab, setActiveTab] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [launchers, setLaunchers] = useState<Launcher[]>([{ id: "shell", label: "新终端", installed: true, group: null }]);
+  const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [now, setNow] = useState(clock.now());
   const nextTab = useRef(1);
@@ -94,6 +97,7 @@ export function App() {
 
   useEffect(() => {
     api.platform().then(setPlatform, (e) => setToast(message(e)));
+    api.terminalLaunchers().then(setLaunchers, () => undefined);
     void loadAll();
     const un = onChange((root) => {
       if (root) {
@@ -119,18 +123,22 @@ export function App() {
     (program: string | null, type?: string) => {
       const cwd = currentRoot ?? "/";
       const key = nextTab.current++;
-      const title = program === "claude" ? "Claude Code" : `终端 ${key}`;
-      setTabs((t) => [...t, { key, title, cwd, program, type }]);
+      const id = program ?? "shell";
+      const l = launchers.find((x) => x.id === id);
+      const title = id === "shell" ? `终端 ${key}` : id.startsWith("ssh:") ? id.slice(4) : l?.label ?? id;
+      program = id;
+      setTabs((t) => [...t, { key, title, cwd, program: id, type }]);
       setActiveTab(key);
       setTermOpen(true);
     },
-    [currentRoot],
+    [currentRoot, launchers],
   );
 
   const addProject = async (path?: string) => {
     try {
       const entry = path ? await api.addProject(path) : await api.pickProject();
       if (!entry) return; // cancelled
+      setAdding(false);
       setToast(`已添加 ${entry.path}`);
       await loadAll();
     } catch (e) {
@@ -172,6 +180,9 @@ export function App() {
       } else if (mod && e.key.toLowerCase() === "p") {
         e.preventDefault();
         setPalette("ideas");
+      } else if (mod && e.key.toLowerCase() === "t") {
+        e.preventDefault();
+        openTab(null);
       } else if (mod && e.key === "`") {
         e.preventDefault();
         if (!termOpen && tabs.length === 0) openTab(null);
@@ -187,9 +198,15 @@ export function App() {
   const commands: Choice[] = [
     { key: "inbox", name: "收件箱", desc: "待你处理的事", run: () => setView({ k: "inbox" }) },
     ...(firstProject ? [{ key: "overview", name: "全局", desc: "idea 树、花费、机器", run: () => setView({ k: "overview", root: currentRoot ?? firstProject.root }) }] : []),
-    { key: "term", name: "新终端", desc: "在项目主 worktree 里", run: () => openTab(null) },
-    { key: "claude", name: "Claude Code", desc: "在终端里和 Claude 讨论", run: () => openTab("claude") },
-    { key: "add", name: "添加项目…", desc: "选一个 arb init 过的仓库", run: () => void addProject() },
+    ...launchers
+      .filter((l) => l.installed)
+      .map((l) => ({
+        key: "term-" + l.id,
+        name: l.label,
+        desc: l.id === "shell" ? "在项目主 worktree 里（⌘T）" : l.group === "ssh" ? "ssh 到这台机器（Duo 过期时在这里登录）" : "在终端标签里",
+        run: () => openTab(l.id),
+      })),
+    { key: "add", name: "添加项目…", desc: "本机的仓库，或者从仓库链接克隆", run: () => setAdding(true) },
     { key: "machines", name: "机器配置", desc: "编辑 clusters.toml（集群、账户、分区、路径）", run: () => setView({ k: "machines" }) },
     { key: "reload", name: "重新读取", desc: "所有项目的账本", run: () => void loadAll() },
     { key: "helper", name: "安装后台小助手", desc: "登录时启动，盯作业、发通知", run: () => void installHelper() },
@@ -247,7 +264,7 @@ export function App() {
             onOpen={openEntry}
             recent={recent}
             onIdea={(root, idea) => setView({ k: "idea", root, idea })}
-            onAddProject={(p) => void addProject(p)}
+            onAddProject={(p) => (p ? void addProject(p) : setAdding(true))}
           />
         )}
         {view.k === "overview" && (
@@ -296,6 +313,7 @@ export function App() {
         size={termSize[dock]}
         onSelect={setActiveTab}
         onNew={(p) => openTab(p)}
+        launchers={launchers}
         onClose={(k) => {
           const rest = tabs.filter((x) => x.key !== k);
           setTabs(rest);
@@ -326,6 +344,17 @@ export function App() {
           onRunInTerminal={(cmd) => {
             setSheet(null);
             openTab(null, cmd);
+          }}
+        />
+      )}
+      {adding && (
+        <AddProject
+          onClose={() => setAdding(false)}
+          onFolder={() => void addProject()}
+          onCloned={(c) => {
+            setAdding(false);
+            setToast(`已克隆并初始化 ${c.path}：在它的 arboria.toml 里填 default_machine 等设置`);
+            void loadAll().then(() => setView({ k: "overview", root: c.path }));
           }}
         />
       )}

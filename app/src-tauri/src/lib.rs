@@ -11,6 +11,7 @@
 //!   `approve` refuses another hash, then `submission::approve_on_device` checks the 2 s
 //!   and asks for Touch ID. Nothing here can approve without the human's finger.
 
+mod clone;
 mod notebook;
 mod pty;
 mod watch;
@@ -46,6 +47,9 @@ pub const COMMANDS: &[&str] = &[
     "clusters_check",
     "clusters_save",
     "open_in_editor",
+    "terminal_launchers",
+    "pick_folder",
+    "clone_project",
 ];
 
 type Res<T> = Result<T, String>;
@@ -228,7 +232,8 @@ async fn open_notebook(
     notebook::open(&app, &state.notebooks, &root, &idea).await
 }
 
-/// The native “choose a folder” dialog, then [`registry::add`]. None: cancelled.
+/// The native “choose a folder” dialog, then `arb init` (when the repo has none) and
+/// [`registry::add`]. None: cancelled.
 #[tauri::command]
 async fn pick_project(app: tauri::AppHandle) -> Res<Option<registry::Entry>> {
     use tauri_plugin_dialog::DialogExt;
@@ -242,7 +247,14 @@ async fn pick_project(app: tauri::AppHandle) -> Res<Option<registry::Entry>> {
             return Ok(None);
         };
         let dir = picked.into_path().map_err(err)?;
-        registry::add(&dir).map(|(e, _)| Some(e)).map_err(err)
+        // a git repo that was never `arb init`-ed: the human chose it here, so init it
+        let ctx = paths::locate(Some(&dir)).map_err(err)?;
+        if !ctx.initialized() {
+            arboria_core::state::init_state(&ctx, &mut |_| {}).map_err(err)?;
+        }
+        registry::add_context(&ctx)
+            .map(|(e, _)| Some(e))
+            .map_err(err)
     })
     .await
     .map_err(err)?
@@ -298,6 +310,45 @@ fn open_in_editor(path: String) -> Res<()> {
         std::process::Command::new("xdg-open")
     };
     cmd.arg(&p).spawn().map(|_| ()).map_err(err)
+}
+
+/// The native “choose a folder” dialog (no registering): the folder a clone goes into.
+#[tauri::command]
+async fn pick_folder(app: tauri::AppHandle) -> Res<Option<String>> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || -> Res<Option<String>> {
+        let picked = app
+            .dialog()
+            .file()
+            .set_title("把仓库放在哪个文件夹里")
+            .set_directory(clone::default_parent())
+            .blocking_pick_folder();
+        match picked {
+            None => Ok(None),
+            Some(p) => Ok(Some(p.into_path().map_err(err)?.display().to_string())),
+        }
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Clone a repo link into `parent` (default `~/code`), `arb init` it and list it.
+#[tauri::command]
+async fn clone_project(url: String, parent: Option<String>) -> Res<clone::Cloned> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let parent = parent
+            .map(PathBuf::from)
+            .unwrap_or_else(clone::default_parent);
+        clone::clone_and_init(&url, &parent)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// What the terminal's "+" menu offers.
+#[tauri::command]
+fn terminal_launchers() -> Vec<pty::Launcher> {
+    pty::launchers()
 }
 
 #[tauri::command]
@@ -384,6 +435,9 @@ pub fn run() {
             clusters_check,
             clusters_save,
             open_in_editor,
+            terminal_launchers,
+            pick_folder,
+            clone_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Arboria");

@@ -122,3 +122,30 @@ body.is-resizing .app-term-box { pointer-events: none; }
 .app-editor-side { display: flex; flex-direction: column; gap: var(--space-2); }
 .app-check { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-1) 0; border-bottom: 1px solid var(--line); }
 @media (max-width: 900px) { .app-editor { grid-template-columns: minmax(0, 1fr); } }
+
+/* dropdown menus (terminal "+" and "⋯") */
+.app-menu { position: relative; display: inline-flex; }
+.app-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 24px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-muted); cursor: pointer; }
+.app-icon-btn:hover, .app-icon-btn.is-on { background: var(--fill-hover); color: var(--ink); }
+.app-menu-list { position: absolute; top: calc(100% + 4px); z-index: 30; min-width: 15em; padding: var(--space-1); border-radius: var(--radius-lg); background: var(--bg-raised); box-shadow: var(--shadow-float); }
+.app-menu-list.is-right { right: 0; }
+.app-menu-list.is-left { left: 0; }
+.app-term.is-bottom .app-menu-list { top: auto; bottom: calc(100% + 4px); }
+.app-menu-item { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; align-items: center; gap: var(--col-1); height: var(--size-row); padding: 0 var(--col-1); border-radius: var(--radius-md); white-space: nowrap; cursor: default; }
+.app-menu-item.is-sel { background: var(--fill); }
+.app-menu-item.is-off { color: var(--ink-faint); }
+.app-menu-glyph { display: inline-flex; color: var(--ink-muted); }
+.app-menu-hint { color: var(--ink-faint); padding-left: var(--col-2); }
+.app-menu-sep { height: 1px; margin: var(--space-1) var(--col-1); background: var(--line); }
+.app-term-tabs { align-items: center; min-height: 32px; }
+.app-term-tab { height: 24px; align-items: center; }
+
+/* add a project */
+.app-add-sheet { max-width: 40em; display: flex; flex-direction: column; gap: var(--space-3); }
+.app-add-sheet h2 { margin: 0; }
+.app-choice { display: grid; grid-template-columns: 1.6em minmax(0, 1fr); gap: var(--col-1); align-items: start; text-align: left; padding: var(--space-3) var(--col-2); border: 1px solid var(--line); border-radius: var(--radius-md); background: none; color: var(--ink); font: inherit; }
+button.app-choice { cursor: pointer; }
+button.app-choice:hover { background: var(--fill); }
+.app-choice > span, .app-choice-body { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.app-choice .ab-glyph { margin-top: 4px; }
+.app-field { padding: var(--space-1) var(--col-1); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--bg-raised); }

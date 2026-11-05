@@ -26,6 +26,9 @@
     "allow-clusters-read",
     "allow-clusters-check",
     "allow-clusters-save",
-    "allow-open-in-editor"
+    "allow-open-in-editor",
+    "allow-terminal-launchers",
+    "allow-pick-folder",
+    "allow-clone-project"
   ]
 }

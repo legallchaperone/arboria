@@ -6,6 +6,8 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   Approved,
   ClustersCheck,
+  Cloned,
+  Launcher,
   Board,
   CardView,
   HelperStatus,
@@ -24,6 +26,9 @@ export const api = {
   helperStatus: () => invoke<HelperStatus>("helper_status"),
   helperInstall: () => invoke<string>("helper_install"),
   openNotebook: (root: string, idea: string) => invoke<void>("open_notebook", { root, idea }),
+  terminalLaunchers: () => invoke<Launcher[]>("terminal_launchers"),
+  pickFolder: () => invoke<string | null>("pick_folder"),
+  cloneProject: (url: string, parent: string | null) => invoke<Cloned>("clone_project", { url, parent }),
   pickProject: () => invoke<{ path: string; added_at: string } | null>("pick_project"),
   clustersRead: () => invoke<ClustersCheck>("clusters_read"),
   clustersCheck: (text: string) => invoke<ClustersCheck>("clusters_check", { text }),

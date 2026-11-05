@@ -207,3 +207,18 @@ export interface ClustersCheck {
   syntax_error: string | null;
   profiles: ProfileCheck[];
 }
+
+/** src-tauri/src/pty.rs Launcher: what the terminal's "+" menu offers. */
+export interface Launcher {
+  id: string;
+  label: string;
+  installed: boolean;
+  group: "agent" | "ssh" | null;
+}
+
+/** src-tauri/src/clone.rs Cloned */
+export interface Cloned {
+  path: string;
+  actions: string[];
+  warnings: string[];
+}

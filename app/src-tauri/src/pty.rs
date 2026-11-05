@@ -1,6 +1,7 @@
 //! The embedded terminal's processes (ADR 0004): one pseudo-terminal per tab, read on a
 //! thread, bytes sent to the window over a channel. A tab runs the login shell, or one
-//! program through it (`claude`), so PATH is the human's.
+//! program through it (an agent CLI, or `ssh` to a machine of clusters.toml), so PATH
+//! is the human's. What a tab may run is decided here ([`resolve`]), never by the page.
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -28,21 +29,102 @@ fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
-/// The argv of a tab: the login shell, or `program` run by it.
-pub fn argv(shell: &str, program: Option<&str>) -> Vec<String> {
-    match program {
+/// The agent CLIs a tab can run: (id, label, program on PATH).
+pub const AGENTS: &[(&str, &str, &str)] = &[
+    ("claude", "Claude Code", "claude"),
+    ("codex", "Codex", "codex"),
+];
+
+/// What a tab can open (the "+" menu).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Launcher {
+    /// `shell`, an agent id, or `ssh:<machine>`.
+    pub id: String,
+    pub label: String,
+    /// The agent CLI is on PATH (always true for the shell and ssh).
+    pub installed: bool,
+    /// `agent` / `ssh`; the shell has none.
+    pub group: Option<&'static str>,
+}
+
+fn on_path(program: &str) -> bool {
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    std::env::split_paths(&path).any(|d| d.join(program).is_file())
+}
+
+/// The "+" menu: the shell, the agent CLIs (installed or not), `ssh` to each machine of
+/// clusters.toml that has a host.
+pub fn launchers() -> Vec<Launcher> {
+    let mut out = vec![Launcher {
+        id: "shell".into(),
+        label: "新终端".into(),
+        installed: true,
+        group: None,
+    }];
+    for (id, label, program) in AGENTS {
+        out.push(Launcher {
+            id: (*id).into(),
+            label: (*label).into(),
+            installed: on_path(program),
+            group: Some("agent"),
+        });
+    }
+    if let Ok(raw) = arboria_core::clusters::load_all_raw(None) {
+        for (name, table) in &raw {
+            let host = table
+                .get("host")
+                .and_then(|h| h.as_str())
+                .unwrap_or_default();
+            if table.is_table() && !host.is_empty() {
+                out.push(Launcher {
+                    id: format!("ssh:{name}"),
+                    label: format!("登录 {name}"),
+                    installed: true,
+                    group: Some("ssh"),
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The shell command a launcher id runs (None: the plain login shell). Refuses anything
+/// that is not one of [`launchers`]' kinds.
+pub fn resolve(id: &str) -> Result<Option<String>, String> {
+    if id == "shell" {
+        return Ok(None);
+    }
+    if let Some((_, _, program)) = AGENTS.iter().find(|(a, _, _)| *a == id) {
+        return Ok(Some(format!("exec {program}")));
+    }
+    if let Some(machine) = id.strip_prefix("ssh:") {
+        let raw = arboria_core::clusters::load_all_raw(None).map_err(|e| e.to_string())?;
+        let host = raw
+            .get(machine)
+            .and_then(|t| t.get("host"))
+            .and_then(|h| h.as_str())
+            .filter(|h| !h.is_empty())
+            .ok_or_else(|| format!("clusters.toml has no host for {machine}"))?;
+        return Ok(Some(format!(
+            "exec {}",
+            arboria_core::slurm::shlex_join(&["ssh", host])
+        )));
+    }
+    Err(format!("the terminal cannot open {id:?}"))
+}
+
+/// The argv of a tab: the login shell, or `command` run by it.
+pub fn argv(shell: &str, command: Option<&str>) -> Vec<String> {
+    match command {
         None => vec![shell.to_string(), "-l".to_string()],
-        Some(p) => vec![
+        Some(c) => vec![
             shell.to_string(),
             "-l".to_string(),
             "-c".to_string(),
-            format!("exec {p}"),
+            c.to_string(),
         ],
     }
 }
-
-/// The programs a tab may run besides the shell.
-pub const PROGRAMS: &[&str] = &["claude"];
 
 impl Ptys {
     pub fn open(
@@ -54,13 +136,7 @@ impl Ptys {
         on_data: Channel<InvokeResponseBody>,
         on_exit: Channel<()>,
     ) -> Result<u32, String> {
-        if let Some(p) = program {
-            if !PROGRAMS.contains(&p) {
-                return Err(format!(
-                    "the terminal runs a shell or one of {PROGRAMS:?}, not {p}"
-                ));
-            }
-        }
+        let command = resolve(program.unwrap_or("shell"))?;
         let pair = native_pty_system()
             .openpty(PtySize {
                 rows: rows.max(2),
@@ -70,8 +146,12 @@ impl Ptys {
             })
             .map_err(err)?;
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-        let mut cmd =
-            CommandBuilder::from_argv(argv(&shell, program).into_iter().map(Into::into).collect());
+        let mut cmd = CommandBuilder::from_argv(
+            argv(&shell, command.as_deref())
+                .into_iter()
+                .map(Into::into)
+                .collect(),
+        );
         cmd.cwd(cwd);
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
@@ -153,12 +233,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn tabs_run_the_login_shell() {
+    fn tabs_run_the_login_shell_or_a_known_program() {
         assert_eq!(argv("/bin/zsh", None), ["/bin/zsh", "-l"]);
         assert_eq!(
-            argv("/bin/zsh", Some("claude")),
+            argv("/bin/zsh", Some("exec claude")),
             ["/bin/zsh", "-l", "-c", "exec claude"]
         );
-        assert_eq!(PROGRAMS, ["claude"], "nothing else is run through a tab");
+        assert_eq!(resolve("shell").unwrap(), None);
+        assert_eq!(resolve("claude").unwrap().as_deref(), Some("exec claude"));
+        assert_eq!(resolve("codex").unwrap().as_deref(), Some("exec codex"));
+        assert!(
+            resolve("rm -rf /").is_err(),
+            "nothing else is run through a tab"
+        );
+        assert!(resolve("ssh:nope").is_err());
+        let l = launchers();
+        assert_eq!(l[0].id, "shell");
+        assert!(l
+            .iter()
+            .any(|x| x.id == "claude" && x.group == Some("agent")));
     }
 }

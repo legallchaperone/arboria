@@ -20,6 +20,9 @@ fn main() {
         "clusters_check",
         "clusters_save",
         "open_in_editor",
+        "terminal_launchers",
+        "pick_folder",
+        "clone_project",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

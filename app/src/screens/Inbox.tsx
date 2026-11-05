@@ -94,12 +94,11 @@ export function Inbox(props: {
               props.onAddProject(path.trim() || undefined);
             }}
           >
-            <span className="ab-muted">还没有项目。在仓库里运行 arb init（会自动添加），或者选一个 arb init 过的仓库：</span>
+            <span className="ab-muted">还没有项目：添加本机的仓库，或者从仓库链接克隆一个。</span>
             <button className="ab-btn ab-btn-primary small" type="button" onClick={() => props.onAddProject()}>
-              选择文件夹…
+              添加项目…
             </button>
-            <span className="ab-muted">或粘贴路径</span>
-            <input className="app-input code" placeholder="/Users/you/lm" value={path} onChange={(e) => setPath(e.target.value)} />
+            <input className="app-input code" placeholder="或粘贴本机路径 /Users/you/lm" value={path} onChange={(e) => setPath(e.target.value)} />
             <button className="ab-btn small" type="submit" disabled={!path.trim()}>
               添加
             </button>

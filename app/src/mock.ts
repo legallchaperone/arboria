@@ -74,7 +74,15 @@ mockIPC(
           ],
         };
       }
+      case "terminal_launchers":
+        return [
+          { id: "shell", label: "新终端", installed: true, group: null },
+          { id: "claude", label: "Claude Code", installed: true, group: "agent" },
+          { id: "codex", label: "Codex", installed: false, group: "agent" },
+          { id: "ssh:deltaai", label: "登录 deltaai", installed: true, group: "ssh" },
+        ];
       case "pick_project":
+      case "pick_folder":
       case "pty_write":
       case "pty_resize":
       case "pty_close":
@@ -104,10 +112,21 @@ setTimeout(() => {
   if (screen === "palette") press("k", true);
   if (screen === "ideas") press("p", true);
   if (screen === "terminal") press("`", true);
-  if (screen === "terminal-right") {
+  if (screen === "plus") {
     press("`", true);
-    setTimeout(() => click("右"), 300);
+    setTimeout(() => document.querySelector<HTMLElement>('[aria-label="新建终端标签"]')?.click(), 300);
   }
+  if (screen === "more") {
+    press("`", true);
+    setTimeout(() => document.querySelector<HTMLElement>('[aria-label="终端选项"]')?.click(), 300);
+  }
+  if (screen === "add") {
+    press("k", true);
+    setTimeout(() => {
+      [...document.querySelectorAll<HTMLElement>(".ab-palette [role=option]")].find((e) => e.textContent?.includes("添加项目"))?.click();
+    }, 200);
+  }
+
   if (screen === "machines") {
     press("k", true);
     setTimeout(() => {

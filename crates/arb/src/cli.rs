@@ -1196,26 +1196,89 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                 replace,
             };
             let r = machine::machine_init(&name, opts)?;
-            emit(json, &r, |r| r.text.clone())?;
+            if json {
+                println!("{}", pretty(&r)?);
+                return Ok(0);
+            }
+            let host = r.proposal.values["host"].as_str().unwrap_or_default();
+            for problem in &r.ssh_problems {
+                warn(&format!(
+                    "ssh: {problem}; add to ~/.ssh/config:\n{}",
+                    machine::SSH_BLOCK.replace("{host}", host)
+                ));
+            }
+            for w in &r.proposal.warnings {
+                warn(w);
+            }
+            print!("{}", r.text);
+            if !r.proposal.other_partitions.is_empty() {
+                println!(
+                    "# also usable, left out: {}",
+                    r.proposal.other_partitions.join(", ")
+                );
+            }
+            if r.written {
+                let backup = r
+                    .backup
+                    .as_ref()
+                    .and_then(|b| b.file_name())
+                    .map(|b| format!(" (backup {})", b.to_string_lossy()))
+                    .unwrap_or_default();
+                println!("wrote [{name}] to {}{backup}", r.path.display());
+            } else {
+                println!(
+                    "(not written; rerun with --write to save it to {})",
+                    r.path.display()
+                );
+            }
+            if let Some(s) = &r.still_invalid {
+                warn(&format!("still to fill in: {s}"));
+            } else if r.proposal.values["env_activate"]
+                .as_array()
+                .is_none_or(Vec::is_empty)
+            {
+                warn("env_activate is empty: decide the job environment, then set it");
+            }
         }
         Cmd::Doctor { name } => {
-            let ctx = paths::locate(None).ok();
-            let cfg = ctx
-                .as_ref()
-                .map(arboria_core::config::project_config)
-                .transpose()?;
-            let name = name
-                .or_else(|| cfg.as_ref().map(|c| c.default_machine.clone()))
-                .unwrap_or_default();
-            let checks = machine::doctor(&name, cfg.as_ref().and_then(|c| c.project_id.as_ref()))?;
-            let failed = checks.iter().any(|c| c.level == "fail");
-            emit(json, &checks, |cs| {
-                cs.iter()
-                    .map(|c| format!("{:<4} {}", c.level, c.what))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            })?;
-            return Ok(i32::from(failed));
+            let ctx = match paths::locate(None) {
+                Ok(c) => Some(c),
+                Err(arboria_core::Error::NotARepo(_)) => None,
+                Err(e) => return Err(e.into()),
+            };
+            let mut name = name;
+            let mut project_id = None;
+            if let Some(ctx) = ctx.as_ref().filter(|c| c.initialized()) {
+                let cfg = arboria_core::config::project_config(ctx)?;
+                if name.as_deref().is_none_or(str::is_empty) && !cfg.default_machine.is_empty() {
+                    name = Some(cfg.default_machine.clone());
+                }
+                project_id = cfg.project_id;
+            }
+            let Some(name) = name.filter(|n| !n.is_empty()) else {
+                bail!("which machine? pass a name or set default_machine in arboria.toml");
+            };
+            let checks = machine::doctor(&name, project_id.as_ref())?;
+            let failed = checks.iter().filter(|c| c.level == "fail").count();
+            if json {
+                println!("{}", pretty(&checks)?);
+            } else {
+                for c in &checks {
+                    let mark = match c.level.as_str() {
+                        "ok" => "ok  ",
+                        "warn" => "WARN",
+                        "fail" => "FAIL",
+                        _ => "    ",
+                    };
+                    println!("{mark} {}", c.what);
+                }
+                if failed > 0 {
+                    println!("{failed} problem(s)");
+                } else {
+                    println!("all checks passed");
+                }
+            }
+            return Ok(i32::from(failed > 0));
         }
         Cmd::Todo(cmd) => todo_cmd(cmd, json)?,
         Cmd::Commands(cmd) => match cmd {

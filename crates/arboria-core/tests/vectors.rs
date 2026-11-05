@@ -1237,10 +1237,55 @@ fn inspect_validate_result() {
     });
 }
 
+#[test]
+fn parse_accounts() {
+    run("parse_accounts", |i| {
+        let rows = arboria_core::machine::parse_accounts(s(i, "text").unwrap());
+        Got::Out(json!(rows))
+    });
+}
+
+#[test]
+fn parse_weights() {
+    run("parse_weights", |i| {
+        Got::Out(json!(arboria_core::machine::parse_weights(
+            s(i, "text").unwrap()
+        )))
+    });
+}
+
+#[test]
+fn machine_propose() {
+    use arboria_core::machine;
+    run("machine_propose", |i| {
+        let sections = machine::split_sections(s(i, "probe").unwrap());
+        let r = machine::propose(
+            s(i, "name").unwrap(),
+            s(i, "host").unwrap(),
+            &sections,
+            s(i, "account"),
+            i["existing"].as_object(),
+        );
+        match r {
+            Err(e) => Got::Err(e),
+            Ok(p) => {
+                let toml =
+                    machine::render_profile(s(i, "name").unwrap(), &p, s(i, "note").unwrap());
+                Got::Out(json!({"values": p.values, "warnings": p.warnings,
+                                "other_partitions": p.other_partitions, "accounts": p.accounts,
+                                "tools": p.tools, "toml": toml}))
+            }
+        }
+    });
+}
+
 // ---------------------------------------------------------------- not wired yet
 
 /// Wired above.
 const WIRED: &[&str] = &[
+    "parse_accounts",
+    "parse_weights",
+    "machine_propose",
     "check_mermaid",
     "inspect_check_path",
     "validate_question",
@@ -1327,24 +1372,5 @@ fn every_vector_file_is_known() {
     );
 }
 
-/// Vector files whose Rust function is still `todo!()`: one ignored test each, and the
-/// `PENDING` list.
-macro_rules! pending {
-    ($($name:ident),+ $(,)?) => {
-        const PENDING: &[&str] = &[$(stringify!($name)),+];
-
-        mod pending {
-            use super::load;
-            $(
-                #[test]
-                #[ignore = concat!("tests/vectors/", stringify!($name), ".json: Rust port pending")]
-                fn $name() {
-                    let file = load(stringify!($name)).expect("vector file");
-                    panic!("{} ({} cases): wire it here when {} is ported", file.name, file.cases.len(), file.source);
-                }
-            )+
-        }
-    };
-}
-
-pending!(machine_propose, parse_accounts, parse_weights,);
+/// Vector files whose Rust function is not ported yet (none left: every file is wired).
+const PENDING: &[&str] = &[];

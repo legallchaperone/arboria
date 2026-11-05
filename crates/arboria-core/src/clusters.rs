@@ -151,7 +151,7 @@ pub fn config_path() -> PathBuf {
 }
 
 /// `^[A-Za-z0-9][A-Za-z0-9<extra>]*$` on the whole string.
-fn name_ok(s: &str, extra: &[u8]) -> bool {
+pub(crate) fn name_ok(s: &str, extra: &[u8]) -> bool {
     let b = s.as_bytes();
     !b.is_empty()
         && b[0].is_ascii_alphanumeric()

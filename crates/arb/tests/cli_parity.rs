@@ -215,6 +215,8 @@ fn same_output_as_python() {
         (Main, &["commands", "list"], &[]),
         (Main, &["commands", "guide"], &[]),
         (Main, &["inspect", "guide"], &[]),
+        (Main, &["doctor"], &[]),
+        (Outside, &["doctor", "nope"], &[]),
         (Main, &["inspect", "source", "t001"], &[]),
         (Main, &["commands", "promote", "svd"], &[]),
         (Main, &["todo", "list", "--json"], &[]),

@@ -134,6 +134,19 @@ jobs:
           sips -Z 1280 "$RUNNER_TEMP/app.png" --out "$RUNNER_TEMP/small.png" >/dev/null
           echo "SCREENSHOT-BEGIN"; base64 -i "$RUNNER_TEMP/small.png" | fold -w 76; echo "SCREENSHOT-END"
 
+      - name: A notification banner on screen
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        working-directory: .
+        env:
+          ARBORIA_TEST_NOTIFY: "1"
+        run: |
+          cargo test --locked -p arboria-core --lib a_real_notification -- --nocapture
+          python3 -c "import time; time.sleep(2)"
+          screencapture -x "$RUNNER_TEMP/notify.png"
+          sips -Z 1280 "$RUNNER_TEMP/notify.png" --out "$RUNNER_TEMP/notify-small.png" >/dev/null
+          echo "NOTIFY-BEGIN"; base64 -i "$RUNNER_TEMP/notify-small.png" | fold -w 76; echo "NOTIFY-END"
+
       - name: Upload the screenshot
         if: runner.os == 'macOS'
         continue-on-error: true

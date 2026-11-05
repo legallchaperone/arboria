@@ -5,8 +5,12 @@
 //! - The text is built by the caller from validated fields (run ids, statuses, SU,
 //!   machine names, lines `monitor::notify` wrote); here it is cut to one short line with
 //!   control characters removed.
-//! - macOS: `osascript` with the text passed as arguments (`on run argv`), never spliced
-//!   into the script. Linux: `notify-send` when installed. Anything that fails is
+//! - macOS: Arboria.app's executable with `--notify TITLE BODY` (posts through
+//!   UserNotifications as the app, so the banner shows once the human allowed Arboria:
+//!   `arboria-macos::notify`): `$ARBORIA_NOTIFIER`, else `/Applications/Arboria.app` or
+//!   `~/Applications/Arboria.app`. Without the app: `osascript` with the text passed as
+//!   arguments (`on run argv`), never spliced into the script; macOS files that under
+//!   Script Editor, which often may not show banners. Linux: `notify-send` when installed. Anything that fails is
 //!   silently skipped; `ARBORIA_NOTIFY=0`, or the app's setting (`<config>/app.json`
 //!   `"notifications": false`), turns it off.
 
@@ -14,6 +18,25 @@ use std::process::{Command, Stdio};
 
 /// `0` turns notifications off.
 pub const ENV: &str = "ARBORIA_NOTIFY";
+/// The program that posts as Arboria.app (`<it> --notify TITLE BODY`).
+pub const NOTIFIER_ENV: &str = "ARBORIA_NOTIFIER";
+/// Where the app's executable sits inside the bundle.
+pub const APP_EXE: &str = "Arboria.app/Contents/MacOS/arboria";
+
+/// Arboria.app's executable, if there is one to post through.
+pub fn app_notifier() -> Option<std::path::PathBuf> {
+    if let Some(p) = std::env::var_os(NOTIFIER_ENV).filter(|p| !p.is_empty()) {
+        let p = std::path::PathBuf::from(p);
+        return p.is_file().then_some(p);
+    }
+    let home = std::env::home_dir().unwrap_or_default();
+    [
+        std::path::PathBuf::from("/Applications").join(APP_EXE),
+        home.join("Applications").join(APP_EXE),
+    ]
+    .into_iter()
+    .find(|p| p.is_file())
+}
 /// The longest body shown.
 pub const MAX_BODY: usize = 200;
 
@@ -42,6 +65,12 @@ pub fn clean(text: &str) -> String {
 pub fn command(title: &str, body: &str) -> Option<(String, Vec<String>)> {
     let (title, body) = (clean(title), clean(body));
     if cfg!(target_os = "macos") {
+        if let Some(app) = app_notifier() {
+            return Some((
+                app.display().to_string(),
+                vec!["--notify".into(), title, body],
+            ));
+        }
         let mut args = Vec::new();
         for line in OSASCRIPT {
             args.push("-e".to_string());
@@ -117,6 +146,9 @@ mod tests {
 
     #[test]
     fn text_is_cleaned_and_passed_as_arguments() {
+        if cfg!(target_os = "macos") && app_notifier().is_some() {
+            return; // an installed Arboria.app is used instead of osascript
+        }
         assert_eq!(clean(" r001\n跑完了\t"), "r001 跑完了");
         let long = "x".repeat(300);
         assert_eq!(clean(&long).chars().count(), MAX_BODY);
@@ -126,6 +158,15 @@ mod tests {
             assert_eq!(args.last().unwrap(), "r001 \"; do shell script \"rm\"");
             assert!(args.iter().filter(|a| *a == "-e").count() == 3);
             assert!(!args[..6].iter().any(|a| a.contains("r001")));
+            // with Arboria.app (here: any file standing in for its executable)
+            let exe = std::env::temp_dir().join(format!("arboria-notifier-{}", std::process::id()));
+            std::fs::write(&exe, "").unwrap();
+            std::env::set_var(NOTIFIER_ENV, &exe);
+            let (program, args) = command("Arboria", "r001 跑完了").unwrap();
+            std::env::remove_var(NOTIFIER_ENV);
+            let _ = std::fs::remove_file(&exe);
+            assert_eq!(program, exe.display().to_string());
+            assert_eq!(args, ["--notify", "Arboria", "r001 跑完了"]);
         } else {
             assert_eq!(program, "notify-send");
             assert_eq!(args[2], "r001 \"; do shell script \"rm\"");

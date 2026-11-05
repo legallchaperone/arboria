@@ -34,6 +34,8 @@ fn main() {
         "app_settings",
         "set_notifications",
         "helper_uninstall",
+        "notification_status",
+        "notification_test",
         "act",
         "remove_project",
         "reveal",

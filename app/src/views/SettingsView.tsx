@@ -48,8 +48,22 @@ const unlines = (s: string) => s.split("\n").map((x) => x.trimEnd()).filter((x) 
 function General(props: { now: number; toast: (m: string) => void }) {
   const [s, setS] = useState<AppSettings | null>(null);
   const [busy, setBusy] = useState(false);
+  const [perm, setPerm] = useState<string | null>(null);
   const load = () => api.appSettings().then(setS, (e) => props.toast(message(e)));
-  useEffect(() => void load(), []);
+  const loadPerm = () => api.notificationStatus().then(setPerm, () => setPerm(null));
+  useEffect(() => {
+    void load();
+    void loadPerm();
+  }, []);
+  const test = async () => {
+    try {
+      await api.notificationTest();
+      props.toast("测试通知已发出：右上角应该弹出来。没看到的话，看 系统设置 › 通知 › Arboria。");
+    } catch (e) {
+      props.toast(`没发出去：${message(e)}`);
+    }
+    void loadPerm();
+  };
   if (!s) return <p className="small muted">读取中…</p>;
   const toggleHelper = async (on: boolean) => {
     setBusy(true);
@@ -78,7 +92,15 @@ function General(props: { now: number; toast: (m: string) => void }) {
       <div className="toggle-row">
         <div className="txt">
           <span>系统通知</span>
-          <span className="d">run 跑完、失败或等你签字时提醒你。</span>
+          <span className="d">
+            run 跑完、失败或等你签字时提醒你。
+            {perm === "authorized" && " macOS：已允许。"}
+            {perm === "denied" && " macOS 把 Arboria 的通知关掉了：在 系统设置 › 通知 › Arboria 里打开。"}
+            {perm === "not_determined" && " macOS 还没问过你：点「发一条测试通知」，选「允许」。"}{" "}
+            <button type="button" className="link small" onClick={() => void test()}>
+              发一条测试通知
+            </button>
+          </span>
         </div>
         <Switch
           on={s.notifications}

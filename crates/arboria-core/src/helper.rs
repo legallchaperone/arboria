@@ -52,6 +52,7 @@ pub const KEPT_ENV: &[&str] = &[
     "ARBORIA_CONFIG_DIR",
     "ARBORIA_CACHE_DIR",
     "ARBORIA_PYTHON",
+    "ARBORIA_NOTIFIER",
     "SSH_AUTH_SOCK",
 ];
 /// The notification title.

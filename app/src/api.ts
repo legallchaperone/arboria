@@ -53,6 +53,10 @@ export const api = {
   appSettings: () => invoke<AppSettings>("app_settings"),
   setNotifications: (on: boolean) => invoke<boolean>("set_notifications", { on }),
   helperUninstall: () => invoke<void>("helper_uninstall"),
+  /** `authorized` / `denied` / `not_determined`, or why it cannot tell. */
+  notificationStatus: () => invoke<string>("notification_status"),
+  /** A test notification the helper's way; the program used. */
+  notificationTest: () => invoke<string>("notification_test"),
   /** An everyday action (src-tauri/src/actions.rs): a fixed `arb` command line. */
   act: (root: string, action: Action) => invoke<{ output: string }>("act", { root, action }),
   /** Off the list only: the files and the ledger stay. */

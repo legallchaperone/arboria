@@ -66,6 +66,8 @@ pub const COMMANDS: &[&str] = &[
     "app_settings",
     "set_notifications",
     "helper_uninstall",
+    "notification_status",
+    "notification_test",
     "act",
     "remove_project",
     "reveal",
@@ -590,9 +592,69 @@ fn adopt_login_path() {
     }
 }
 
+/// Inside Arboria.app: notifications (the app's, and the helper's once installed from
+/// here) are posted by this executable with `--notify`.
+fn adopt_notifier() {
+    if let Ok(exe) = std::env::current_exe() {
+        if exe.to_string_lossy().contains(".app/Contents/MacOS/") {
+            std::env::set_var(notifier::NOTIFIER_ENV, exe);
+        }
+    }
+}
+
+/// Whether this app may show notifications: `authorized`, `denied`, `not_determined`,
+/// or why it cannot tell (not macOS, not the bundled app).
+#[tauri::command]
+async fn notification_status() -> String {
+    tauri::async_runtime::spawn_blocking(|| match arboria_macos::notification_status() {
+        Ok(arboria_macos::NotifyStatus::Authorized) => "authorized".to_string(),
+        Ok(arboria_macos::NotifyStatus::Denied) => "denied".to_string(),
+        Ok(arboria_macos::NotifyStatus::NotDetermined) => "not_determined".to_string(),
+        Err(e) => e,
+    })
+    .await
+    .unwrap_or_else(|e| e.to_string())
+}
+
+/// Send a test notification the way the helper does (`notifier::command`), and say what
+/// happened: the program's error, or Ok.
+#[tauri::command]
+async fn notification_test() -> Res<String> {
+    tauri::async_runtime::spawn_blocking(|| -> Res<String> {
+        let (program, args) = notifier::command(
+            "Arboria",
+            "测试通知：通知能弹出来。run 跑完、失败或等你签字时会这样提醒你。",
+        )
+        .ok_or("这个系统上没有发通知的办法")?;
+        let out = std::process::Command::new(&program)
+            .args(&args)
+            .stdin(std::process::Stdio::null())
+            .output()
+            .map_err(|e| format!("{program}: {e}"))?;
+        if out.status.success() {
+            Ok(program)
+        } else {
+            Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+        }
+    })
+    .await
+    .map_err(err)?
+}
+
 /// Start the app.
 pub fn run() {
     adopt_login_path();
+    adopt_notifier();
+    // ask for notification permission while the human is here (the system prompt, once)
+    if cfg!(target_os = "macos") && notifier::enabled() {
+        std::thread::spawn(|| {
+            if arboria_macos::notification_status()
+                == Ok(arboria_macos::NotifyStatus::NotDetermined)
+            {
+                let _ = arboria_macos::request_notifications();
+            }
+        });
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
@@ -633,6 +695,8 @@ pub fn run() {
             app_settings,
             set_notifications,
             helper_uninstall,
+            notification_status,
+            notification_test,
             act,
             remove_project,
             reveal,

@@ -25,6 +25,7 @@ tauri-build = { version = "=2.7.4", features = [] }
 
 [dependencies]
 arboria-core = { path = "../../crates/arboria-core" }
+arboria-macos = { path = "../../crates/arboria-macos" }
 portable-pty = "=0.9.0"
 rusqlite = { version = "=0.40.2", features = ["bundled"] }
 serde = { version = "=1.0.229", features = ["derive"] }

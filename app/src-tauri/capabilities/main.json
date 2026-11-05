@@ -43,6 +43,8 @@
     "allow-close-notebook",
     "allow-act",
     "allow-remove-project",
-    "allow-reveal"
+    "allow-reveal",
+    "allow-notification-status",
+    "allow-notification-test"
   ]
 }

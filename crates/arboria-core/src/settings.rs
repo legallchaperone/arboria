@@ -89,7 +89,10 @@ fn num(v: Option<&toml::Value>, default: f64) -> f64 {
 
 fn strings(v: Option<&toml::Value>) -> Vec<String> {
     match v {
-        Some(toml::Value::Array(a)) => a.iter().filter_map(|x| x.as_str().map(String::from)).collect(),
+        Some(toml::Value::Array(a)) => a
+            .iter()
+            .filter_map(|x| x.as_str().map(String::from))
+            .collect(),
         Some(toml::Value::String(x)) if !x.is_empty() => vec![x.clone()],
         _ => Vec::new(),
     }
@@ -117,7 +120,11 @@ pub fn machine_form(name: &str, raw: &toml::Value) -> MachineForm {
         .iter()
         .map(|r| (r.to_string(), s(paths_raw.and_then(|p| p.get(*r)))))
         .collect();
-    let kind = t.get("kind").and_then(|v| v.as_str()).unwrap_or("slurm").to_string();
+    let kind = t
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .unwrap_or("slurm")
+        .to_string();
     MachineForm {
         name: name.to_string(),
         host: s(t.get("host")),
@@ -404,7 +411,10 @@ pub fn project(root: &Path) -> Result<ProjectSettings> {
     };
     let (t, mut error) = match text.parse::<toml::Table>() {
         Ok(t) => (t, None),
-        Err(e) => (toml::Table::new(), Some(format!("not valid TOML: {}", e.message()))),
+        Err(e) => (
+            toml::Table::new(),
+            Some(format!("not valid TOML: {}", e.message())),
+        ),
     };
     if error.is_none() {
         error = config::parse_project_config(&t, &path)

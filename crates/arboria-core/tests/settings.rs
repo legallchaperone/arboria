@@ -67,20 +67,39 @@ fn machines_and_project_settings_as_forms() {
     settings::save_machine(Some("box"), &f).unwrap();
     let text = std::fs::read_to_string(clusters::config_path()).unwrap();
     assert!(text.starts_with("# my machines\n"), "{text}");
-    assert!(text.contains("root = \"/tmp/box-state\"   # local state"), "{text}");
+    assert!(
+        text.contains("root = \"/tmp/box-state\"   # local state"),
+        "{text}"
+    );
     assert!(text.contains("gpus_per_node = 8"));
-    assert!(text.contains("[box.partitions.short]\nmax_walltime = \"2h\"\ncharge = 2"), "{text}");
+    assert!(
+        text.contains("[box.partitions.short]\nmax_walltime = \"2h\"\ncharge = 2"),
+        "{text}"
+    );
     assert!(text.contains("[todo]"));
-    assert_eq!(clusters::load_profile("box", None).unwrap().gpus_per_node, 8);
-    assert!(clusters::config_path().with_file_name("clusters.toml.bak").is_file());
+    assert_eq!(
+        clusters::load_profile("box", None).unwrap().gpus_per_node,
+        8
+    );
+    assert!(clusters::config_path()
+        .with_file_name("clusters.toml.bak")
+        .is_file());
 
     // a value arb refuses: nothing is written
     let before = std::fs::read_to_string(clusters::config_path()).unwrap();
     let mut bad = f.clone();
     bad.default_partition = "nope".into();
-    let e = settings::save_machine(Some("box"), &bad).unwrap_err().to_string();
-    assert!(e.contains("default_partition") && e.ends_with("nothing was saved"), "{e}");
-    assert_eq!(std::fs::read_to_string(clusters::config_path()).unwrap(), before);
+    let e = settings::save_machine(Some("box"), &bad)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("default_partition") && e.ends_with("nothing was saved"),
+        "{e}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(clusters::config_path()).unwrap(),
+        before
+    );
 
     // a new machine, a rename, a duplicate name, a removal
     let mut new = settings::blank_machine("lab");
@@ -130,7 +149,9 @@ fn machines_and_project_settings_as_forms() {
     assert!(p.project_id.is_some());
     let mut form = p.form.clone();
     form.default_machine = "nope".into();
-    let e = settings::save_project(&ctx.main, &form).unwrap_err().to_string();
+    let e = settings::save_project(&ctx.main, &form)
+        .unwrap_err()
+        .to_string();
     assert!(e.contains("not in clusters.toml"), "{e}");
     form.default_machine = "box".into();
     form.total_su = 400.0;
@@ -141,8 +162,14 @@ fn machines_and_project_settings_as_forms() {
     let text = std::fs::read_to_string(ctx.config_path()).unwrap();
     assert!(text.contains("default_machine = \"box\""), "{text}");
     assert!(text.contains("total_su = 400"));
-    assert!(text.contains("# Total service units"), "comments kept: {text}");
-    assert!(text.contains("[review]"), "sections the form does not show are kept");
+    assert!(
+        text.contains("# Total service units"),
+        "comments kept: {text}"
+    );
+    assert!(
+        text.contains("[review]"),
+        "sections the form does not show are kept"
+    );
     let cfg = arboria_core::config::project_config(&ctx).unwrap();
     assert_eq!((cfg.default_machine.as_str(), cfg.total_su), ("box", 400.0));
     assert_eq!(cfg.project_id.map(|p| p.as_str().to_string()), p.project_id);

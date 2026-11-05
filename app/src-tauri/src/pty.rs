@@ -155,7 +155,10 @@ mod tests {
     #[test]
     fn tabs_run_the_login_shell() {
         assert_eq!(argv("/bin/zsh", None), ["/bin/zsh", "-l"]);
-        assert_eq!(argv("/bin/zsh", Some("claude")), ["/bin/zsh", "-l", "-c", "exec claude"]);
+        assert_eq!(
+            argv("/bin/zsh", Some("claude")),
+            ["/bin/zsh", "-l", "-c", "exec claude"]
+        );
         assert_eq!(PROGRAMS, ["claude"], "nothing else is run through a tab");
     }
 }

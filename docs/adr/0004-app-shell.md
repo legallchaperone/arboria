@@ -66,7 +66,7 @@ webview 的边界：只有主窗口（label `main`）里 app 自带的页面有 
 - 审核单（ab-slip）：全文、资源、花费、哈希；“签字 ⌘⏎”在显示满 2 秒前不可按；“稍后 esc”。
 - 终端：xterm.js + portable-pty，在项目主 worktree 里开登录 shell；“Claude Code”按钮开一个运行 `claude` 的标签；需要登录时提示“在终端里登录 <机器>”并给出命令。
 - 账本变化：后台每秒查每个项目的 `PRAGMA data_version` 和 `notifications.log` 的大小，变了就发 `ledger-changed`，界面重读。
-- notebook（2026-11-05 改为内嵌）：`open_notebook(root, idea)` 先 `ideas::ensure_notebook`（只补缺的 notebook，不覆盖），再在 worktree 里起 `marimo edit notebook.py --headless --host 127.0.0.1 --port <空闲> --token`，把 URL 交给页面，idea 页的 Notebook 标签用带 sandbox 的 iframe 嵌入（CSP `frame-src` 只许 `http://127.0.0.1:*`）；每个 idea 一个进程，复用到 app 退出。
+- notebook（2026-11-05 改为内嵌）：`open_notebook(root, idea)` 先 `ideas::ensure_notebook`（只补缺的 notebook，不覆盖），再在 worktree 里起 `marimo edit notebook.py --headless --host 127.0.0.1 --port <空闲> --no-token --base-url /nb-<48 位随机十六进制>`（只有这个路径下有页面，别处一律 404；不用 marimo 的 token，因为它变成 `SameSite=Lax` 的 cookie，Mac 的 WKWebView 不给跨站 iframe 发，notebook 就是一片空白），把 URL 交给页面，idea 页的 Notebook 标签用带 sandbox 的 iframe 嵌入（CSP `frame-src` 只许 `http://127.0.0.1:*`）；每个 idea 一个进程，复用到 app 退出。
 - 样式：设计系统的 `tokens.css` + `bundle.css`（ab-* 组件）原样放进 `app/src/styles/`，app 自己的 CSS 只准用 token（测试扫描：不许出现 token 以外的颜色字面量）。不加 Tailwind（方案里写了 Tailwind；设计系统已经给了组件 CSS，再加一层没有好处）。字体 Maple Mono CN 用包里 vendored 的那份（`src/arboria/ui/fonts/`）。
 - 测试：`npm test`（vitest，纯函数：收件箱分组、时间线布局、格式化）；`npm run check`（tsc，fixture JSON 要符合类型）；Playwright 截图（`app/scripts/screens.mjs`，用 `@tauri-apps/api/mocks` 的假 IPC 和 fixture）。fixture `app/src/fixtures/board.json` 由核心测试生成（`UPDATE_FIXTURES=1 cargo test -p arboria-core --test view`），测试检查它是最新的：Rust 输出和 TypeScript 类型对得上。
 

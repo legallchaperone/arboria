@@ -89,7 +89,7 @@ arb projects remove ~/code/old
 
 ## idea
 
-两个标签：**概览**（假设、指标、花费、从哪个 run 分出；run 列表，点一个在右边看详情或签字；agent 在做的待办；笔记，下面的框里直接写一条，⌘⏎ 保存，选中了 run 时可以记在那个 run 上）和 **Notebook**（这个 idea 的 marimo notebook，直接嵌在 app 里：第一次打开时在 worktree 里起 `marimo edit notebook.py`，只听 `127.0.0.1`、带 token，之后复用，退出 app 时停掉；notebook 文件不存在时先补一个，不覆盖已有的）。
+两个标签：**概览**（假设、指标、花费、从哪个 run 分出；run 列表，点一个在右边看详情或签字；agent 在做的待办；笔记，下面的框里直接写一条，⌘⏎ 保存，选中了 run 时可以记在那个 run 上）和 **Notebook**（这个 idea 的 marimo notebook，直接嵌在 app 里：第一次打开时在 worktree 里起 `marimo edit notebook.py`，只听 `127.0.0.1`，地址里带一段随机路径（不知道它的程序打不开），之后复用，退出 app 时停掉；notebook 文件不存在时先补一个，不覆盖已有的）。
 
 标签栏右边的「⋯」：写笔记、从这里分出新 idea、在 worktree 里开终端、在 Finder 中显示，以及**合并进主分支**（`arb idea close --merge`）和**放弃这个 idea**（`arb idea drop`：先存最终快照、打 tag，再删 worktree 和分支）。两个都会先让你确认；账本、run 和笔记都留着。
 

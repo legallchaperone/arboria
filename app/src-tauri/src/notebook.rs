@@ -1,6 +1,9 @@
 //! The idea's (or a seed's) marimo notebook, embedded in the main window (ADR 0004; the app's own
-//! notebook is phase 3). `marimo edit` runs in the idea's worktree on 127.0.0.1 with a
-//! token from a 0600 file; the page shows it in a sandboxed iframe (CSP `frame-src` allows
+//! notebook is phase 3). `marimo edit` runs in the idea's worktree on 127.0.0.1 under a
+//! secret base path (`--base-url /nb-<48 random hex>`; everything else answers 404), not
+//! marimo's token: the token becomes a `SameSite=Lax` cookie, which WKWebView does not
+//! send from a cross-site iframe (the page is `tauri://localhost`), so on macOS the
+//! notebook stayed blank. The page shows it in a sandboxed iframe (CSP `frame-src` allows
 //! only 127.0.0.1). The iframe is another origin: it cannot reach the page, and Tauri gives
 //! that origin no capability, so notebook code cannot call `approve`. One server per idea,
 //! reused while the app runs, stopped with it.
@@ -21,7 +24,6 @@ use arboria_core::{commands, ideas, paths};
 struct Server {
     child: Child,
     url: String,
-    token_file: PathBuf,
 }
 
 /// (root, idea) key → the marimo server behind it.
@@ -52,24 +54,6 @@ fn token() -> Result<String, String> {
     Ok(b.iter().map(|x| format!("{x:02x}")).collect())
 }
 
-fn token_file(label: &str, token: &str) -> Result<PathBuf, String> {
-    use std::io::Write as _;
-    let dir = paths::cache_dir().join("notebook-tokens");
-    std::fs::create_dir_all(&dir).map_err(err)?;
-    let path = dir.join(label);
-    let mut opts = std::fs::OpenOptions::new();
-    opts.write(true).create(true).truncate(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt as _;
-        opts.mode(0o600);
-    }
-    opts.open(&path)
-        .and_then(|mut f| f.write_all(token.as_bytes()))
-        .map_err(err)?;
-    Ok(path)
-}
-
 /// Where marimo runs and which file: the worktree's `notebook.py` link when there is
 /// one (the stylesheet link sits next to it), else the file under `.arboria/notebooks`.
 fn target(worktree: Option<&str>, file: &Path) -> (PathBuf, PathBuf) {
@@ -92,7 +76,6 @@ pub async fn open(nbs: &Notebooks, root: &str, idea: &str) -> Result<String, Str
             if s.child.try_wait().ok().flatten().is_none() {
                 return Ok(s.url.clone());
             }
-            let _ = std::fs::remove_file(&s.token_file);
             procs.remove(&label);
         }
     }
@@ -130,8 +113,7 @@ pub async fn open(nbs: &Notebooks, root: &str, idea: &str) -> Result<String, Str
         .await
         .map_err(err)??;
     let port = free_port()?;
-    let tok = token()?;
-    let tok_path = token_file(&label, &tok)?;
+    let base = format!("/nb-{}", token()?);
     let mut child = Command::new(commands::python_exe())
         .args(["-m", "marimo", "edit"])
         .arg(&file)
@@ -141,10 +123,10 @@ pub async fn open(nbs: &Notebooks, root: &str, idea: &str) -> Result<String, Str
             "127.0.0.1",
             "--port",
             &port.to_string(),
-            "--token",
+            "--no-token",
+            "--base-url",
+            &base,
         ])
-        .arg("--token-password-file")
-        .arg(&tok_path)
         .current_dir(&cwd)
         .env("MARIMO_SKIP_UPDATE_CHECK", "1")
         .stdin(Stdio::null())
@@ -173,13 +155,12 @@ pub async fn open(nbs: &Notebooks, root: &str, idea: &str) -> Result<String, Str
         }
         std::thread::sleep(Duration::from_millis(150));
     }
-    let url = format!("http://127.0.0.1:{port}/?access_token={tok}");
+    let url = format!("http://127.0.0.1:{port}{base}/");
     nbs.procs.lock().map_err(err)?.insert(
         label,
         Server {
             child,
             url: url.clone(),
-            token_file: tok_path,
         },
     );
     Ok(url)
@@ -195,7 +176,6 @@ pub fn close(nbs: &Notebooks, root: &str, idea: &str) -> Result<(), String> {
     {
         let _ = s.child.kill();
         let _ = s.child.wait();
-        let _ = std::fs::remove_file(&s.token_file);
     }
     Ok(())
 }
@@ -205,8 +185,68 @@ impl Drop for Notebooks {
         if let Ok(mut p) = self.procs.lock() {
             for (_, mut s) in p.drain() {
                 let _ = s.child.kill();
-                let _ = std::fs::remove_file(&s.token_file);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get(port: u16, path: &str) -> String {
+        use std::io::Write as _;
+        let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        write!(
+            s,
+            "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+        )
+        .unwrap();
+        let mut out = String::new();
+        let _ = s.read_to_string(&mut out);
+        out.lines().next().unwrap_or("").to_string()
+    }
+
+    /// A seed's notebook through the real marimo (`ARBORIA_TEST_MARIMO=1`, with
+    /// `ARBORIA_PYTHON` pointing at a Python that has marimo): served under the secret
+    /// path with no cookie needed (what a cross-site iframe on macOS gets), 404 elsewhere.
+    #[test]
+    fn served_under_a_secret_path_without_cookies() {
+        if std::env::var("ARBORIA_TEST_MARIMO").as_deref() != Ok("1") {
+            eprintln!("skipped: set ARBORIA_TEST_MARIMO=1");
+            return;
+        }
+        let _env = crate::clone::tests::ENV
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let home = std::env::temp_dir().join(format!("arboria-nb-{}", std::process::id()));
+        std::fs::create_dir_all(home.join("seeds")).unwrap();
+        std::fs::write(
+            home.join("seeds/idea-a.py"),
+            "import marimo\napp = marimo.App()\n\n@app.cell\ndef _():\n    return\n",
+        )
+        .unwrap();
+        std::env::set_var("ARBORIA_HOME", &home);
+        let nbs = Notebooks::default();
+        let root = paths::home_root().display().to_string();
+        let url = tauri::async_runtime::block_on(open(&nbs, &root, "idea-a")).unwrap();
+        let rest = url.strip_prefix("http://127.0.0.1:").unwrap();
+        let (port, path) = rest.split_at(rest.find('/').unwrap());
+        let port: u16 = port.parse().unwrap();
+        assert!(path.starts_with("/nb-") && path.len() > 40, "{url}");
+        assert!(get(port, path).contains(" 200"), "{}", get(port, path));
+        for other in ["/", "/api/status", "/nb-wrong/"] {
+            assert!(
+                get(port, other).contains(" 404"),
+                "{other}: {}",
+                get(port, other)
+            );
+        }
+        // the same server is reused
+        let again = tauri::async_runtime::block_on(open(&nbs, &root, "idea-a")).unwrap();
+        assert_eq!(again, url);
+        close(&nbs, &root, "idea-a").unwrap();
+        std::env::remove_var("ARBORIA_HOME");
+        let _ = std::fs::remove_dir_all(&home);
     }
 }

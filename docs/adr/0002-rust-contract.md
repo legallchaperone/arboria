@@ -35,6 +35,7 @@
 | `probe` | 新（ADR 0003） | **已实现**：文件头解析、结果校验、`set_probe_result`、`enabled_hash`、发现（项目遮住全局）、状态、启用（要 `human::Confirmed`）、`check` / `run`（短命 `python -I` 宿主，进程组 10 秒后杀掉）、内置 `balance`、guide；`arb status` 列出待重新启用的 |
 | `lessons` / `claudemd` / `install` / `state` | 同名 | **已实现**；`install` 的规则是 Python 的加上 `arb probe enable`，写出的 settings 与 CPython 逐字节相同 |
 | `machine` | 同名 | **已实现**；`tests/machine.rs` 在 CPython 和 Rust 里跑同样的场景（真实的 DeltaAI 探测输出），profile 文本、警告、doctor 每一行都相同 |
+| `kernel` | `lab` 的写入 | 新（2026-11-05）：v8 账本在 Python 里只读，notebook kernel 里 `lab` 的写入（run、todo、conf、metric、fork、prune、命令待办、command_call、inspect）经隐藏的 `arb lab`（stdin 一个 JSON 请求，stdout 一个 JSON 回答）交给核心，检查照 `lab`（Claude Code 里拒绝的同样拒绝），Python 再从账本读回结果；Python 找 Rust 版用 `$ARBORIA_ARB`，否则 PATH 上的 `arb`。Python 的 tasks / seeds 读 v8 时换成对应的 SQL（`tasks.sql`、`seeds.SEEDS_V8`）。`tests/test_lab_v8.py` |
 | `ui` | `ui.launch` | 在 `$ARBORIA_PYTHON` 里跑 Python 的看板（它只读地读 v8 账本），以后由 app 取代 |
 
 不移植：`lab`、`analysis`、`style`（`notebooks` 经 Python 调用）（留在 Python kernel 一侧或被 app 取代）、`sessions`（ADR 0001 删掉推送）。

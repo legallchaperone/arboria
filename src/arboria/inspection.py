@@ -146,7 +146,7 @@ def latest(ledger: Ledger, idea: dict[str, Any], question: str, view: str, targe
     answer = max(rows, key=lambda r: _num(r["task_id"]), default=None)
     if answer is not None:
         answer = dict(answer, result=json.loads(answer["result_json"]))
-    todos = [t for t in ledger.all(tasks.SELECT + " WHERE t.idea_id = ? AND t.kind = 'inspect'",
+    todos = [t for t in ledger.all(tasks.sql(ledger)[0] + " WHERE t.idea_id = ? AND t.kind = 'inspect'",
                                    (idea["id"],))
              if _payload_key(tasks.payload(t)) == (question, view, target)]
     todo = max(todos, key=lambda t: _num(t["id"]), default=None)

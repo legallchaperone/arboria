@@ -24,6 +24,7 @@ pub mod human;
 pub mod ideas;
 pub mod inspection;
 pub mod install;
+pub mod kernel;
 pub mod lessons;
 pub mod machine;
 pub mod model;

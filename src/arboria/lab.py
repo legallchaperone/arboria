@@ -197,6 +197,45 @@ def _open(target: Target | SeedTarget | None = None) -> tuple[Target, Ledger, di
     return t, ledger, idea
 
 
+# ---------------------------------------------------------------- v8 ledgers
+#
+# A schema v8 ledger (written by the Rust arb) is read-only here (db.READ_ONLY_VERSIONS):
+# every write of lab goes to `arb lab` instead (one JSON request, see the Rust
+# `kernel` module), with the same checks, and the result is read back from the ledger.
+
+ARB_ENV = "ARBORIA_ARB"
+V8_NO_ARB = ("这个账本是 schema v8（Rust 版 arb 写的），Python 只读：lab 的写入交给 `arb lab`，"
+             "但{why}。装上 Rust 版 arb（cargo install --path crates/arb），或用 ARBORIA_ARB 指向它")
+
+
+def _arb(t: Target | SeedTarget, op: str, **req: Any) -> Any:
+    """One write through the Rust arb; its reply (`ok`), or its error as an ArbError."""
+    import shutil
+    import subprocess
+
+    exe = os.environ.get(ARB_ENV) or shutil.which("arb")
+    if not exe:
+        raise ArbError(V8_NO_ARB.format(why="PATH 上没有 arb"))
+    where = ({"home": str(t.home.root), "seed": t.seed} if isinstance(t, SeedTarget)
+             else {"repo": str(t.ctx.main), "idea": t.idea})
+    try:
+        proc = subprocess.run([exe, "lab"], input=json.dumps({"op": op, **where, **req}),
+                              capture_output=True, text=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ArbError(V8_NO_ARB.format(why=f"运行 {exe} 失败（{exc}）")) from exc
+    try:
+        reply = json.loads(proc.stdout.strip().splitlines()[-1])
+        if not isinstance(reply, dict):
+            raise ValueError
+    except (ValueError, IndexError):
+        raise ArbError(V8_NO_ARB.format(why=f"{exe} 不认 `arb lab`（是 Python 版的 arb？）")) from None
+    for w in reply.get("warnings") or []:
+        print(f"warning: {w}", file=sys.stderr)
+    if "error" in reply:
+        raise ArbError(reply["error"])
+    return reply["ok"]
+
+
 def _human_only(what: str) -> None:
     from .human import in_claude_code
 
@@ -537,6 +576,11 @@ def run(*, reason: str, from_: str | Run | None = None,
         if idea["status"] != "open":
             raise ArbError(f"idea {idea['name']!r} is {idea['status']}")
         parent = from_.id if isinstance(from_, Run) else from_
+        if ledger.read_only:
+            res = _arb(t, "run", reason=reason, command=command, gpus=gpus, time=time,
+                       nodes=nodes, partition=partition, machine=machine, from_run=parent,
+                       overrides=_pairs(set), repeat=repeat)
+            return Run(t, res["id"], existed=res["existed"])
         res, _card = submission.submit(
             t.ctx, ledger, idea, reason, command, gpus=gpus, time=time, nodes=nodes,
             partition=partition, machine=machine, from_run=parent, overrides=_pairs(set),
@@ -826,6 +870,9 @@ def todo(text: str) -> Todo:
         existing = tasks.open_plain_task(ledger, owner["id"], text, seed=seed)
         if existing is not None:
             return Todo(existing, existed=True)
+        if ledger.read_only:
+            res = _arb(t, "todo", text=text)
+            return Todo(tasks.get_task(ledger, res["id"]), existed=res["existed"])
         return Todo(tasks.add(ledger, owner, text))
 
 
@@ -852,6 +899,9 @@ def conf(level: str) -> dict[str, Any]:
         raise ArbError(SEED_NO_CONF)
     t, ledger, idea = _open(t)
     with ledger:
+        if ledger.read_only:
+            _arb(t, "conf", level=level)
+            return ideas.get_idea(ledger, t.idea)
         return records.set_confidence(ledger, idea, level)
 
 
@@ -862,9 +912,15 @@ def metric(text: str) -> dict[str, Any]:
     if isinstance(t, SeedTarget):
         ledger, _seed = _open_seed(t)
         with ledger:
+            if ledger.read_only:
+                _arb(t, "metric", text=text)
+                return _seeds.get_seed(ledger, t.seed)
             return _seeds.set_fields(ledger, t.seed, metric=text)
     t, ledger, idea = _open(t)
     with ledger:
+        if ledger.read_only:
+            _arb(t, "metric", text=text)
+            return ideas.get_idea(ledger, t.idea)
         return records.set_metric(ledger, idea, text)
 
 
@@ -879,6 +935,11 @@ def fork(name: str, from_: str | Run | None = None, *, hypothesis: str,
             run_row = records.get_run(ledger, from_.id if isinstance(from_, Run) else from_)
             if run_row["idea_id"] != idea["id"]:
                 raise ArbError(f"run {run_row['id']} belongs to another idea")
+        if ledger.read_only:
+            made = _arb(t, "fork", name=name, hypothesis=hypothesis, metric=metric,
+                        from_run=run_row["id"] if run_row else None)
+            return ideas.get_idea(ledger, made["name"]) | {
+                "notebook": str(notebooks.notebook_path(t.ctx.state_dir, made["name"]))}
         return ideas.new_idea(t.ctx, ledger, name, hypothesis, metric,
                               parent=idea["name"], from_run=run_row)
 
@@ -891,6 +952,8 @@ def prune(reason: str) -> dict[str, Any]:
         from .db import validate_text
 
         reason = validate_text("note", reason)
+        if ledger.read_only:
+            return _arb(t, "prune", reason=reason)
         closed = ideas.close_idea(t.ctx, ledger, idea["name"], "drop")
         records.add_note(ledger, closed, f"prune: {reason}")
         return closed
@@ -1183,8 +1246,14 @@ def _request(t: Target | SeedTarget, kind: str, name: str, scope: str,
         kw = {k: _commands.safe_repr(v, _arg_repr) for k, v in (kwargs or {}).items()}
         with Ledger(t.state_dir) as ledger:
             owner = _owner(t, ledger)
-            task, created = _commands.request(ledger, owner, kind, name, scope, description,
-                                              a, kw, path)
+            if ledger.read_only:
+                res = _arb(t, "command_request", kind=kind, name=name, scope=scope,
+                           description=description, args=a, kwargs=list(kw.items()),
+                           path=path)
+                task, created = tasks.get_task(ledger, res["id"]), res["created"]
+            else:
+                task, created = _commands.request(ledger, owner, kind, name, scope,
+                                                  description, a, kw, path)
         pushed = _push(t, owner, task) if created else False
         return Pending(name, kind, task["id"], created=created, pushed=pushed,
                        watching=watching)
@@ -1196,11 +1265,15 @@ def _log_call(t: Target | SeedTarget, found: _commands.CommandFile, ok: bool,
               seconds: float) -> None:
     """A lightweight event (no backup commit)."""
     owner = {"seed": t.seed} if isinstance(t, SeedTarget) else {"idea": t.idea}
+    call = {"scope": found.scope, "version": found.version, "ok": ok,
+            "seconds": round(seconds, 3)}
     try:
-        with Ledger(t.state_dir) as ledger, ledger.write():
-            ledger.event("command_call", found.name, owner | {
-                "scope": found.scope, "version": found.version, "ok": ok,
-                "seconds": round(seconds, 3)})
+        with Ledger(t.state_dir) as ledger:
+            if ledger.read_only:
+                _arb(t, "command_call", name=found.name, **call)
+                return
+            with ledger.write():
+                ledger.event("command_call", found.name, owner | call)
     except Exception:
         pass
 
@@ -1378,8 +1451,15 @@ def inspect(question: str, *, view: str = "code", run: str | Run | None = None,
     t, ledger, idea = _open(t)
     agent_session = in_claude_code()
     with ledger:
-        state = _insp.ask(ledger, idea, question, view, run_id, refresh=refresh,
-                          create=not agent_session)
+        if ledger.read_only and not agent_session:  # the Rust arb asks; read it back
+            res = _arb(t, "inspect", question=question, view=view, run=run_id,
+                       refresh=refresh)
+            state = _insp.ask(ledger, idea, question, view, run_id, refresh=refresh,
+                              create=False)
+            state.created = res["created"]
+        else:
+            state = _insp.ask(ledger, idea, question, view, run_id, refresh=refresh,
+                              create=not agent_session)
     if state.answer is None and state.todo is None:  # it would have created a todo
         raise ArbError(HUMAN_ONLY.format(what="请 agent 读代码（lab.inspect）"))
     pushed = watching = False

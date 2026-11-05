@@ -9,8 +9,9 @@ use arb::cli::{command, HELP_PANELS};
 use clap::{ArgAction, Command};
 
 /// Commands only the Rust CLI has, left out of the comparison on purpose:
-/// `arb probe …` (ADR 0003) is new in the Rust core and has no Python counterpart.
-const RUST_ONLY: &[&str] = &["probe"];
+/// `arb probe …` (ADR 0003) is new in the Rust core and has no Python counterpart;
+/// `arb lab` takes the notebook kernel's writes on v8 ledgers (Python reads them only).
+const RUST_ONLY: &[&str] = &["probe", "lab"];
 
 fn param_token(arg: &clap::Arg) -> Option<String> {
     let id = arg.get_id().as_str();

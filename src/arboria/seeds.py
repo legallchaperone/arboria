@@ -83,9 +83,25 @@ def notebook_mtime(h: Home, name: str) -> str | None:
     return datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+# The seeds as v7 rows in a schema v8 ledger (arb-rs, read-only here): a seed is an ideas
+# row without a branch, `seeds` is frozen, plantings point at `seed_idea_id`, planted is
+# derived. The same query as ui/data.py's (which may not import this module).
+SEEDS_V8 = (
+    "SELECT i.id, i.name, i.gist, i.hypothesis, i.metric,"
+    " CASE WHEN i.stage = 'dropped' THEN 'dropped'"
+    "      WHEN EXISTS (SELECT 1 FROM plantings p WHERE p.seed_idea_id = i.id) THEN 'planted'"
+    "      ELSE 'thinking' END AS status, i.created_at, i.updated_at"
+    " FROM ideas i WHERE i.branch IS NULL")
+
+
+def _seeds_table(ledger: Ledger) -> str:
+    return f"({SEEDS_V8})" if ledger.read_only else "seeds"
+
+
 def plantings(ledger: Ledger, seed_id: int) -> list[dict[str, Any]]:
+    col = "seed_idea_id" if ledger.read_only else "seed_id"
     return ledger.all("SELECT repo, project_id, idea, created_at FROM plantings"
-                      " WHERE seed_id = ? ORDER BY id", (seed_id,))
+                      f" WHERE {col} = ? ORDER BY id", (seed_id,))
 
 
 def _decorate(h: Home, ledger: Ledger, row: dict[str, Any]) -> dict[str, Any]:
@@ -97,7 +113,7 @@ def _decorate(h: Home, ledger: Ledger, row: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_seed(ledger: Ledger, name: str) -> dict[str, Any]:
-    row = ledger.one("SELECT * FROM seeds WHERE name = ?", (name,))
+    row = ledger.one(f"SELECT * FROM {_seeds_table(ledger)} WHERE name = ?", (name,))
     if row is None:
         raise ArbError(f"no seed named {name!r} (see `arb idea list` outside any repo)")
     return row
@@ -109,7 +125,8 @@ def show(h: Home, ledger: Ledger, name: str) -> dict[str, Any]:
 
 def list_seeds(h: Home, ledger: Ledger, include_dropped: bool = False) -> list[dict[str, Any]]:
     """Seeds, most recently edited first; dropped ones only with `include_dropped`."""
-    rows = [_decorate(h, ledger, r) for r in ledger.all("SELECT * FROM seeds ORDER BY id")]
+    rows = [_decorate(h, ledger, r)
+            for r in ledger.all(f"SELECT * FROM {_seeds_table(ledger)} ORDER BY id")]
     if not include_dropped:
         rows = [r for r in rows if r["status"] != "dropped"]
     return sorted(rows, key=lambda r: (r["last_edited"], r["id"]), reverse=True)
@@ -269,7 +286,7 @@ def restyle(h: Home) -> list[tuple[Path, str]]:
 
 
 def counts(ledger: Ledger) -> dict[str, int]:
-    rows = ledger.all("SELECT status, COUNT(*) AS n FROM seeds GROUP BY status")
+    rows = ledger.all(f"SELECT status, COUNT(*) AS n FROM {_seeds_table(ledger)} GROUP BY status")
     out = {s: 0 for s in SEED_STATUS}
     out.update({r["status"]: r["n"] for r in rows})
     return out

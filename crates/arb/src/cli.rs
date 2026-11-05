@@ -16,7 +16,7 @@
 // The help texts are the Python CLI's verbatim (`lab.<name>(...)`, `<home>`), not HTML.
 #![allow(rustdoc::invalid_html_tags)]
 
-use std::io::Write as _;
+use std::io::{Read as _, Write as _};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -248,6 +248,9 @@ pub enum Cmd {
     /// Probes (ADR 0003): small parsers for a machine's query commands, run on a schedule.
     #[command(subcommand, hide = true, arg_required_else_help = true)]
     Probe(ProbeCmd),
+    /// (Internal) one write of the notebook kernel (arboria.lab) on a schema v8 ledger: a JSON request on stdin, a JSON reply on stdout.
+    #[command(hide = true)]
+    Lab,
 }
 
 #[derive(Debug, Args)]
@@ -1502,8 +1505,28 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
             }
         }
         Cmd::Probe(cmd) => probe_cmd(cmd, json)?,
+        Cmd::Lab => return lab_request(),
     }
     Ok(0)
+}
+
+/// `arb lab`: `{"ok": reply, "warnings": […]}` or `{"error": message, …}` (exit 1).
+fn lab_request() -> anyhow::Result<i32> {
+    let mut input = String::new();
+    std::io::stdin().read_to_string(&mut input)?;
+    let mut warnings = Vec::new();
+    let reply = serde_json::from_str::<serde_json::Value>(&input)
+        .map_err(|e| arboria_core::Error::Arb(format!("arb lab: the request is not JSON: {e}")))
+        .and_then(|req| arboria_core::kernel::handle(&req, &mut warnings));
+    let (out, code) = match reply {
+        Ok(v) => (serde_json::json!({"ok": v, "warnings": warnings}), 0),
+        Err(e) => (
+            serde_json::json!({"error": e.to_string(), "warnings": warnings}),
+            1,
+        ),
+    };
+    println!("{out}");
+    Ok(code)
 }
 
 /// `arb install-claude [--main|--user|--home]`.

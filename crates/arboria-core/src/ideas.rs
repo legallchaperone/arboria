@@ -814,7 +814,8 @@ pub struct SeedFields<'a> {
     pub metric: Option<&'a str>,
 }
 
-fn get_seed(ledger: &Ledger, name: &IdeaName) -> Result<Idea> {
+/// A seed by name (`no seed named 'x' …`).
+pub fn get_seed(ledger: &Ledger, name: &IdeaName) -> Result<Idea> {
     db::one(
         ledger.conn(),
         "SELECT * FROM ideas WHERE name = ?1 AND branch IS NULL",

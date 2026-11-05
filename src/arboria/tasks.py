@@ -19,6 +19,18 @@ SELECT = ("SELECT t.*, i.name AS idea, s.name AS seed FROM tasks t"
           " LEFT JOIN ideas i ON i.id = t.idea_id LEFT JOIN seeds s ON s.id = t.seed_id")
 # The todo's idea is open, or its seed is not dropped.
 LIVE = "(i.status = 'open' OR s.status IN ('thinking', 'planted'))"
+# A schema v8 ledger (arb-rs, read-only here): every todo has an `idea_id`, a seed is an
+# ideas row without a branch. The same columns as SELECT, `seed_id` included.
+SELECT_V8 = ("SELECT t.*, CASE WHEN i.branch IS NOT NULL THEN i.name END AS idea,"
+             " CASE WHEN i.branch IS NULL THEN i.name END AS seed,"
+             " CASE WHEN i.branch IS NULL THEN t.idea_id END AS seed_id"
+             " FROM tasks t LEFT JOIN ideas i ON i.id = t.idea_id")
+LIVE_V8 = "(i.stage IN ('open', 'seed'))"
+
+
+def sql(ledger: Ledger) -> tuple[str, str]:
+    """(SELECT, LIVE) for this ledger's schema."""
+    return (SELECT_V8, LIVE_V8) if ledger.read_only else (SELECT, LIVE)
 
 
 def is_seed(owner: dict[str, Any]) -> bool:
@@ -31,7 +43,7 @@ def owner_name(task: dict[str, Any]) -> str:
 
 
 def get_task(ledger: Ledger, task_id: str) -> dict[str, Any]:
-    task = ledger.one(SELECT + " WHERE t.id = ?", (task_id,))
+    task = ledger.one(sql(ledger)[0] + " WHERE t.id = ?", (task_id,))
     if task is None:
         raise ArbError(f"no todo {task_id!r} (see `arb todo list`)")
     return task
@@ -69,8 +81,9 @@ def add(ledger: Ledger, owner: dict[str, Any], text: str, kind: str = "plain",
 def open_plain_task(ledger: Ledger, owner_id: int, text: str, *,
                     seed: bool = False) -> dict[str, Any] | None:
     """The oldest open plain todo of the (live) idea or seed with exactly this text."""
-    col = "t.seed_id" if seed else "t.idea_id"
-    return ledger.one(SELECT + f" WHERE {col} = ? AND {LIVE} AND t.status = 'open'"
+    select, live = sql(ledger)
+    col = "t.seed_id" if seed and not ledger.read_only else "t.idea_id"
+    return ledger.one(select + f" WHERE {col} = ? AND {live} AND t.status = 'open'"
                       " AND t.kind = 'plain' AND t.text = ? ORDER BY t.id LIMIT 1",
                       (owner_id, text.strip()))
 
@@ -80,8 +93,9 @@ def open_command_tasks(ledger: Ledger, name: str, kind: str | None = None
     """Open command todos (of open ideas / live seeds) about the command `name`, oldest first."""
     kinds = (kind,) if kind else ("command_new", "command_revise")
     marks = ", ".join("?" for _ in kinds)
+    select, live = sql(ledger)
     rows = ledger.all(
-        SELECT + f" WHERE t.status = 'open' AND {LIVE} AND t.kind IN ({marks}) ORDER BY t.id",
+        select + f" WHERE t.status = 'open' AND {live} AND t.kind IN ({marks}) ORDER BY t.id",
         kinds)
     return [r for r in rows if payload(r).get("name") == name]
 
@@ -91,19 +105,20 @@ def list_tasks(ledger: Ledger, idea_id: int | None = None,
                ) -> list[dict[str, Any]]:
     """Todos oldest first; by default only open ones (of open ideas and live seeds when
     neither idea_id nor seed_id is given)."""
+    select, live = sql(ledger)
     where, params = [], []
     if idea_id is not None:
         where.append("t.idea_id = ?")
         params.append(idea_id)
     elif seed_id is not None:
-        where.append("t.seed_id = ?")
+        where.append("t.idea_id = ?" if ledger.read_only else "t.seed_id = ?")
         params.append(seed_id)
     else:
-        where.append(LIVE)
+        where.append(live)
     if not include_closed:
         where.append("t.status = 'open'")
-    sql = SELECT + " WHERE " + " AND ".join(where) + " ORDER BY t.id"
-    return ledger.all(sql, tuple(params))
+    query = select + " WHERE " + " AND ".join(where) + " ORDER BY t.id"
+    return ledger.all(query, tuple(params))
 
 
 def _close(ledger: Ledger, task_id: str, status: str, result: str | None) -> dict[str, Any]:

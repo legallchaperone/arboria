@@ -1087,6 +1087,37 @@ mod tests {
         assert_eq!(st.last_tick.as_deref(), Some("2027-01-15T08:00:00Z"));
     }
 
+    /// On a real Mac with nobody at it (CI's macos job sets ARBORIA_TEST_TOUCH_ID=1):
+    /// the whole app path runs up to the system prompt, which nobody answers, so nothing
+    /// is approved. Skipped elsewhere: on a person's Mac it would show a prompt.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn touch_id_unanswered_approves_nothing() {
+        if std::env::var("ARBORIA_TEST_TOUCH_ID").as_deref() != Ok("1") {
+            return;
+        }
+        let mut w = world("touchid");
+        let s = submit_run(&mut w, "12h");
+        let hash = s.run.card_hash.clone().unwrap();
+        let started = std::time::Instant::now();
+        let e = approve_on_device(
+            &w.ctx,
+            &mut w.ledger,
+            &s.run.id,
+            &hash,
+            std::time::Duration::from_secs(3),
+        )
+        .unwrap_err();
+        println!("after {:?}: {e}", started.elapsed());
+        assert!(e.to_string().starts_with("触控 ID 没有通过（"), "{e}");
+        assert!(approval_decision(&w.ledger, &s.run.id).unwrap().is_none());
+        assert_eq!(
+            records::get_run(&w.ledger, &s.run.id).unwrap().status,
+            RunStatus::AwaitingApproval
+        );
+        assert!(w.fake.clone().jobs().unwrap_or_default().is_empty());
+    }
+
     #[test]
     fn approve_on_device_needs_the_shown_card_and_touch_id() {
         let mut w = world("device");

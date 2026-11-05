@@ -102,9 +102,12 @@ jobs:
         working-directory: .
         env:
           ARBORIA_TEST_NOTIFY: "1"
+          ARBORIA_TEST_TOUCH_ID: "1"
         run: |
           set -euo pipefail
           cargo test --locked -p arboria-macos -- --nocapture
+          # the app's signing path up to the system prompt; nobody answers: nothing approved
+          cargo test --locked -p arboria-core --lib touch_id_unanswered -- --nocapture
           cargo test --locked -p arboria-core --lib notifier -- --nocapture
           cargo install --locked --path crates/arb --root "$RUNNER_TEMP/arb"
           export PATH="$RUNNER_TEMP/arb/bin:$PATH"
@@ -127,6 +130,9 @@ jobs:
           pgrep -fl "Arboria.app/Contents/MacOS" 
           screencapture -x "$RUNNER_TEMP/app.png"
           osascript -e 'tell application "Arboria" to quit' || true
+          # the screenshot in the log too (base64 PNG, small), for reading it without the artifact
+          sips -Z 1280 "$RUNNER_TEMP/app.png" --out "$RUNNER_TEMP/small.png" >/dev/null
+          echo "SCREENSHOT-BEGIN"; base64 -i "$RUNNER_TEMP/small.png" | fold -w 76; echo "SCREENSHOT-END"
 
       - name: Upload the screenshot
         if: runner.os == 'macOS'

@@ -134,7 +134,7 @@ arb helper run --once  # 手动跑一轮，看它做了什么
 2. 跑到期的 probe，每 30 分钟查一次有 `balance_cmd` 的机器的余额；
 3. 发系统通知：run 结束、新的待签字、日志里的失败、机器需要登录（Duo 过期时每次断开只提醒一次，在 app 的终端里 `ssh <机器>` 登录后自动恢复）。
 
-通知由 Arboria.app 自己发（macOS 的通知中心，归在 Arboria 名下）：第一次打开 app 时系统问「Arboria 想要发送通知」，选「允许」。设置 › 通用 › 系统通知 那一行写着现在的状态，「发一条测试通知」照小助手的方式发一条，用来确认。被关掉了就去 系统设置 › 通知 › Arboria。没有装 Arboria.app（只用命令行）时退回 `osascript`；新的 macOS 常把它归在「脚本编辑器」名下而不显示横幅，所以建议装 app。
+通知由 Arboria.app 自己发（macOS 的通知中心，归在 Arboria 名下）：第一次打开 app 时系统问「Arboria 想要发送通知」，选「允许」。设置 › 通用 › 系统通知 那一行写着现在的状态，「发一条测试通知」照小助手的方式发一条，用来确认。被关掉了就去 系统设置 › 通知 › Arboria（「提醒样式」选「横幅」或「提示」；选了「无」就只进通知中心）。Arboria 在最前面时也弹横幅。没有装 Arboria.app（只用命令行）时退回 `osascript`；新的 macOS 常把它归在「脚本编辑器」名下而不显示横幅，所以建议装 app。
 
 小助手只写 poll 和 probe 本来就写的东西，从不批准。通知只含 run id、状态、SU、机器名这类校验过的字段。`ARBORIA_NOTIFY=0` 关掉通知。macOS 上服务文件是 `~/Library/LaunchAgents/world.cwx.arboria.helper.plist`，日志在 `~/Library/Logs/Arboria/`；Linux 上是 systemd 用户服务 `arboria-helper.service`。
 

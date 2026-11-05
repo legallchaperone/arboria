@@ -101,6 +101,66 @@ fn center(
     Ok(objc2_user_notifications::UNUserNotificationCenter::currentNotificationCenter())
 }
 
+#[cfg(target_os = "macos")]
+mod presenter {
+    use objc2::rc::Retained;
+    use objc2::runtime::{NSObject, NSObjectProtocol};
+    use objc2::{define_class, msg_send, AllocAnyThread};
+    use objc2_user_notifications::{
+        UNNotification, UNNotificationPresentationOptions, UNUserNotificationCenter,
+        UNUserNotificationCenterDelegate,
+    };
+
+    define_class!(
+        // SAFETY: NSObject has no subclassing requirements; Presenter has no ivars.
+        #[unsafe(super(NSObject))]
+        #[name = "ArboriaNotificationPresenter"]
+        pub struct Presenter;
+
+        unsafe impl NSObjectProtocol for Presenter {}
+
+        unsafe impl UNUserNotificationCenterDelegate for Presenter {
+            /// Arboria is the app in front: show the banner anyway (macOS's default for
+            /// the frontmost app is to put it in Notification Center only).
+            #[unsafe(method(userNotificationCenter:willPresentNotification:withCompletionHandler:))]
+            fn will_present(
+                &self,
+                _center: &UNUserNotificationCenter,
+                _notification: &UNNotification,
+                handler: &block2::DynBlock<dyn Fn(UNNotificationPresentationOptions)>,
+            ) {
+                handler.call((UNNotificationPresentationOptions::Banner
+                    | UNNotificationPresentationOptions::List
+                    | UNNotificationPresentationOptions::Sound,));
+            }
+        }
+    );
+
+    impl Presenter {
+        pub fn new() -> Retained<Self> {
+            // SAFETY: plain NSObject init.
+            unsafe { msg_send![Self::alloc(), init] }
+        }
+    }
+}
+
+/// Show this app's notifications as banners even while it is in front. The center keeps
+/// its delegate weakly, so the presenter lives for the rest of the process.
+#[cfg(target_os = "macos")]
+pub fn present_while_in_front() -> Result<(), String> {
+    use objc2::runtime::ProtocolObject;
+    let center = center()?;
+    let p = presenter::Presenter::new();
+    center.setDelegate(Some(ProtocolObject::from_ref(&*p)));
+    std::mem::forget(p);
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn present_while_in_front() -> Result<(), String> {
+    Err("needs macOS".into())
+}
+
 /// Whether this app may show notifications (asks the system, shows nothing).
 #[cfg(target_os = "macos")]
 pub fn notification_status() -> Result<NotifyStatus, String> {
@@ -181,6 +241,7 @@ pub fn notify(title: &str, body: &str) -> Result<(), String> {
         NotifyStatus::Authorized => {}
     }
     let center = center()?;
+    present_while_in_front()?;
     let content = UNMutableNotificationContent::new();
     content.setTitle(&NSString::from_str(title));
     content.setBody(&NSString::from_str(body));
@@ -203,11 +264,15 @@ pub fn notify(title: &str, body: &str) -> Result<(), String> {
         let _ = tx.send(why);
     });
     center.addNotificationRequest_withCompletionHandler(&request, Some(&done));
-    match rx.recv_timeout(Duration::from_secs(10)) {
+    let r = match rx.recv_timeout(Duration::from_secs(10)) {
         Ok(None) => Ok(()),
         Ok(Some(why)) => Err(why),
         Err(_) => Err("no answer from the notification system".into()),
-    }
+    };
+    // stay a moment: when Arboria is in front, the system asks this process (its
+    // delegate) whether to show the banner
+    std::thread::sleep(Duration::from_millis(1500));
+    r
 }
 
 #[cfg(not(target_os = "macos"))]

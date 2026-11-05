@@ -648,6 +648,8 @@ pub fn run() {
     // ask for notification permission while the human is here (the system prompt, once)
     if cfg!(target_os = "macos") && notifier::enabled() {
         std::thread::spawn(|| {
+            // whichever Arboria process the system asks, the answer is "show the banner"
+            let _ = arboria_macos::present_while_in_front();
             if arboria_macos::notification_status()
                 == Ok(arboria_macos::NotifyStatus::NotDetermined)
             {

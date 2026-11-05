@@ -190,3 +190,31 @@ export function ideaMenu(a: Actions, root: string, b: Board, i: IdeaView): MenuI
       : []),
   ];
 }
+
+/** A seed's "⋯": plant, show, drop (thinking); revive (dropped). */
+export function seedMenu(a: Actions, home: string, s: IdeaView): MenuItem[] {
+  if (s.stage === "dropped")
+    return [{ key: "revive", label: "恢复", glyph: "sparkle", run: () => void a.act(home, { kind: "seed_revive", name: s.name }, `已恢复 ${s.name}`).catch((e) => a.ask({ title: "没能恢复", body: String(e), confirm: "好", run: async () => undefined })) }];
+  return [
+    ...(s.stage === "seed" ? [{ key: "plant", label: "种进项目…", glyph: "plus" as const, run: () => a.ask(plantSeed(a, s)) }] : []),
+    { key: "reveal", label: "在 Finder 中显示", glyph: "folder", run: () => a.reveal(home) },
+    ...(s.stage === "seed"
+      ? [
+          {
+            key: "drop",
+            label: "放弃…",
+            glyph: "trash" as const,
+            divider: true,
+            run: () =>
+              a.ask({
+                title: `放弃 ${s.name}`,
+                body: "移到「已放弃」，notebook 留着，随时可以恢复。",
+                confirm: "放弃",
+                danger: true,
+                run: () => a.act(home, { kind: "seed_drop", name: s.name }, `已放弃 ${s.name}`),
+              }),
+          },
+        ]
+      : []),
+  ];
+}

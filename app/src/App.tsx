@@ -265,7 +265,7 @@ export function App() {
       name: x.idea.name,
       desc: x.idea.hypothesis ?? x.idea.gist ?? "",
       kind: x.idea.stage === "seed" ? "种子" : x.project,
-      run: () => (x.idea.stage === "seed" ? go({ k: "seeds" }) : go({ k: "idea", root: x.root, idea: x.idea.name })),
+      run: () => go({ k: "idea", root: x.root, idea: x.idea.name }),
     }));
 
   // header crumbs
@@ -280,7 +280,12 @@ export function App() {
           ? [{ label: "设置" }]
           : route.k === "project"
             ? [{ label: board?.project.name ?? "项目" }]
-            : [{ label: board?.project.name ?? "项目", to: { k: "project", root: route.root } }, { label: route.idea }];
+            : [
+                board?.project.kind === "home"
+                  ? { label: "种子园", to: { k: "seeds" } as Route }
+                  : { label: board?.project.name ?? "项目", to: { k: "project", root: route.root } as Route },
+                { label: route.idea },
+              ];
 
   let page: ReactNode = null;
   if (route.k === "inbox")
@@ -319,7 +324,7 @@ export function App() {
       ) : (
         <div className="empty">{errors[route.root] ?? "读取中…"}</div>
       );
-  else if (route.k === "seeds") page = <SeedsView board={home ? boards[home.root] ?? null : null} homeRoot={platform?.home ?? null} now={now} />;
+  else if (route.k === "seeds") page = <SeedsView board={home ? boards[home.root] ?? null : null} homeRoot={platform?.home ?? null} now={now} onOpen={(seed) => home && go({ k: "idea", root: home.root, idea: seed })} />;
   else
     page = (
       <SettingsView

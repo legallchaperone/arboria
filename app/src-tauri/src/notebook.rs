@@ -1,4 +1,4 @@
-//! The idea's marimo notebook, embedded in the main window (ADR 0004; the app's own
+//! The idea's (or a seed's) marimo notebook, embedded in the main window (ADR 0004; the app's own
 //! notebook is phase 3). `marimo edit` runs in the idea's worktree on 127.0.0.1 with a
 //! token from a 0600 file; the page shows it in a sandboxed iframe (CSP `frame-src` allows
 //! only 127.0.0.1). The iframe is another origin: it cannot reach the page, and Tauri gives
@@ -99,11 +99,24 @@ pub async fn open(nbs: &Notebooks, root: &str, idea: &str) -> Result<String, Str
     let (r, i) = (root.to_string(), idea.to_string());
     let (cwd, file) =
         tauri::async_runtime::spawn_blocking(move || -> Result<(PathBuf, PathBuf), String> {
+            let name = IdeaName::parse(&i).map_err(err)?;
+            // a seed: its notebook is a plain file in the seed home (`seeds/<name>.py`)
+            let home = paths::home_root();
+            if paths::resolve(Path::new(&r)) == home {
+                let dir = home.join(paths::SEEDS_DIR);
+                let file = format!("{}.py", name.as_str());
+                if !dir.join(&file).is_file() {
+                    return Err(format!(
+                        "种子 {i} 没有 notebook（{}）",
+                        dir.join(&file).display()
+                    ));
+                }
+                return Ok((dir, PathBuf::from(file)));
+            }
             let ctx = paths::locate(Some(Path::new(&r)))
                 .and_then(|c| c.require_initialized())
                 .map_err(err)?;
             let mut ledger = Ledger::open(&ctx.state_dir()).map_err(err)?;
-            let name = IdeaName::parse(&i).map_err(err)?;
             let mut warnings = Vec::new();
             let (row, path, _) = ideas::ensure_notebook(&ctx, &mut ledger, Some(&name), &mut |w| {
                 warnings.push(w.to_string())

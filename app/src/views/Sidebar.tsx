@@ -93,6 +93,19 @@ export function Sidebar(props: {
               <span className="lbl">种子园</span>
               {home && home.seeds > 0 && <span className="count">{home.seeds}</span>}
             </button>
+            {home &&
+              (props.boards[home.root]?.ideas.filter((i) => i.stage === "seed") ?? [])
+                .filter((_, _k, all) => all.length <= 6 || r.k === "seeds" || (r.k === "idea" && r.root === home.root))
+                .map((i) => (
+                  <button
+                    key={i.name}
+                    type="button"
+                    className={"nav is-child" + (r.k === "idea" && r.root === home.root && r.idea === i.name ? " is-on" : "")}
+                    onClick={() => props.go({ k: "idea", root: home.root, idea: i.name })}
+                  >
+                    <span className="lbl">{i.name}</span>
+                  </button>
+                ))}
           </>
         )}
       </div>

@@ -8,7 +8,7 @@ import type { Board, IdeaView as Idea } from "../types";
 import { ago, clip, su, STATUS_TEXT, statusTone } from "../lib/format";
 import { Glyph } from "../components/Glyph";
 import { MenuButton } from "../components/Menu";
-import { ideaMenu, newSeed, plantSeed, useActions } from "./actions";
+import { ideaMenu, newSeed, seedMenu, useActions } from "./actions";
 
 /** The notebook tab: start (or reuse) the idea's marimo server and embed it. */
 function Notebook(props: { root: string; idea: string }) {
@@ -50,25 +50,37 @@ export function IdeaPage(props: {
   onTab: (t: "overview" | "notebook") => void;
   onRun: (run: string) => void;
 }) {
-  const seed = props.idea.stage === "seed";
   const a = useActions();
   const root = props.board.project.root;
+  const isSeed = props.board.project.kind === "home";
+  const hasNotebook = isSeed ? props.idea.notebook != null : props.idea.stage === "open";
   return (
     <div className="idea-wrap">
-      {!seed && (
-        <div className="tabs" role="tablist">
-          {(["overview", "notebook"] as const).map((t) => (
-            <button key={t} type="button" role="tab" aria-selected={props.tab === t} className={"tab" + (props.tab === t ? " is-on" : "")} onClick={() => props.onTab(t)}>
-              {t === "overview" ? "概览" : "Notebook"}
-            </button>
-          ))}
-          <span className="head-actions">
-            <MenuButton label={<Glyph name="more" />} ariaLabel={`${props.idea.name} 的操作`} items={ideaMenu(a, root, props.board, props.idea)} />
-          </span>
-        </div>
-      )}
-      {props.tab === "notebook" && !seed && props.idea.stage === "open" ? (
-        <Notebook root={props.board.project.root} idea={props.idea.name} />
+      <div className="tabs" role="tablist">
+        {(["overview", "notebook"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={props.tab === t}
+            disabled={t === "notebook" && !hasNotebook}
+            title={t === "notebook" && !hasNotebook ? (isSeed ? "这个种子没有 notebook 文件" : "关掉的 idea 没有 worktree") : undefined}
+            className={"tab" + (props.tab === t ? " is-on" : "")}
+            onClick={() => props.onTab(t)}
+          >
+            {t === "overview" ? "概览" : "Notebook"}
+          </button>
+        ))}
+        <span className="head-actions">
+          <MenuButton
+            label={<Glyph name="more" />}
+            ariaLabel={`${props.idea.name} 的操作`}
+            items={isSeed ? seedMenu(a, root, props.idea) : ideaMenu(a, root, props.board, props.idea)}
+          />
+        </span>
+      </div>
+      {props.tab === "notebook" && hasNotebook ? (
+        <Notebook root={root} idea={props.idea.name} />
       ) : (
         <div className="idea-scroll">
           <IdeaView {...props} />
@@ -87,6 +99,7 @@ export function IdeaView(props: {
   onTab: (t: "overview" | "notebook") => void;
 }) {
   const { board: b, idea: i } = props;
+  const isSeed = b.project.kind === "home";
   const runs = b.runs.filter((r) => r.idea === i.name).reverse();
   const todos = b.todos.filter((t) => t.idea === i.name && t.status !== "done");
   const notes = b.notes.filter((n) => n.idea === i.name);
@@ -94,24 +107,29 @@ export function IdeaView(props: {
     <div className="page">
       <div className="page-head">
         <h1 className="title">{i.name}</h1>
-        <div className="sub">{i.stage === "seed" ? i.gist : i.hypothesis}</div>
+        <div className="sub">{isSeed ? i.gist : i.hypothesis}</div>
+        {isSeed && i.hypothesis && <p className="pre">假设：{i.hypothesis}</p>}
         <div className="chips">
           {i.metric && (
             <span className="chip">
               指标 <b className="mono">{i.metric}</b>
             </span>
           )}
-          <span className="chip">
-            <b>{i.runs}</b> 个 run · <b>{su(i.su_used)}</b> SU
-          </span>
+          {!isSeed && (
+            <span className="chip">
+              <b>{i.runs}</b> 个 run · <b>{su(i.su_used)}</b> SU
+            </span>
+          )}
           {i.parent && (
             <span className="chip">
               从 {i.parent}
               {i.from_run ? ` 的 ${i.from_run}` : ""} 分出
             </span>
           )}
-          {i.stage !== "open" && <span className="chip">{i.stage === "merged" ? "已合并" : i.stage === "dropped" ? "已放弃" : i.stage}</span>}
-          {i.stage === "open" && (
+          {i.stage !== "open" && (
+            <span className="chip">{{ merged: "已合并", dropped: "已放弃", seed: "种子 · 思考中", planted: "种子 · 已种下" }[i.stage] ?? i.stage}</span>
+          )}
+          {(i.stage === "open" || (isSeed && i.notebook)) && (
             <button type="button" className="link small" onClick={() => props.onTab("notebook")}>
               打开 notebook →
             </button>
@@ -119,6 +137,7 @@ export function IdeaView(props: {
         </div>
       </div>
 
+      {!isSeed && (
       <section className="section">
         <div className="section-head">
           <h2 className="heading">run</h2>
@@ -156,6 +175,7 @@ export function IdeaView(props: {
           </div>
         )}
       </section>
+      )}
 
       {todos.length > 0 && (
         <section className="section">
@@ -179,11 +199,12 @@ export function IdeaView(props: {
         </section>
       )}
 
+      {(!isSeed || notes.length > 0) && (
       <section className="section">
         <div className="section-head">
           <h2 className="heading">笔记</h2>
         </div>
-        {i.stage === "open" && <NewNote root={b.project.root} idea={i.name} run={props.selectedRun} />}
+        {i.stage === "open" && !isSeed && <NewNote root={b.project.root} idea={i.name} run={props.selectedRun} />}
         {notes.length === 0 && <p className="small muted">还没有笔记。</p>}
         {notes.map((n) => (
           <div key={n.id} className="box">
@@ -196,6 +217,7 @@ export function IdeaView(props: {
           </div>
         ))}
       </section>
+      )}
     </div>
   );
 }
@@ -255,7 +277,7 @@ function NewNote(props: { root: string; idea: string; run: string | null }) {
   );
 }
 
-export function SeedsView(props: { board: Board | null; homeRoot: string | null; now: number }) {
+export function SeedsView(props: { board: Board | null; homeRoot: string | null; now: number; onOpen: (seed: string) => void }) {
   const a = useActions();
   const all = props.board?.ideas ?? [];
   const seeds = all.filter((i) => i.stage === "seed");
@@ -282,35 +304,16 @@ export function SeedsView(props: { board: Board | null; homeRoot: string | null;
       {home && seeds.length > 0 && (
         <div className="rows">
           {seeds.map((s) => (
-            <div key={s.name} className="row has-menu">
+            <div key={s.name} className="row has-menu" role="button" tabIndex={0} onClick={() => props.onOpen(s.name)} onKeyDown={(e) => e.key === "Enter" && props.onOpen(s.name)}>
               <Glyph name="sparkle" tone="muted" />
               <span className="main">
                 <span className="t">{s.name}</span>
                 <span className="m">{s.gist ?? ""}</span>
               </span>
               <span className="r">{ago(s.last_active, props.now)}</span>
-              <MenuButton
-                label={<Glyph name="more" />}
-                ariaLabel={`${s.name} 的操作`}
-                items={[
-                  { key: "plant", label: "种进项目…", glyph: "plus", run: () => a.ask(plantSeed(a, s)) },
-                  { key: "reveal", label: "在 Finder 中显示", glyph: "folder", run: () => a.reveal(home) },
-                  {
-                    key: "drop",
-                    label: "放弃…",
-                    glyph: "trash",
-                    divider: true,
-                    run: () =>
-                      a.ask({
-                        title: `放弃 ${s.name}`,
-                        body: "移到「已放弃」，notebook 留着，随时可以恢复。",
-                        confirm: "放弃",
-                        danger: true,
-                        run: () => a.act(home, { kind: "seed_drop", name: s.name }, `已放弃 ${s.name}`),
-                      }),
-                  },
-                ]}
-              />
+              <span onClick={(e) => e.stopPropagation()}>
+                <MenuButton label={<Glyph name="more" />} ariaLabel={`${s.name} 的操作`} items={seedMenu(a, home, s)} />
+              </span>
             </div>
           ))}
         </div>
@@ -322,7 +325,7 @@ export function SeedsView(props: { board: Board | null; homeRoot: string | null;
           </div>
           <div className="rows">
             {planted.map((s) => (
-              <div key={s.name} className="row">
+              <div key={s.name} className="row" role="button" tabIndex={0} onClick={() => props.onOpen(s.name)}>
                 <Glyph name="check" tone="muted" />
                 <span className="main">
                   <span className="t muted">{s.name}</span>
@@ -341,13 +344,13 @@ export function SeedsView(props: { board: Board | null; homeRoot: string | null;
           </div>
           <div className="rows">
             {dropped.map((s) => (
-              <div key={s.name} className="row">
+              <div key={s.name} className="row" role="button" tabIndex={0} onClick={() => props.onOpen(s.name)}>
                 <Glyph name="sparkle" tone="muted" />
                 <span className="main">
                   <span className="t muted">{s.name}</span>
                   <span className="m">{s.gist ?? ""}</span>
                 </span>
-                <button type="button" className="ab-btn body" onClick={() => void a.act(home, { kind: "seed_revive", name: s.name }, `已恢复 ${s.name}`).catch((e) => a.ask({ title: "没能恢复", body: message(e), confirm: "好", run: async () => undefined }))}>
+                <button type="button" className="ab-btn body" onClick={(e) => (e.stopPropagation(), void a.act(home, { kind: "seed_revive", name: s.name }, `已恢复 ${s.name}`).catch((e) => a.ask({ title: "没能恢复", body: message(e), confirm: "好", run: async () => undefined })))}>
                   恢复
                 </button>
               </div>

@@ -14,6 +14,8 @@ CI 在 Python 3.11 和 3.13 上运行全部测试，测试用临时 git 仓库�
 - 每个 idea 的 notebook、`lab` API、待办、notebook 命令和自动重跑（用真的 marimo）。
 - 只读看板和种子园看板。
 - 种子、种下、种子的放弃和恢复，种子园里的 Claude Code 设置。
+- Rust 核心和 `arb`（第 1 期）：和 Python 版逐字节对照的测试向量、输出对比。
+- Mac app 的壳（第 2 期，ADR 0004）：收件箱、全局、idea 页、审核单和触控 ID 签字、嵌入终端、marimo 窗口、后台小助手（`arb helper`）和系统通知、项目登记（`arb projects`）。核心部分在 Linux 上测试；app 在 Linux 上构建并实际启动过（Xvfb），界面截图用演示数据。
 
 ## 在 DeltaAI 上实测过
 
@@ -21,6 +23,8 @@ CI 在 Python 3.11 和 3.13 上运行全部测试，测试用临时 git 仓库�
 - `arb machine init` / `arb doctor`，全部检查通过。
 
 ## 还没做
+
+- 在 Mac 上验收 app：`npm run tauri build`、触控 ID 签字、LaunchAgent 小助手的通知（这些只能在 Mac 上测；CI 的 macOS 任务只检查能编译）。签名和公证需要 Apple 开发者账号。
 
 - 通过 `SshSlurm` 的**第一个真实 run**：submit → approve → watch → 拉回 `ARBORIA_OUT`，核对命令行、日志路径、`sacct` 状态和花费。
 - 计算节点上的 Python 环境（uv venv 或 NGC PyTorch 容器），以及计算节点能不能上网。

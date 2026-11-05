@@ -54,6 +54,7 @@ export default defineConfig({
 						'guides/inspect',
 						'guides/submit',
 						'guides/monitor',
+						'guides/app',
 						'guides/dashboard',
 						'guides/claude-code',
 						'guides/machines',

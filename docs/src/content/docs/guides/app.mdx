@@ -1,0 +1,112 @@
+---
+title: Mac app
+description: Arboria.app：收件箱、idea 树、用触控 ID 签字、嵌入的终端，以及关掉 app 也照样盯作业、发通知的后台小助手。
+---
+
+import Shot from '../../../components/Shot.astro';
+import inboxLight from '../../../assets/shots/app-inbox-light.webp';
+import inboxDark from '../../../assets/shots/app-inbox-dark.webp';
+import overviewLight from '../../../assets/shots/app-overview-light.webp';
+import overviewDark from '../../../assets/shots/app-overview-dark.webp';
+import cardLight from '../../../assets/shots/app-card-light.webp';
+import cardDark from '../../../assets/shots/app-card-dark.webp';
+
+Arboria.app 是 `arb` 的窗口：不用开终端就能看作业、签字。它和命令行用的是同一个 Rust 核心，读的是同一份账本。notebook 这一期还是 marimo，app 在单独的窗口里打开它（自己的 notebook 是下一期）。设计说明见 [ADR 0004](https://github.com/legallchaperone/arboria/blob/main/docs/adr/0004-app-shell.md)。
+
+## 安装
+
+先照[安装](/start/install/)装好 `arb` 和 Python 包，然后在仓库里：
+
+```bash
+cd app
+npm ci
+npm run tauri build      # 生成 src-tauri/target/release/bundle/macos/Arboria.app 和 .dmg
+```
+
+要 Node 22 和 Rust。app 还没签名和公证：第一次打开时在 Finder 里右键 → 打开。开发时用 `npm run tauri dev`。
+
+app 看的是**登记过的项目**：`arb init` 会自动登记；已有的仓库运行一次 `arb projects add`（或者在空的收件箱里填路径）。种子园总在列表里。
+
+```bash
+arb projects add ~/code/lm
+arb projects list
+arb projects remove ~/code/old
+```
+
+## 收件箱
+
+<Shot src={inboxLight} dark={inboxDark} alt="收件箱：要签字的 r014、失败的 r010、跑完了的 r012、agent 写好的命令 t007，按类分组，最新的在上" caption="收件箱（演示数据）。" />
+
+没打开 idea 时的首页：所有项目里要你处理的事，一列，按类分组。↑↓ 选择，⏎ 打开。
+
+- **要签字**：等你批准的 run，⏎ 打开审核单。
+- **失败** / **跑完了**：你上次给那个 idea 写笔记之后结束的 run（和 `arb status` 同一条规则），⏎ 打开那个 idea。
+- **agent 写好了**：最近 7 天 agent 做完的待办（命令、读代码）。
+- **待确认经验**、**probe 待重新启用**：只在你自己的终端里做，app 显示要运行的命令。
+
+账本一变（CLI、notebook、小助手写了什么），一两秒内界面就跟着变，不用刷新。
+
+## 签字（触控 ID）
+
+<Shot src={cardLight} dark={cardDark} alt="审核单 r014：资源、花费、预算、哈希，下面是 arb card 的全文，右下角是签字按钮" caption="审核单。显示满 2 秒后才能签字。" />
+
+审核单就是 `arb card` 的全文，重新计算过；摘要只是方便看。
+
+1. 打开审核单，读完。**显示满 2 秒之前签字按钮按不下去。**
+2. 按“签字”或 ⌘⏎，系统弹出触控 ID 提示，上面写着 run id 和审核单哈希的前 8 位。可以用指纹，也可以输入登录密码。
+3. 通过后和 `arb approve` 走同一条路：账本里记下你的 Decision（绑定审核单哈希），然后提交。
+
+什么时候不能在 app 里签字：
+
+- 审核单在你打开之后变了（配置、clusters.toml 改过）：重新打开再签。
+- app 是从 Claude Code 里启动的（进程环境里有 `CLAUDECODE`）：拒绝，提示你去自己的终端。
+- 不是 Mac：没有触控 ID，按钮变成“在终端里签字”，在下面的终端里填好 `arb approve rNNN`，由你按回车并输入 run id。
+
+这些检查在核心里，不在界面上：app 只是把“这张审核单显示了多久、哈希是什么”交给核心，没有指纹就不会有 Decision。notebook 窗口（marimo）加载的是 `127.0.0.1` 上的页面，没有任何调用 app 的权限，notebook 里的代码碰不到签字。
+
+## 全局
+
+<Shot src={overviewLight} dark={overviewDark} alt="全局：idea 和 run 的时间线，每个 idea 一行，竖线表示从父 run 分出；下面是花费条和机器卡片" caption="全局（演示数据）。" />
+
+- **idea 和 run**：每个 idea 一行，横轴是时间，run 按提交时间排在行上（✓ 完成、▶ 运行中、指纹 待签字、× 失败）；竖线是从父 idea 的某个 run 分出来。点 idea 名打开它。
+- **花费**：已用 / 预算，按 idea 分。
+- **机器**：每台机器的 probe 结果（余额、排队……）和后台小助手的状态；机器需要登录时有“在终端里登录”。
+
+## idea
+
+假设、指标、花费、从哪个 run 分出；run 列表（点待签字的 run 打开审核单）、agent 在做的待办、笔记。**打开 notebook** 在 idea 的 worktree 里起 `marimo edit notebook.py`（只听 `127.0.0.1`，带 token），在新窗口里打开；关掉窗口就停掉 marimo。notebook 文件不存在时先补一个（不覆盖已有的）。
+
+## 终端
+
+⌘\` 打开底部的终端：在项目主 worktree 里开你的登录 shell。“Claude Code”开一个运行 `claude` 的标签，和在自己的终端里一样（用你自己登录的 `claude`）。`arb approve` 在这里照样只在人敲的时候才行：Claude Code 运行的命令会被 `arb` 拒绝。
+
+## 后台小助手
+
+app 关了也要有人盯作业。小助手是 `arb helper run`，登录时由 LaunchAgent 启动：
+
+```bash
+arb helper install     # 或者 全局 › 安装小助手
+arb helper status
+arb helper uninstall
+arb helper run --once  # 手动跑一轮，看它做了什么
+```
+
+每 2 分钟对每个登记的项目：
+
+1. poll 活跃的 run、在观察期里看日志（和 `arb watch` 一样，匹配到失败模式就取消）；
+2. 跑到期的 probe，每 30 分钟查一次有 `balance_cmd` 的机器的余额；
+3. 发系统通知：run 结束、新的待签字、日志里的失败、机器需要登录（Duo 过期时每次断开只提醒一次，在 app 的终端里 `ssh <机器>` 登录后自动恢复）。
+
+小助手只写 poll 和 probe 本来就写的东西，从不批准。通知只含 run id、状态、SU、机器名这类校验过的字段。`ARBORIA_NOTIFY=0` 关掉通知。macOS 上服务文件是 `~/Library/LaunchAgents/world.cwx.arboria.helper.plist`，日志在 `~/Library/Logs/Arboria/`；Linux 上是 systemd 用户服务 `arboria-helper.service`。
+
+## 快捷键
+
+| 键 | 做什么 |
+|---|---|
+| ⌘P | 换 idea（所有项目和种子园） |
+| ⌘K | 命令：收件箱、全局、新终端、Claude Code、重新读取、安装小助手 |
+| ⌘\` | 终端 |
+| ⌘⏎ | 在审核单上签字 |
+| esc | 关掉审核单 / 回到收件箱 |
+
+`arb ui` 的 marimo 看板还在，给没有 app 的机器（比如 Linux）用：见[看板](/guides/dashboard/)。

@@ -17,6 +17,7 @@ arb --help
 - `[ui]` 是 marimo：idea notebook 和看板（`arb ui`）都要它。看板会 import arboria，所以 marimo 必须装在 **arb-py 的环境里**。单独 `uv tool install marimo` 只够打开 notebook，不够跑 `arb ui`。
 - 账本是 schema v8：`arb` 第一次打开旧账本时原地升级。之后 Python 版（`arb-py`、notebook 里的 `lab`）只读它，`lab` 的写入交给 `arb`（找 `ARBORIA_ARB`，否则 PATH 上的 `arb`）。
 - 在 notebook 里读 wandb 曲线还需要 `wandb`（有 `pandas` 时返回 DataFrame）；装了 PyYAML 时，拉回的 `config.yaml` 会被解析成 JSON。
+- Mac app（收件箱、idea 树、触控 ID 签字、后台小助手）另外构建：见 [Mac app](/guides/app/)。
 - 更新：在源码目录 `git pull`，再运行上面两条安装命令。
 
 ## 让 notebook 一打开就运行

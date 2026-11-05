@@ -56,6 +56,7 @@ flowchart LR
 git clone https://github.com/legallchaperone/arboria.git && cd arboria
 uv tool install --force '.[ui]'             # arb-py：Python 版命令行，arb 用它的解释器
 cargo install --locked --path crates/arb    # arb
+(cd app && npm ci && npm run tauri build)   # 可选：Mac app（收件箱、触控 ID 签字、嵌入终端）
 
 # 在你的实验代码仓库里
 cd ~/code/myproj
@@ -116,6 +117,7 @@ arb watch           # 跟踪；观察期内 loss NaN / CUDA OOM 会自动取消
 | `arb note TEXT [--run ID] [--confidence X]` | 你的笔记（Claude 不能写） |
 | `arb todo list` / `arb todo done ID --result T` | notebook 留下的待办 |
 | `arb ui [--home]` | 打开只读看板（仓库外是种子园） |
+| `arb helper install` | 后台小助手：登录时启动，盯作业、发系统通知 |
 | 仓库外：`arb idea new NAME ["一句话想法"]` / `list` / `show NAME` | 种子：还没有仓库的 idea，各有一个 notebook（`new` 只由你） |
 | 仓库里：`arb idea plant NAME` | 把种子种进这个仓库，成为 idea（只由你） |
 | 仓库外：`arb idea drop NAME` / `revive NAME` | 放弃一个种子 / 让它回到思考中（只由你） |

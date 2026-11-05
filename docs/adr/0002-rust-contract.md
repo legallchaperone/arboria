@@ -37,6 +37,7 @@
 | `machine` | 同名 | **已实现**；`tests/machine.rs` 在 CPython 和 Rust 里跑同样的场景（真实的 DeltaAI 探测输出），profile 文本、警告、doctor 每一行都相同 |
 | `kernel` | `lab` 的写入 | 新（2026-11-05）：v8 账本在 Python 里只读，notebook kernel 里 `lab` 的写入（run、todo、conf、metric、fork、prune、命令待办、command_call、inspect）经隐藏的 `arb lab`（stdin 一个 JSON 请求，stdout 一个 JSON 回答）交给核心，检查照 `lab`（Claude Code 里拒绝的同样拒绝），Python 再从账本读回结果；Python 找 Rust 版用 `$ARBORIA_ARB`，否则 PATH 上的 `arb`。Python 的 tasks / seeds 读 v8 时换成对应的 SQL（`tasks.sql`、`seeds.SEEDS_V8`）。`tests/test_lab_v8.py` |
 | `ui` | `ui.launch` | 在 `$ARBORIA_PYTHON` 里跑 Python 的看板（它只读地读 v8 账本），以后由 app 取代 |
+| `registry` / `view` / `helper` / `notifier` | 新（第 2 期，ADR 0004） | 项目登记（`<config>/projects.json`，`arb projects`）；app 的只读视图（`db::open_read_only`，源码扫描守着）；后台小助手（`arb helper`：poll、probe、通知；LaunchAgent / systemd）；系统通知（osascript / notify-send）。`human::confirm_on_device` 和 `submission::approve_on_device` 是 app 的签字入口（触控 ID 在 `crates/arboria-macos`，别的系统拒绝）；`guards.rs` 守着只有 submission 调它们、小助手和视图从不批准 |
 
 不移植：`lab`、`analysis`、`style`（`notebooks` 经 Python 调用）（留在 Python kernel 一侧或被 app 取代）、`sessions`（ADR 0001 删掉推送）。
 

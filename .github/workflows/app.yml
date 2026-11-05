@@ -141,11 +141,33 @@ jobs:
         env:
           ARBORIA_TEST_NOTIFY: "1"
         run: |
+          # is the banner shown, and if not, why: what usernoted logs, the per-app settings,
+          # Notification Center's database; three screenshots while it should be up
+          start=$(date "+%Y-%m-%d %H:%M:%S")
           cargo test --locked -p arboria-core --lib a_real_notification -- --nocapture
-          python3 -c "import time; time.sleep(2)"
-          screencapture -x "$RUNNER_TEMP/notify.png"
-          sips -Z 1280 "$RUNNER_TEMP/notify.png" --out "$RUNNER_TEMP/notify-small.png" >/dev/null
-          echo "NOTIFY-BEGIN"; base64 -i "$RUNNER_TEMP/notify-small.png" | fold -w 76; echo "NOTIFY-END"
+          for t in 0.4 1.5 3; do
+            python3 -c "import time; time.sleep($t)"
+            screencapture -x "$RUNNER_TEMP/notify-$t.png"
+          done
+          echo "--- usernoted / UserNotifications log since $start"
+          log show --start "$start" --style compact \
+            --predicate 'process == "usernoted" OR process == "NotificationCenter" OR subsystem == "com.apple.UserNotifications"' \
+            | grep -iE "script|osascript|arboria|deliver|denied|authoriz|banner|present|suppress|focus|dnd" | head -60 || true
+          echo "--- ncprefs entries for Script Editor"
+          defaults export com.apple.ncprefs - 2>/dev/null | plutil -convert json -o - - 2>/dev/null \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); print([a for a in d.get('apps', []) if 'Script' in a.get('bundle-id','') or 'osascript' in a.get('bundle-id','')])" || true
+          echo "--- Notification Center database: latest records"
+          db="$(getconf DARWIN_USER_DIR)com.apple.notificationcenter/db2/db"
+          [ -f "$db" ] || db="$HOME/Library/Group Containers/group.com.apple.usernoted/db2/db"
+          ls -la "$db" || true
+          sqlite3 "$db" "select a.identifier, r.delivered_date, r.presented from record r join app a on a.app_id = r.app_id order by r.rec_id desc limit 5;" 2>&1 || true
+          echo "--- Focus / Do Not Disturb"
+          defaults read com.apple.controlcenter "NSStatusItem Visible FocusModes" 2>&1 || true
+          plutil -p "$HOME/Library/DoNotDisturb/DB/Assertions.json" 2>&1 | head -20 || true
+          for t in 0.4 1.5 3; do
+            sips -Z 900 "$RUNNER_TEMP/notify-$t.png" --out "$RUNNER_TEMP/n-$t.png" >/dev/null
+            echo "NOTIFY-$t-BEGIN"; base64 -i "$RUNNER_TEMP/n-$t.png" | fold -w 76; echo "NOTIFY-$t-END"
+          done
 
       - name: Upload the screenshot
         if: runner.os == 'macOS'

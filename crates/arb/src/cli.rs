@@ -30,6 +30,7 @@ use arboria_core::{
 };
 use clap::{Args, CommandFactory, FromArgMatches, Parser, Subcommand};
 use serde::Serialize;
+use serde_json::{json, Value};
 
 /// `arb --help` panels (Python `cli.HELP_PANELS`): every visible top-level command is in
 /// exactly one; the order is the help's order.
@@ -37,7 +38,7 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
     (
         "你做的",
         &[
-            "idea", "submit", "card", "approve", "reject", "note", "status", "ui",
+            "idea", "submit", "card", "approve", "reject", "note", "status", "ui", "nb",
         ],
     ),
     (
@@ -48,7 +49,7 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
     ),
     (
         "agent 做的",
-        &["todo", "commands", "inspect", "run", "lesson"],
+        &["todo", "commands", "inspect", "run", "lesson", "agent"],
     ),
     (
         "安装与内部",
@@ -265,6 +266,65 @@ pub enum Cmd {
     /// The background helper: polls runs, runs probes, sends system notifications.
     #[command(subcommand, arg_required_else_help = true)]
     Helper(HelperCmd),
+    /// The app's notebooks (`.arboria/notebooks/<idea>.md`): run their command blocks here.
+    #[command(subcommand, arg_required_else_help = true)]
+    Nb(NbCmd),
+    /// The background agent: `claude -p` works through the agent queue (commands, code
+    /// reading, todos you hand it), one todo at a time.
+    #[command(subcommand, arg_required_else_help = true)]
+    Agent(AgentCmd),
+}
+
+/// `arb agent …`.
+#[derive(Debug, Subcommand)]
+pub enum AgentCmd {
+    /// Run queued todos of this project (or the seed home) with `claude -p`, until the
+    /// queue is empty (--once: at most one).
+    Run {
+        /// At most one attempt.
+        #[arg(long)]
+        once: bool,
+    },
+    /// The agent queue: every todo with its status, model, attempts and usage.
+    List {
+        /// Also done and dropped ones.
+        #[arg(long = "all")]
+        show_all: bool,
+    },
+    /// Hand a todo to the agent (open → queued), or retry one that needs you.
+    Queue {
+        /// The todo id (tNNN).
+        task: String,
+    },
+    /// Stop the running attempt of a todo (it then needs you).
+    Stop {
+        /// The todo id (tNNN).
+        task: String,
+    },
+    /// What the agent did in the latest attempt of a todo.
+    Log {
+        /// The todo id (tNNN).
+        task: String,
+    },
+}
+
+/// `arb nb …`.
+#[derive(Debug, Subcommand)]
+pub enum NbCmd {
+    /// Run the notebook's command blocks (all, or --block ID) in a fresh kernel; results are
+    /// stored like the app's.
+    Run {
+        /// The idea (or seed); default: the idea of the current worktree.
+        name: Option<String>,
+        /// Only this block (its id, from ```arb {#id}).
+        #[arg(long)]
+        block: Option<String>,
+    },
+    /// The notebook's path and its blocks.
+    Show {
+        /// The idea (or seed); default: the idea of the current worktree.
+        name: Option<String>,
+    },
 }
 
 /// `arb helper …`.
@@ -424,6 +484,13 @@ pub enum IdeaCmd {
     /// where it is missing; no cell is touched. Idempotent. Yours only: refused inside
     /// Claude Code (it writes the notebooks).
     Style,
+    /// Turn marimo notebooks (.py) into the app's notebooks (.md): text cells become text,
+    /// the other cells command blocks. The marimo file stays; an existing .md is never
+    /// overwritten. In a repo: the named ideas (default: all); outside: seeds. Yours only.
+    Migrate {
+        /// Ideas (or seeds) to migrate; default: all.
+        names: Vec<String>,
+    },
     /// Close an idea with --merge or --drop; removes its worktree and branch.
     Close {
         /// Defaults to the idea of the current directory.
@@ -1570,6 +1637,310 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         Cmd::Lab => return lab_request(),
         Cmd::Projects(cmd) => projects_cmd(cmd, json)?,
         Cmd::Helper(cmd) => helper_cmd(cmd, json)?,
+        Cmd::Nb(cmd) => return nb_cmd(cmd, json),
+        Cmd::Agent(cmd) => agent_cmd(cmd, json)?,
+    }
+    Ok(0)
+}
+
+/// The project (or seed home) `arb agent` acts on: the repo here, else the seed home.
+fn agent_root() -> anyhow::Result<PathBuf> {
+    use arboria_core::ideas::{self, Route};
+    Ok(match ideas::route(&std::env::current_dir()?)? {
+        Route::Seeds(home) => home.root,
+        Route::Repo(ctx) => ctx.main,
+    })
+}
+
+fn usage_text(raw: Option<&str>) -> String {
+    let Some(u) = raw.and_then(|r| serde_json::from_str::<tasks::Usage>(r).ok()) else {
+        return String::new();
+    };
+    format!(
+        "{} 轮 · 输入 {}k · 缓存 {}k · 输出 {}k · ${:.2}",
+        u.turns,
+        u.input_tokens / 1000,
+        u.cache_read_tokens / 1000,
+        u.output_tokens / 1000,
+        u.cost_usd
+    )
+}
+
+/// `arb agent run|list|queue|stop|log`.
+fn agent_cmd(cmd: AgentCmd, json: bool) -> anyhow::Result<()> {
+    use arboria_core::agent::{self, Ran};
+    let root = agent_root()?;
+    let (state_dir, _, _) = agent::place_of(&root)?;
+    match cmd {
+        AgentCmd::Run { once } => {
+            if let Some(var) = human::in_claude_code() {
+                bail!("arb agent run 在 Claude Code 里不用（{var}）：它自己会起 claude -p；在你的终端里运行，或者让 Arboria.app 来跑");
+            }
+            let s = agent::load_settings()?;
+            loop {
+                match agent::run_one(&root, &s, &mut |line| {
+                    if json {
+                        println!("{line}");
+                    }
+                })? {
+                    Ran::Idle => {
+                        println!("队列是空的");
+                        break;
+                    }
+                    Ran::Busy => {
+                        println!("另一个 arb agent 正在跑这个项目的队列");
+                        break;
+                    }
+                    Ran::Limit(n) => {
+                        println!(
+                            "今天已经跑了 {n} 次，到了上限（{}：daily_limit）",
+                            agent::settings_path().display()
+                        );
+                        break;
+                    }
+                    Ran::Attempt(t, o) => {
+                        println!(
+                            "{} · {} · {}{}",
+                            t.task.id,
+                            t.task.status,
+                            usage_text(t.task.usage_json.as_deref()),
+                            if o.result.is_empty() {
+                                String::new()
+                            } else {
+                                format!("\n  {}", o.result.lines().next().unwrap_or(""))
+                            }
+                        );
+                    }
+                }
+                if once {
+                    break;
+                }
+            }
+        }
+        AgentCmd::List { show_all } => {
+            let ledger = db::Ledger::open(&state_dir)?;
+            let rows: Vec<_> = tasks::list_tasks(&ledger, None, true)?
+                .into_iter()
+                .filter(|t| {
+                    show_all
+                        || !matches!(
+                            t.task.status,
+                            arboria_core::model::TaskStatus::Done
+                                | arboria_core::model::TaskStatus::Dropped
+                        )
+                })
+                .collect();
+            if json {
+                println!("{}", pretty(&rows)?);
+                return Ok(());
+            }
+            if rows.is_empty() {
+                println!("没有待办");
+            }
+            for t in rows {
+                println!(
+                    "{}\t{}\t{}\t{}\t{}",
+                    t.task.id,
+                    t.task.status,
+                    t.task.kind,
+                    t.task.text.lines().next().unwrap_or(""),
+                    usage_text(t.task.usage_json.as_deref())
+                );
+            }
+        }
+        AgentCmd::Queue { task } => {
+            if let Some(var) = human::in_claude_code() {
+                bail!("arb agent queue 只由人做（{var}）：交给后台 agent 会花你的额度");
+            }
+            let mut ledger = db::Ledger::open(&state_dir)?;
+            let t = agent::requeue(&mut ledger, &TaskId::parse(&task)?)?;
+            println!("{} · {}", t.task.id, t.task.status);
+        }
+        AgentCmd::Stop { task } => {
+            let id = TaskId::parse(&task)?;
+            if agent::stop(&root, &id)? {
+                println!("停下了 {id}；它现在等你处理（arb agent queue {id} 重试）");
+            } else {
+                println!("{id} 没有在跑");
+            }
+        }
+        AgentCmd::Log { task } => {
+            let ledger = db::Ledger::open(&state_dir)?;
+            let t = tasks::get_task(&ledger, &TaskId::parse(&task)?)?;
+            let lines = agent::latest_log(&state_dir, &t);
+            if json {
+                println!("{}", pretty(&lines)?);
+                return Ok(());
+            }
+            if lines.is_empty() {
+                println!("{} 还没有日志", t.task.id);
+            }
+            for l in lines {
+                println!("[{}] {}", l.kind, l.text);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Which notebook `arb nb` means: NAME in the seed home or the repo here, else the
+/// current worktree's idea.
+fn notebook_here(name: Option<String>) -> anyhow::Result<arboria_core::nbkernel::Notebook> {
+    use arboria_core::ideas::{self, Route};
+    use arboria_core::nbkernel::Notebook;
+    let cwd = std::env::current_dir()?;
+    let route = ideas::route(&cwd)?;
+    Ok(match (route, name) {
+        (Route::Seeds(home), Some(n)) => {
+            Notebook::of_seed(&home, &arboria_core::model::IdeaName::parse(&n)?)
+        }
+        (Route::Seeds(_), None) => anyhow::bail!("which seed? arb nb run NAME"),
+        (Route::Repo(ctx), name) => {
+            let ledger = db::Ledger::open(&ctx.state_dir())?;
+            let idea = match name {
+                Some(n) => arboria_core::model::IdeaName::parse(&n)?,
+                None => ideas::require_current_idea(&ctx, &ledger)?.name,
+            };
+            Notebook::of_idea(&ctx, &ledger, &idea)?
+        }
+    })
+}
+
+fn require_md(nb: &arboria_core::nbkernel::Notebook) -> anyhow::Result<()> {
+    if nb.exists() {
+        return Ok(());
+    }
+    match &nb.marimo {
+        Some(py) => anyhow::bail!(
+            "{} has no app notebook yet, only the marimo one ({}): arb idea migrate {}",
+            nb.name,
+            py.display(),
+            nb.name
+        ),
+        None => anyhow::bail!(
+            "no notebook {} (arb idea notebook {})",
+            nb.path.display(),
+            nb.name
+        ),
+    }
+}
+
+/// An output as terminal text.
+fn output_text(o: &Value) -> String {
+    let s = |k: &str| o[k].as_str().unwrap_or("").to_string();
+    match o["kind"].as_str().unwrap_or("") {
+        "stream" | "text" | "markdown" | "pending" | "run" => s("text"),
+        "error" => {
+            let tb: Vec<&str> = o["traceback"]
+                .as_array()
+                .map(|a| a.iter().filter_map(Value::as_str).collect())
+                .unwrap_or_default();
+            if tb.is_empty() {
+                format!("{}: {}", s("ename"), s("evalue"))
+            } else {
+                tb.join("\n")
+            }
+        }
+        "table" => {
+            let cols: Vec<String> = o["columns"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .map(|c| c.as_str().unwrap_or("").to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            let cell = |v: &Value| match v {
+                Value::String(x) => x.clone(),
+                Value::Null => String::new(),
+                other => other.to_string(),
+            };
+            let mut lines = vec![cols.join("\t")];
+            for r in o["rows"].as_array().into_iter().flatten() {
+                let row: Vec<String> = r.as_array().into_iter().flatten().map(cell).collect();
+                lines.push(row.join("\t"));
+            }
+            let total = o["total"].as_u64().unwrap_or(0) as usize;
+            if total > lines.len() - 1 {
+                lines.push(format!("…（共 {total} 行）"));
+            }
+            lines.join("\n")
+        }
+        "plot" => {
+            let n = o["series"].as_array().map(Vec::len).unwrap_or(0);
+            format!("[图] {} · {n} 条线（在 app 里看）", s("y"))
+        }
+        "image" => "[图片]（在 app 里看）".to_string(),
+        "inspect" => format!("[读代码] {} · {}", s("question"), s("status")),
+        other => format!("[{other}]"),
+    }
+}
+
+/// `arb nb run|show`.
+fn nb_cmd(cmd: NbCmd, json: bool) -> anyhow::Result<i32> {
+    use arboria_core::nbkernel::{self, Event, Kernel};
+    match cmd {
+        NbCmd::Show { name } => {
+            let nb = notebook_here(name)?;
+            require_md(&nb)?;
+            let (doc, _) = nb.load()?;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&json!({"notebook": nb, "doc": doc}))?
+                );
+                return Ok(0);
+            }
+            println!("{}", nb.path.display());
+            for b in doc.blocks() {
+                println!("{}\t{}", b.id, b.code.lines().next().unwrap_or(""));
+            }
+        }
+        NbCmd::Run { name, block } => {
+            let nb = notebook_here(name)?;
+            require_md(&nb)?;
+            let (doc, _) = nb.load()?;
+            let blocks: Vec<_> = match &block {
+                Some(id) => vec![doc
+                    .block(id)
+                    .cloned()
+                    .with_context(|| format!("no block {id} in {}", nb.path.display()))?],
+                None => doc.blocks().cloned().collect(),
+            };
+            let mut kernel = Kernel::start(&nb.cwd)?;
+            let mut failed = 0;
+            for b in &blocks {
+                if !json {
+                    println!("── {} ── {}", b.id, b.code.lines().next().unwrap_or(""));
+                }
+                let cached = nbkernel::run_and_store(&mut kernel, &nb, b, &mut |e| {
+                    if json {
+                        return;
+                    }
+                    match e {
+                        Event::Stream { text, .. } => {
+                            print!("{text}");
+                            let _ = std::io::stdout().flush();
+                        }
+                        Event::Output { data } => println!("{}", output_text(data)),
+                    }
+                })?;
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string(&json!({"block": b.id, "result": cached}))?
+                    );
+                }
+                if !cached.ok {
+                    failed += 1;
+                }
+            }
+            kernel.shutdown();
+            if failed > 0 {
+                eprintln!("error: {failed} of {} blocks failed", blocks.len());
+                return Ok(1);
+            }
+        }
     }
     Ok(0)
 }
@@ -1859,10 +2230,10 @@ fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
             };
             let idea = ideas::new_idea(ctx, &mut ledger, &name, new, &mut warn)?;
             emit(json, &idea, |i| i.worktree_path.clone().unwrap_or_default())?;
-            let nb = ideas::notebook_path(&ctx.state_dir(), idea.name.as_str());
+            let nb = arboria_core::nbdoc::idea_path(&ctx.state_dir(), idea.name.as_str());
             if nb.exists() {
                 info(&format!(
-                    "notebook: {} (linked as notebook.py; open it in VS Code with the marimo extension, or `marimo edit notebook.py` in the worktree)",
+                    "notebook: {} (linked as notebook.md; open it in Arboria.app, or run its blocks with `arb nb run`)",
                     nb.display()
                 ));
             }
@@ -1971,6 +2342,35 @@ fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
                 );
             }
         }
+        IdeaCmd::Migrate { names } => {
+            ideas::require_human_for_seeds("arb idea migrate", "会写 notebook 文件")?;
+            let names: Vec<IdeaName> = names
+                .iter()
+                .map(|n| idea_name(n))
+                .collect::<anyhow::Result<_>>()?;
+            let done = match &ctx {
+                Some(ctx) => {
+                    let ledger = db::Ledger::open(&ctx.state_dir())?;
+                    ideas::migrate(ctx, &ledger, &names, &mut warn)?
+                }
+                None => {
+                    let home = ideas::ensure_home(&mut info)?;
+                    let ledger = db::Ledger::open(&home.state_dir())?;
+                    ideas::migrate_seeds(&home, &ledger, &names)?
+                }
+            };
+            if done.is_empty() {
+                println!("没有 notebook");
+            }
+            for (name, how) in done {
+                let what = match how {
+                    arboria_core::notebooks::Migrated::Written => "已迁移成 app 的 notebook（.md）",
+                    arboria_core::notebooks::Migrated::Already => "已经有 .md，没动",
+                    arboria_core::notebooks::Migrated::NoMarimo => "没有 marimo notebook",
+                };
+                println!("{name}: {what}");
+            }
+        }
         IdeaCmd::Close {
             name,
             merge,
@@ -2076,8 +2476,8 @@ fn seed_new(
     }
     if Path::new(&s.notebook).exists() {
         info(&format!(
-            "打开：VS Code（marimo 扩展），或 marimo edit {}",
-            s.notebook
+            "打开：Arboria.app 的种子园，或 arb nb run {} 跑它的命令块（{}）",
+            s.idea.name, s.notebook
         ));
     }
     Ok(s)
@@ -2183,9 +2583,9 @@ fn seed(cmd: SeedCmd, json: bool) -> anyhow::Result<()> {
                 &mut warn,
             )?;
             emit(json, &idea, |i| i.worktree_path.clone().unwrap_or_default())?;
-            let nb = ideas::notebook_path(&target.state_dir(), idea.name.as_str());
+            let nb = arboria_core::nbdoc::idea_path(&target.state_dir(), idea.name.as_str());
             let nb = if nb.exists() {
-                format!("; notebook: {} (linked as notebook.py)", nb.display())
+                format!("; notebook: {} (linked as notebook.md)", nb.display())
             } else {
                 String::new()
             };

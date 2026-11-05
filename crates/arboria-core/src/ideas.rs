@@ -359,7 +359,7 @@ pub fn new_idea(
             .ok_or_else(|| Error::Arb(format!("idea {name} vanished")))?;
         let seed_note = new.seed.map(|o| notebooks::SeedNote {
             name: o.seed.name.as_str().to_string(),
-            notebook: o.home.notebook(o.seed.name.as_str()),
+            notebook: seed_notebook_file(o.home, o.seed.name.as_str()),
             markdown: o.markdown.to_vec(),
             home: o.home.root.clone(),
         });
@@ -416,7 +416,7 @@ pub fn new_idea(
             false,
         );
         let _ = gitutil::run(&["branch", "-D", &branch], &ctx.main, &[], false);
-        let nb = notebook_path(&ctx.state_dir(), name.as_str());
+        let nb = crate::nbdoc::idea_path(&ctx.state_dir(), name.as_str());
         if nb.exists() && idea_by_name(ledger.conn(), name.as_str())?.is_none() {
             let _ = std::fs::remove_file(nb);
         }
@@ -440,7 +440,8 @@ pub fn ensure_notebook(
         name,
         "not inside an idea worktree; pass the idea NAME",
     )?;
-    let path = notebook_path(&ctx.state_dir(), idea.name.as_str());
+    let md = crate::nbdoc::idea_path(&ctx.state_dir(), idea.name.as_str());
+    let marimo = notebook_path(&ctx.state_dir(), idea.name.as_str());
     let link = idea.stage == IdeaStage::Open
         && idea
             .worktree_path
@@ -452,13 +453,21 @@ pub fn ensure_notebook(
             "run `arb idea notebook` again",
         ))
     };
-    if path.exists() {
+    if md.exists() {
         if link {
-            notebooks::create(&ctx.main, &idea, None, None, None, true, warn)?
-                .map_err(unavailable)?;
+            let wt = idea.worktree_path.as_deref().unwrap_or_default();
+            notebooks::link_md(&ctx.common_dir, Path::new(wt), &md, warn)?;
         }
-        return Ok((idea, path, false));
+        return Ok((idea, md, false));
     }
+    if marimo.exists() {
+        // an idea from before the app's notebooks: its marimo file (`arb idea migrate`)
+        if link {
+            notebooks::link_marimo(&ctx.main, &idea, warn)?.map_err(unavailable)?;
+        }
+        return Ok((idea, marimo, false));
+    }
+    let path = md;
     let parent = parent_name(ledger, &idea)?;
     let rel = path
         .strip_prefix(ctx.state_dir())
@@ -574,7 +583,7 @@ pub fn show_idea(
     )?;
     Ok(IdeaDetail {
         parent_name: parent_name(ledger, &idea)?,
-        notebook: notebook_path(&ctx.state_dir(), idea.name.as_str())
+        notebook: idea_notebook_file(&ctx.state_dir(), idea.name.as_str())
             .display()
             .to_string(),
         runs,
@@ -847,8 +856,35 @@ fn seed_state(seed: &Idea, planted: bool) -> SeedState {
     }
 }
 
+/// An idea's notebook file: the app's `.md`, else a marimo `.py` from before, else where
+/// the `.md` goes.
+pub fn idea_notebook_file(state_dir: &Path, name: &str) -> PathBuf {
+    let md = crate::nbdoc::idea_path(state_dir, name);
+    let py = notebook_path(state_dir, name);
+    if !md.exists() && py.exists() {
+        py
+    } else {
+        md
+    }
+}
+
+/// A seed's notebook file: the app's `.md`, else a marimo `.py` from before, else where
+/// the `.md` goes.
+pub fn seed_notebook_file(h: &Home, name: &str) -> PathBuf {
+    let md = crate::nbdoc::seed_path(&h.seeds_dir(), name);
+    let py = h.notebook(name);
+    if !md.exists() && py.exists() {
+        py
+    } else {
+        md
+    }
+}
+
 fn notebook_mtime(h: &Home, name: &str) -> Option<String> {
-    let modified = std::fs::metadata(h.notebook(name)).ok()?.modified().ok()?;
+    let modified = std::fs::metadata(seed_notebook_file(h, name))
+        .ok()?
+        .modified()
+        .ok()?;
     let secs = modified
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?
@@ -865,7 +901,9 @@ fn decorate(h: &Home, ledger: &Ledger, seed: Idea) -> Result<SeedView> {
     };
     Ok(SeedView {
         seed_status: seed_state(&seed, !planted_to.is_empty()),
-        notebook: h.notebook(seed.name.as_str()).display().to_string(),
+        notebook: seed_notebook_file(h, seed.name.as_str())
+            .display()
+            .to_string(),
         last_edited,
         planted_to,
         kept_existing_notebook: false,
@@ -903,7 +941,8 @@ pub fn new_seed(
             py_repr(name.as_str())
         );
     }
-    let path = home.notebook(name.as_str());
+    // the app's notebook; a marimo `.py` of the same name (from before) is kept as is
+    let path = seed_notebook_file(home, name.as_str());
     let existed = path.exists();
     let rel = path
         .strip_prefix(&home.root)
@@ -920,10 +959,7 @@ pub fn new_seed(
         let row = idea_by_name(tx, name.as_str())?
             .ok_or_else(|| Error::Arb(format!("seed {name} vanished")))?;
         if let Err(why) = notebooks::seed_new(home, &row, &mut *warn)? {
-            warn(&notebooks::unavailable_warning(
-                &why,
-                &format!("`marimo edit {}`", path.display()),
-            ));
+            warn(&why);
         }
         tx.event(
             EventKind::SeedNew,
@@ -1179,4 +1215,63 @@ pub fn restyle_seeds(home: &Home) -> Result<Vec<(PathBuf, Restyled)>> {
         return Ok(Vec::new());
     }
     notebooks::restyle(&dir, None, &[], &mut |_| {})
+}
+
+/// `arb idea migrate` in a repo: each named idea (or, with none, every idea) that has a
+/// marimo notebook gets the app's `.md` next to it (linked as `notebook.md` while open).
+pub fn migrate(
+    ctx: &RepoContext,
+    ledger: &Ledger,
+    names: &[IdeaName],
+    warn: Warn<'_>,
+) -> Result<Vec<(String, notebooks::Migrated)>> {
+    let ideas: Vec<Idea> = if names.is_empty() {
+        list_ideas(ledger)?.into_iter().map(|s| s.idea).collect()
+    } else {
+        names
+            .iter()
+            .map(|n| get_idea(ledger, n))
+            .collect::<Result<_>>()?
+    };
+    let state = ctx.state_dir();
+    let mut out = Vec::new();
+    for idea in ideas {
+        let name = idea.name.as_str();
+        let md = crate::nbdoc::idea_path(&state, name);
+        let done = notebooks::migrate(&notebook_path(&state, name), &md, ("idea", name))?
+            .map_err(|why| Error::Arb(format!("arb idea migrate needs the Python package (it reads the marimo file with ast): {why}")))?;
+        if md.exists() && idea.stage == IdeaStage::Open {
+            if let Some(wt) = idea.worktree_path.as_deref() {
+                notebooks::link_md(&ctx.common_dir, Path::new(wt), &md, warn)?;
+            }
+        }
+        out.push((name.to_string(), done));
+    }
+    Ok(out)
+}
+
+/// `arb idea migrate` in the seed home: the seeds' marimo notebooks.
+pub fn migrate_seeds(
+    home: &Home,
+    ledger: &Ledger,
+    names: &[IdeaName],
+) -> Result<Vec<(String, notebooks::Migrated)>> {
+    let seeds: Vec<IdeaName> = if names.is_empty() {
+        list_seeds(home, ledger, true)?
+            .into_iter()
+            .map(|s| s.idea.name)
+            .collect()
+    } else {
+        names.to_vec()
+    };
+    let mut out = Vec::new();
+    for name in seeds {
+        get_seed(ledger, &name)?;
+        let n = name.as_str();
+        let md = crate::nbdoc::seed_path(&home.seeds_dir(), n);
+        let done = notebooks::migrate(&home.notebook(n), &md, ("seed", n))?
+            .map_err(|why| Error::Arb(format!("arb idea migrate needs the Python package (it reads the marimo file with ast): {why}")))?;
+        out.push((n.to_string(), done));
+    }
+    Ok(out)
 }

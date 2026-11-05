@@ -943,8 +943,10 @@ def fork(name: str, from_: str | Run | None = None, *, hypothesis: str,
         if ledger.read_only:
             made = _arb(t, "fork", name=name, hypothesis=hypothesis, metric=metric,
                         from_run=run_row["id"] if run_row else None)
-            return ideas.get_idea(ledger, made["name"]) | {
-                "notebook": str(notebooks.notebook_path(t.ctx.state_dir, made["name"]))}
+            # the Rust arb writes the app's markdown notebook (ADR 0005)
+            md = notebooks.notebook_path(t.ctx.state_dir, made["name"]).with_suffix(".md")
+            nb = md if md.exists() else notebooks.notebook_path(t.ctx.state_dir, made["name"])
+            return ideas.get_idea(ledger, made["name"]) | {"notebook": str(nb)}
         return ideas.new_idea(t.ctx, ledger, name, hypothesis, metric,
                               parent=idea["name"], from_run=run_row)
 
@@ -1032,6 +1034,8 @@ class Ctx:
 
 
 def _marimo_module() -> Any:
+    if os.environ.get("ARBORIA_KERNEL"):  # the app's notebook kernel: not marimo
+        return None
     if "marimo" in sys.modules:
         return sys.modules["marimo"]
     try:

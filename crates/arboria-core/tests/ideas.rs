@@ -130,7 +130,7 @@ fn new_idea_branch_worktree_and_row() {
         (ev.kind.as_str(), ev.payload_json.unwrap()),
         (
             "idea_new",
-            format!("{{\"base\": \"{base}\", \"branch\": \"idea/wide-lr\", \"from_run\": null, \"notebook\": null, \"parent\": null}}")
+            format!("{{\"base\": \"{base}\", \"branch\": \"idea/wide-lr\", \"from_run\": null, \"notebook\": \"notebooks/wide-lr.md\", \"parent\": null}}")
         )
     );
     assert_eq!(
@@ -206,7 +206,7 @@ fn new_idea_branch_worktree_and_row() {
         shown.notebook,
         p.ctx
             .state_dir()
-            .join("notebooks/wide-lr-2.py")
+            .join("notebooks/wide-lr-2.md")
             .display()
             .to_string()
     );

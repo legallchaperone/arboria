@@ -86,7 +86,9 @@ def test_lab_writes_through_the_rust_arb(rust, cluster, idea: Path, initialized:
 
     kid = lab.fork("exp2", r, hypothesis="lower lr", metric="val/loss")
     assert kid["name"] == "exp2" and Path(kid["notebook"]).is_file()
-    assert (Path(kid["worktree_path"]) / "notebook.py").is_symlink()
+    # the Rust arb writes the app's markdown notebook (ADR 0005)
+    assert kid["notebook"].endswith("/exp2.md")
+    assert (Path(kid["worktree_path"]) / "notebook.md").is_symlink()
 
     # the ledger is still v8, and the Rust arb committed the backups
     with Ledger(initialized / ".arboria") as ledger:

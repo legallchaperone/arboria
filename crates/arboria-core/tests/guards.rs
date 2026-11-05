@@ -220,9 +220,20 @@ fn only_submission_asks_for_touch_id() {
 }
 
 #[test]
-fn the_helper_and_the_views_never_approve() {
+fn the_helper_the_views_the_notebook_and_the_agent_never_approve() {
     for (file, text) in sources() {
-        if !["helper.rs", "view.rs", "notifier.rs", "registry.rs"].contains(&file.as_str()) {
+        if ![
+            "helper.rs",
+            "view.rs",
+            "notifier.rs",
+            "registry.rs",
+            "agent.rs",
+            "nbkernel.rs",
+            "nbdoc.rs",
+            "nbout.rs",
+        ]
+        .contains(&file.as_str())
+        {
             continue;
         }
         for needle in [

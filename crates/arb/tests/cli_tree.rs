@@ -11,7 +11,10 @@ use clap::{ArgAction, Command};
 /// Commands only the Rust CLI has, left out of the comparison on purpose:
 /// `arb probe …` (ADR 0003) is new in the Rust core and has no Python counterpart;
 /// `arb lab` takes the notebook kernel's writes on v8 ledgers (Python reads them only).
-const RUST_ONLY: &[&str] = &["probe", "lab", "projects", "helper"];
+const RUST_ONLY: &[&str] = &["probe", "lab", "projects", "helper", "nb", "agent"];
+/// Subcommands only the Rust CLI has: `arb idea migrate` (marimo → the app's notebooks,
+/// ADR 0005).
+const RUST_ONLY_SUB: &[&str] = &["idea migrate"];
 
 fn param_token(arg: &clap::Arg) -> Option<String> {
     let id = arg.get_id().as_str();
@@ -76,6 +79,9 @@ fn walk(cmd: &Command, path: &[&str], panel: &str, lines: &mut Vec<String>) {
     for sub in subs {
         let mut p = path.to_vec();
         p.push(sub.get_name());
+        if RUST_ONLY_SUB.contains(&p.join(" ").as_str()) {
+            continue;
+        }
         walk(sub, &p, "-", lines);
     }
 }

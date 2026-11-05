@@ -256,7 +256,9 @@ fn board_inbox_cards_registry_and_the_app_fixture() {
     assert_eq!(ls.parent.as_deref(), Some("warmup-long"));
     assert_eq!(ls.from_run.as_deref(), Some(r1.as_str()));
     assert_eq!((ls.runs, ls.su_used), (2, 5.62));
-    assert!(b.ideas[0].notebook.is_none(), "no Python here: no notebook");
+    // the notebook is the app's own markdown file (no Python needed to write it)
+    let nb = b.ideas[0].notebook.as_deref().unwrap();
+    assert!(nb.ends_with("notebooks/warmup-long.md"), "{nb:?}");
     assert_eq!(b.spend.used, 17.48);
     assert_eq!(b.spend.by_idea[0].idea, "warmup-long");
     assert_eq!(

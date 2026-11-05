@@ -522,7 +522,12 @@ def svd(ctx, run, *, k=20, log=False):
 - `ctx.value(x)`：x 是 marimo 控件时取 `.value`，否则原样返回。
 
 ## 写法
-- 返回值就是 notebook 里显示的东西（图、表、`ctx.mo.md(...)`、`ctx.mo.vstack([...])`）。
+- 返回值就是 notebook 里显示的东西。app 的 notebook：DataFrame 和 list[dict] 显示成
+  表，matplotlib 的 Figure 显示成图片，字符串显示成文字；要 app 自己画的曲线（可以
+  缩放、悬停看数），返回 `{{"kind": "plot", "x": "step", "y": "val/loss", "series":
+  [{{"name": "r001", "x": [...], "y": [...]}}]}}`（`"style": "bar"` 是柱状图；其他种类和
+  字段见 `arboria.output`），或者一个这样的 list。不要返回 HTML：app 不渲染它。在
+  marimo 里也可以返回 `ctx.mo.md(...)` 之类（app 里 `ctx.mo` 是 None）。
   返回 None 只显示出处。lab 会在下面加一行“命令 <名字> · v<版本> · 项目/全局”。
 - 有歧义的选择不要先问人：做成带合理默认值的关键字参数（k=20、log=False），在输出里
   写明用了什么、怎么改（例如“k=20，改成 lab.svd(r, k=50)”）；参数也接受 marimo 控件
@@ -535,7 +540,7 @@ def svd(ctx, run, *, k=20, log=False):
 - 代码在人的 kernel 里、以人的权限运行；人会看 diff 再用，写得让人一眼能看懂。
 
 ## 做完
-- 存盘后 notebook 里那个 cell 会自动重跑（marimo 正在运行时）。
+- 存盘后 notebook 里调用它的块会自动重跑（app 开着时；marimo 正在运行时也是）。
 - 能在终端里试的就试：`python -c 'from arboria import lab; lab.use("<idea>"); print(lab.<名字>("r001"))'`。
 - `arb todo done tNNN --result "写了 <名字>：…，默认 k=20"`（≤600 字）。
 - `arb commands list` 查看现有命令；`lab.<名字>.revise("...")` 是人要你改的时候用的。

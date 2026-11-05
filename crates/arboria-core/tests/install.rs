@@ -81,7 +81,7 @@ fn merge_is_additive_and_idempotent() {
 }
 
 #[test]
-fn rule_lists_are_pythons_plus_probe_enable() {
+fn rule_lists_are_pythons_plus_probe_enable_and_the_notebook() {
     let py = Command::new("python3")
         .args([
             "-c",
@@ -100,8 +100,24 @@ fn rule_lists_are_pythons_plus_probe_enable() {
     deny.extend(probe.clone());
     let mut home = lists[1].clone();
     home.extend(probe);
-    assert_eq!(install::deny_rules(), deny);
-    assert_eq!(install::home_deny_rules(), home);
+    // the app's own notebook (ADR 0005) only exists on the Rust side
+    let ours = |rules: Vec<String>| -> Vec<String> {
+        rules
+            .into_iter()
+            .filter(|r| {
+                ![
+                    "notebook.md",
+                    ".arboria/outputs/",
+                    ".arboria/agent/",
+                    "arb idea migrate",
+                ]
+                .iter()
+                .any(|m| r.contains(m))
+            })
+            .collect()
+    };
+    assert_eq!(ours(install::deny_rules()), deny);
+    assert_eq!(ours(install::home_deny_rules()), home);
 }
 
 #[test]

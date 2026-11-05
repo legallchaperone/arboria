@@ -555,9 +555,10 @@ fn backup_commits_after_backup_events_only_and_dump_is_pythons() {
     assert_eq!(
         std::fs::read_to_string(state.join(".gitignore")).unwrap(),
         format!(
-            "{}{}{}",
+            "{}{}{}{}",
             db::BACKUP_GITIGNORE,
             db::NOTEBOOKS_GITIGNORE,
+            db::NOTEBOOKS_MD_GITIGNORE,
             db::COMMANDS_GITIGNORE
         )
     );

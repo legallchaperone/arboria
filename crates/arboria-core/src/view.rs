@@ -74,7 +74,8 @@ pub struct IdeaView {
     pub su_used: f64,
     pub runs: u32,
     pub worktree: Option<String>,
-    /// The notebook file, when it exists.
+    /// The notebook file, when it exists: the app's `.md`, else a marimo `.py` (not
+    /// migrated yet).
     pub notebook: Option<PathBuf>,
 }
 
@@ -447,12 +448,21 @@ fn load(conn: &Connection, project: ProjectInfo, state_dir: &Path) -> Result<Boa
                     last = s.clone();
                 }
             }
-            let notebook = match kind {
-                Place::Home => root
-                    .join(crate::paths::SEEDS_DIR)
-                    .join(format!("{name}.py")),
-                Place::Project => ideas::notebook_path(state_dir, &name),
+            // the app's notebook (`.md`) when there is one, else the marimo file
+            let (md, py) = match kind {
+                Place::Home => {
+                    let seeds = root.join(crate::paths::SEEDS_DIR);
+                    (
+                        crate::nbdoc::seed_path(&seeds, &name),
+                        seeds.join(format!("{name}.py")),
+                    )
+                }
+                Place::Project => (
+                    crate::nbdoc::idea_path(state_dir, &name),
+                    ideas::notebook_path(state_dir, &name),
+                ),
             };
+            let notebook = if md.is_file() { md } else { py };
             IdeaView {
                 id: i.id.0,
                 stage: if i.stage == IdeaStage::Seed && planted.contains(&i.id.0) {

@@ -1,7 +1,8 @@
-//! The marimo notebooks of ideas and seeds, written by the Python package (ADR 0002).
+//! Writing the notebooks of ideas and seeds. New notebooks are the app's markdown
+//! notebooks (ADR 0005), written here; the rest of this module is the bridge to the
+//! Python package for the marimo files of ideas from before (ADR 0002).
 //!
-//! Until the app's markdown notebooks (ADR 0001) the notebook lives on the Python kernel
-//! side: its template, the stylesheet with the embedded fonts (`arboria.style`, the font
+//! For the marimo files the work is on the Python kernel side: its template, the stylesheet with the embedded fonts (`arboria.style`, the font
 //! files ship in the Python package) and the `ast` reading of seed notebooks are
 //! `arboria.notebooks`. The core runs them in the interpreter [`crate::commands::python_exe`]
 //! (`$ARBORIA_PYTHON`, else the interpreter of `arb-py`) with `-P` (the current directory is not importable), one JSON request on stdin, one
@@ -20,12 +21,13 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::ideas::Restyled;
 use crate::model::{Idea, Run};
 use crate::paths::Home;
-use crate::{Error, Result, Warn};
+use crate::{nbdoc, Error, Result, Warn};
 
 /// The request handler, run as `python -P -c BRIDGE`.
 const BRIDGE: &str = r#"
@@ -67,6 +69,9 @@ try:
                 for wt in req["worktrees"]:
                     notebooks.link_style(ctx, Path(wt), warnings.append)
             out = [[str(p), notebooks.restyle(p)] for p in sorted(d.glob("*.py")) if p.is_file()]
+    elif op == "migrate":
+        from arboria import migrate
+        out = migrate.convert(Path(req["path"]).read_text(encoding="utf-8"))
     else:
         raise ArbError(f"unknown notebook request {op!r}")
 except ArbError as exc:
@@ -140,8 +145,10 @@ pub struct SeedNote {
     pub home: PathBuf,
 }
 
-/// `notebooks.create`: the idea's notebook (never overwriting one) and stylesheet, linked
-/// into the worktree when `link`. The written path, or why there is none.
+/// The idea's notebook: the app's markdown notebook (ADR 0005), never overwriting one,
+/// linked into the worktree as `notebook.md` when `link`. The written (or existing) path.
+/// The `Result` inside is kept for the callers' "no notebook" path; writing markdown needs
+/// no Python, so it is always `Ok`.
 pub fn create(
     main: &Path,
     idea: &Idea,
@@ -151,15 +158,41 @@ pub fn create(
     link: bool,
     warn: Warn<'_>,
 ) -> Result<std::result::Result<PathBuf, String>> {
+    let ctx = crate::paths::locate(Some(main))?;
+    let path = nbdoc::idea_path(&ctx.state_dir(), idea.name.as_str());
+    let seed_text = seed.map(|s| s.markdown.join("\n\n"));
+    let text = nbdoc::idea_notebook(&nbdoc::IdeaStart {
+        idea: idea.name.as_str(),
+        hypothesis: idea.hypothesis.as_deref().unwrap_or(""),
+        metric: idea.metric.as_deref().unwrap_or(""),
+        parent,
+        from_run: from_run.map(|r| r.id.as_str()),
+        seed: seed.map(|s| (s.name.as_str(), seed_text.as_deref().unwrap_or(""))),
+    });
+    nbdoc::write_new(&path, &text)?;
+    if link {
+        if let Some(wt) = idea.worktree_path.as_deref() {
+            link_md(&ctx.common_dir, Path::new(wt), &path, warn)?;
+        }
+    }
+    Ok(Ok(path))
+}
+
+/// Repair the worktree links of an existing marimo notebook (`notebook.py`, the
+/// stylesheet) through the Python package, as before ADR 0005.
+pub fn link_marimo(
+    main: &Path,
+    idea: &Idea,
+    warn: Warn<'_>,
+) -> Result<std::result::Result<PathBuf, String>> {
     let req = json!({
         "op": "create",
         "main": main,
         "idea": idea,
-        "parent": parent,
-        "from_run": from_run.map(|r| json!({"id": r.id, "snapshot_commit": r.snapshot_commit})),
-        "seed": seed.map(|s| json!({"name": s.name, "notebook": s.notebook,
-                                    "markdown": s.markdown, "home": s.home})),
-        "link": link,
+        "parent": null,
+        "from_run": null,
+        "seed": null,
+        "link": true,
     });
     Ok(match call(&req, warn)? {
         Bridge::Done(v) => Ok(PathBuf::from(v.as_str().unwrap_or_default())),
@@ -167,23 +200,106 @@ pub fn create(
     })
 }
 
-/// A seed's notebook `<home>/seeds/<name>.py` (unless it exists) and the stylesheet next
-/// to it: whether it was written, or why there is none.
+/// `<worktree>/notebook.md` → the notebook (excluded from git). An existing file there
+/// is left alone (warned).
+pub fn link_md(common_dir: &Path, worktree: &Path, path: &Path, warn: Warn<'_>) -> Result<()> {
+    if !worktree.is_dir() {
+        return Ok(());
+    }
+    crate::paths::ensure_excluded(
+        common_dir,
+        &format!("/{}", nbdoc::LINK_NAME),
+        "arboria notebook link (local only)",
+    )?;
+    let link = worktree.join(nbdoc::LINK_NAME);
+    if link.is_symlink() && link.canonicalize().ok() == path.canonicalize().ok() {
+        return Ok(());
+    }
+    if link.exists() || link.is_symlink() {
+        warn(&format!(
+            "{} already exists (tracked in the repo?); not linking the notebook. Open {} instead",
+            link.display(),
+            path.display()
+        ));
+        return Ok(());
+    }
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(path, &link).map_err(|e| {
+        Error::Arb(format!(
+            "cannot link {} -> {}: {e}",
+            link.display(),
+            path.display()
+        ))
+    })?;
+    Ok(())
+}
+
+/// A seed's notebook `<home>/seeds/<name>.md` (unless it, or a marimo `.py` of the same
+/// seed, exists): whether it was written.
 pub fn seed_new(
     home: &Home,
     seed: &Idea,
-    warn: Warn<'_>,
+    _warn: Warn<'_>,
 ) -> Result<std::result::Result<bool, String>> {
-    let req = json!({"op": "seed_new", "path": home.notebook(seed.name.as_str()), "seed": seed});
-    Ok(match call(&req, warn)? {
-        Bridge::Done(v) => Ok(v.as_bool().unwrap_or(false)),
-        Bridge::Unavailable(why) => Err(why),
-    })
+    let name = seed.name.as_str();
+    if home.notebook(name).exists() {
+        return Ok(Ok(false));
+    }
+    let path = nbdoc::seed_path(&home.seeds_dir(), name);
+    let text = nbdoc::seed_notebook(
+        name,
+        seed.gist.as_deref().unwrap_or(""),
+        seed.hypothesis.as_deref(),
+        seed.metric.as_deref(),
+    );
+    Ok(Ok(nbdoc::write_new(&path, &text)?))
 }
 
-/// The markdown cells of a seed notebook (without its generated header), read with `ast`;
-/// empty when the file is missing or unreadable, or why the Python side is unavailable.
+/// A seed notebook's text without what [`nbdoc::seed_notebook`] generated (the title,
+/// the hypothesis and metric lines, which the idea's own header has, and the
+/// placeholder sentence); one string per text part that is left.
+pub fn seed_thoughts(doc: &nbdoc::Doc, name: &str) -> Vec<String> {
+    let title = format!("# {name}");
+    let mut out = Vec::new();
+    for p in &doc.parts {
+        let nbdoc::Part::Text { text } = p else {
+            continue;
+        };
+        let kept: Vec<&str> = text
+            .lines()
+            .filter(|l| {
+                let t = l.trim();
+                t != title
+                    && !t.starts_with("假设：")
+                    && !t.starts_with("指标：")
+                    && t != nbdoc::SEED_PLACEHOLDER
+                    && t != "## 思路"
+            })
+            .collect();
+        let mut joined = kept.join("\n");
+        while joined.contains("\n\n\n") {
+            joined = joined.replace("\n\n\n", "\n\n");
+        }
+        let joined = joined.trim().to_string();
+        if !joined.is_empty() {
+            out.push(joined);
+        }
+    }
+    out
+}
+
+/// The text a seed passes on when planted: the `.md` notebook's text parts (without its
+/// first, generated part), else the markdown cells of a marimo `.py` (read with `ast` by
+/// the Python package); empty when there is no notebook.
 pub fn seed_markdown(path: &Path, name: &str) -> Result<std::result::Result<Vec<String>, String>> {
+    let md = path.with_extension(nbdoc::EXT);
+    if md.is_file() {
+        let doc = nbdoc::parse(&std::fs::read_to_string(&md)?);
+        return Ok(Ok(seed_thoughts(&doc, name)));
+    }
+    if !path.is_file() {
+        return Ok(Ok(Vec::new()));
+    }
     let req = json!({"op": "seed_markdown", "path": path, "name": name});
     Ok(match call(&req, &mut |_| {})? {
         Bridge::Done(v) => Ok(serde_json::from_value(v)?),
@@ -220,4 +336,55 @@ pub fn restyle(
             "arb idea style needs the Python package (the notebooks are marimo files): {why}; install it (`uv tool install '.[ui]'` in the arboria checkout puts arb-py on PATH) or set ARBORIA_PYTHON"
         ))),
     }
+}
+
+/// What `arb idea migrate` did with one notebook.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Migrated {
+    /// Written from the marimo file.
+    Written,
+    /// The `.md` exists already: left alone.
+    Already,
+    /// No marimo file to migrate.
+    NoMarimo,
+}
+
+/// The marimo notebook `py` as the app's notebook `md` (never overwriting one); the
+/// marimo file stays. `front` is the frontmatter key and name (`idea`/`seed`).
+pub fn migrate(
+    py: &Path,
+    md: &Path,
+    front: (&str, &str),
+) -> Result<std::result::Result<Migrated, String>> {
+    if md.exists() {
+        return Ok(Ok(Migrated::Already));
+    }
+    if !py.is_file() {
+        return Ok(Ok(Migrated::NoMarimo));
+    }
+    let req = json!({"op": "migrate", "path": py});
+    let parts = match call(&req, &mut |_| {})? {
+        Bridge::Done(v) => v,
+        Bridge::Unavailable(why) => return Ok(Err(why)),
+    };
+    let mut doc = nbdoc::Doc::default();
+    doc.set("arboria", &nbdoc::FORMAT.to_string());
+    doc.set(front.0, front.1);
+    for p in parts.as_array().into_iter().flatten() {
+        let text = p["text"].as_str().or(p["code"].as_str()).unwrap_or("");
+        doc.parts.push(if p["kind"] == "text" {
+            nbdoc::Part::Text {
+                text: text.to_string(),
+            }
+        } else {
+            nbdoc::Part::Block(nbdoc::Block {
+                id: String::new(),
+                code: text.to_string(),
+            })
+        });
+    }
+    nbdoc::ensure_ids(&mut doc);
+    nbdoc::write_new(md, &nbdoc::render(&doc))?;
+    Ok(Ok(Migrated::Written))
 }

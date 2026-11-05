@@ -191,3 +191,14 @@ def test_matplotlib_figures_become_png(kernel: Kernel) -> None:
     assert done["ok"], events
     kinds = [o["kind"] for o in _outputs(events)]
     assert kinds[-1] == "image", kinds
+
+
+def test_libraries_that_inspect_stdout_import(kernel: Kernel) -> None:
+    """marimo (and others) read sys.stdout.errors / .encoding at import time."""
+    events, done = kernel.run("import sys\n(sys.stdout.encoding, sys.stdout.errors, sys.stdout.writable())")
+    assert done["ok"], events
+    assert _outputs(events) == [{"kind": "text", "text": "('utf-8', 'strict', True)"}]
+    pytest.importorskip("marimo")
+    events, done = kernel.run("import marimo\nfrom arboria import lab\nlab._marimo_module() is None")
+    assert done["ok"], events
+    assert _outputs(events) == [{"kind": "text", "text": "True"}]

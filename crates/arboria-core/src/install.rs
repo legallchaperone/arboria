@@ -39,6 +39,9 @@ pub const PROTECTED_PATHS: &[&str] = &[
     "**/.arboria/*.toml",
     "**/.arboria/sessions/**",
     "**/notebook.py",
+    "**/notebook.md",
+    "**/.arboria/outputs/**",
+    "**/.arboria/agent/**",
 ];
 /// The tools denied on [`PROTECTED_PATHS`].
 pub const EDIT_TOOLS: &[&str] = &["Edit", "Write", "MultiEdit", "NotebookEdit"];
@@ -53,8 +56,8 @@ pub const SEED_RULES: &[&str] = &[
     "Bash(arb idea revive:*)",
     "Bash(arb idea plant:*)",
 ];
-/// `arb idea style` rewrites the human's notebooks.
-pub const NOTEBOOK_RULES: &[&str] = &["Bash(arb idea style:*)"];
+/// `arb idea style` / `arb idea migrate` write the human's notebooks.
+pub const NOTEBOOK_RULES: &[&str] = &["Bash(arb idea style:*)", "Bash(arb idea migrate:*)"];
 /// v8 (ADR 0003): enabling a probe is the human's Decision.
 pub const PROBE_RULES: &[&str] = &["Bash(arb probe enable:*)"];
 /// In the seed home, `arb idea new/drop` write seeds too.

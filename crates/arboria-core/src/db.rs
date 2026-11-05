@@ -480,6 +480,10 @@ pub const NOTEBOOKS_GITIGNORE: &str = "!/notebooks/\n/notebooks/*\n!/notebooks/*
 pub const COMMANDS_GITIGNORE: &str = "!/commands/\n/commands/*\n!/commands/*.py\n";
 /// Appended in a home for the seed notebooks' copies.
 pub const SEEDS_GITIGNORE: &str = "!/seeds/\n/seeds/*\n!/seeds/*.py\n";
+/// The app's notebooks (ADR 0005), appended after [`NOTEBOOKS_GITIGNORE`].
+pub const NOTEBOOKS_MD_GITIGNORE: &str = "!/notebooks/*.md\n";
+/// The app's seed notebooks, appended after [`SEEDS_GITIGNORE`].
+pub const SEEDS_MD_GITIGNORE: &str = "!/seeds/*.md\n";
 
 /// Make `.arboria/` a git repo (idempotent).
 pub fn init_backup_repo(state_dir: &Path) -> Result<()> {
@@ -509,6 +513,10 @@ pub fn ensure_backup_gitignore(state_dir: &Path) -> Result<()> {
     if !text.contains("!/notebooks/") {
         append(&mut text, NOTEBOOKS_GITIGNORE);
     }
+    // the app's notebooks (ADR 0005), also for backup repos made before them
+    if !text.contains(NOTEBOOKS_MD_GITIGNORE) {
+        append(&mut text, NOTEBOOKS_MD_GITIGNORE);
+    }
     if !text.contains("!/commands/") {
         append(&mut text, COMMANDS_GITIGNORE);
     }
@@ -516,13 +524,16 @@ pub fn ensure_backup_gitignore(state_dir: &Path) -> Result<()> {
     if state_dir.join("seeds").is_dir() && !text.contains("!/seeds/") {
         append(&mut text, SEEDS_GITIGNORE);
     }
+    if state_dir.join("seeds").is_dir() && !text.contains(SEEDS_MD_GITIGNORE) {
+        append(&mut text, SEEDS_MD_GITIGNORE);
+    }
     if existing.as_deref() != Some(text.as_str()) {
         std::fs::write(&gi, text)?;
     }
     Ok(())
 }
 
-/// In a home: copy `<home>/seeds/*.py` into `.arboria/seeds/` (changed files only), so
+/// In a home: copy `<home>/seeds/*.py` and `*.md` into `.arboria/seeds/` (changed files only), so
 /// the backup repo versions the human's seed notebooks. Copies of deleted notebooks stay
 /// (the backup is history, not a sync). Projects have no `.arboria/seeds/`: no-op. A file
 /// that cannot be copied only warns.
@@ -536,7 +547,7 @@ pub fn mirror_seeds(state_dir: &Path) -> Result<()> {
     }
     let mut sources: Vec<PathBuf> = std::fs::read_dir(&source)?
         .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|x| x == "py"))
+        .filter(|p| p.extension().is_some_and(|x| x == "py" || x == "md"))
         .collect();
     // Python sorts the paths (str order = byte order for UTF-8 names)
     sources.sort();

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import ast
 import builtins
+import io
 import json
 import linecache
 import os
@@ -36,6 +37,8 @@ from typing import Any
 from . import output
 
 MAX_STREAM = output.MAX_TEXT
+# set in the kernel's environment: `lab` knows it is not in marimo (ctx.mo is None)
+KERNEL_ENV = "ARBORIA_KERNEL"
 
 _lock = threading.Lock()
 _proto: Any = None
@@ -50,15 +53,24 @@ def send(event: dict[str, Any]) -> None:
         _proto.flush()
 
 
-class Stream:
-    """sys.stdout / sys.stderr while a block runs: `stream` events, flushed per line."""
+class Stream(io.TextIOBase):
+    """sys.stdout / sys.stderr while a block runs: `stream` events, flushed per line.
+    A TextIOBase, so libraries that inspect the stream (encoding, errors, …) work."""
 
     def __init__(self, name: str):
+        super().__init__()
         self.name = name
         self.buf = ""
         self.sent = 0
         self.cut = False
-        self.encoding = "utf-8"
+
+    @property
+    def encoding(self) -> str:  # type: ignore[override]
+        return "utf-8"
+
+    @property
+    def errors(self) -> str:  # type: ignore[override]
+        return "strict"
 
     def write(self, s: str) -> int:
         if not isinstance(s, str):
@@ -292,6 +304,7 @@ def main() -> None:
     _proto = os.fdopen(os.dup(1), "w", encoding="utf-8", buffering=1)
     os.dup2(2, 1)
     os.environ.setdefault("MPLBACKEND", "Agg")
+    os.environ[KERNEL_ENV] = "1"
     out, err = Stream("stdout"), Stream("stderr")
     sys.stdout, sys.stderr = out, err  # type: ignore[assignment]
 

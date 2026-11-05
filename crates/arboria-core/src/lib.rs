@@ -9,6 +9,7 @@
 //! Rules for porting a module: one module per agent; do not change another module's
 //! public signatures without recording it in `docs/adr/0002-rust-contract.md`.
 
+pub mod agent;
 pub mod backend;
 pub mod canonical;
 pub mod cards;

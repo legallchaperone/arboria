@@ -193,6 +193,13 @@ def to_outputs(value: Any) -> list[dict[str, Any]]:
         got = value._arboria_()
         items = got if isinstance(got, list) else [got]
         return [check(x) for x in items if x is not None]
+    if isinstance(value, dict) and value.get("kind") in KINDS:
+        return [check(value)]
+    if isinstance(value, list) and value and all(
+            isinstance(v, dict) and v.get("kind") in KINDS for v in value):
+        return [check(v) for v in value]
+    if isinstance(value, list) and not value:
+        return [text("（空）")]
     mod = type(value).__module__ or ""
     if mod.startswith("pandas") and hasattr(value, "to_dict") and hasattr(value, "columns"):
         df = value

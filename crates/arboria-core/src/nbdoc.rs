@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 pub const FORMAT: u32 = 1;
 /// The worktree link to an idea's notebook.
 pub const LINK_NAME: &str = "notebook.md";
+/// The sentence a new seed notebook ends with (left out when the seed is planted).
+pub const SEED_PLACEHOLDER: &str = "还没有仓库：先把想法写下来，想清楚了再种进项目。";
 /// The notebook file's extension.
 pub const EXT: &str = "md";
 
@@ -375,7 +377,7 @@ pub fn seed_notebook(
     if let Some(m) = metric.filter(|m| !m.trim().is_empty()) {
         text.push_str(&format!("\n\n指标：{}", one_line(m)));
     }
-    text.push_str("\n\n## 思路\n\n还没有仓库：先把想法写下来，想清楚了再种进项目。");
+    text.push_str(&format!("\n\n## 思路\n\n{SEED_PLACEHOLDER}"));
     doc.parts.push(Part::Text { text });
     render(&doc)
 }

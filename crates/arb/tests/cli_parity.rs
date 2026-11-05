@@ -136,6 +136,21 @@ enum At {
     Home,
 }
 
+/// A notebook path as the Python side names it: the Rust side's `.md` notebooks (ADR 0005)
+/// are the marimo `.py` files there.
+fn md_as_py(line: &str) -> String {
+    line.split(' ')
+        .map(|w| {
+            if (w.contains("/seeds/") || w.contains("/notebooks/")) && w.ends_with(".md") {
+                format!("{}.py", &w[..w.len() - 3])
+            } else {
+                w.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[test]
 fn same_output_as_python() {
     let py = repo_root().join(".venv/bin/arb-py");
@@ -294,6 +309,11 @@ fn same_output_as_python() {
     ];
     let mut failures = Vec::new();
     for (at, args, env) in steps {
+        // on purpose (ADR 0005): `arb idea style` only restyles marimo files, and the Rust
+        // side writes none (its refusal inside Claude Code is still compared)
+        if args == ["idea", "style"] && env.is_empty() {
+            continue;
+        }
         let mut outs = Vec::new();
         for side in [&rs, &pyside] {
             let cwd = dir(side, at);
@@ -308,10 +328,25 @@ fn same_output_as_python() {
                     .collect::<Vec<_>>()
                     .join("\n")
             };
-            // on purpose (ADR 0003): the Rust CLI also denies `arb probe enable`
-            let out = side
+            // on purpose (ADR 0003): the Rust CLI also denies `arb probe enable`; (ADR 0005)
+            // the app's notebooks, their outputs and agent logs, and `arb idea migrate`
+            let out: String = side
                 .normalize(&o.stdout)
-                .replace("permissions.deny += Bash(arb probe enable:*)\n", "");
+                .lines()
+                .filter(|l| {
+                    !(l.starts_with("permissions.deny += ")
+                        && [
+                            "arb probe enable",
+                            "notebook.md",
+                            ".arboria/outputs/",
+                            ".arboria/agent/",
+                            "arb idea migrate",
+                        ]
+                        .iter()
+                        .any(|p| l.contains(p)))
+                })
+                .map(|l| format!("{}\n", md_as_py(l)))
+                .collect();
             outs.push((code, out, err));
         }
         if std::env::var_os("ARB_PARITY_DUMP").is_some() {
@@ -336,36 +371,35 @@ fn same_output_as_python() {
             ));
         }
     }
-    // the notebooks both wrote (the Rust side through the Python package)
-    for (rel, files) in [("WaveFront/.arboria/notebooks", "py"), ("home/seeds", "py")] {
-        let read = |side: &Side| {
-            let mut out = Vec::new();
-            let Ok(dir) = std::fs::read_dir(side.root.join(rel)) else {
-                return out;
-            };
-            for e in dir.flatten() {
-                let p = e.path();
-                if p.extension().is_some_and(|x| x == files) {
-                    let text = side.normalize(&std::fs::read(&p).unwrap());
-                    out.push((p.file_name().unwrap().to_owned(), text));
-                }
-            }
+    // the notebooks: on purpose (ADR 0005) the Rust side writes the app's markdown
+    // notebooks, the Python side marimo files; both write one per idea and seed
+    for (rel, py_files) in [("WaveFront/.arboria/notebooks", "py"), ("home/seeds", "py")] {
+        let names = |side: &Side, ext: &str| {
+            let mut out: Vec<String> = std::fs::read_dir(side.root.join(rel))
+                .into_iter()
+                .flatten()
+                .flatten()
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|x| x == ext))
+                .map(|p| p.file_stem().unwrap().to_string_lossy().into_owned())
+                .collect();
             out.sort();
             out
         };
-        let (a, b) = (read(&rs), read(&pyside));
+        let (a, b) = (names(&rs, "md"), names(&pyside, py_files));
         assert!(!b.is_empty(), "python wrote no notebooks in {rel}");
         if a != b {
-            failures.push(format!(
-                "notebooks in {rel}:\n--- rust\n{a:#?}\n--- python\n{b:#?}"
-            ));
+            failures.push(format!("notebooks in {rel}: rust {a:?}, python {b:?}"));
         }
     }
-    for side in [&rs, &pyside] {
-        let link = side.root.join("WaveFront-sparse-attn/notebook.py");
+    for (side, link, target) in [
+        (&rs, "notebook.md", "sparse-attn.md"),
+        (&pyside, "notebook.py", "sparse-attn.py"),
+    ] {
+        let link = side.root.join("WaveFront-sparse-attn").join(link);
         assert_eq!(
             std::fs::read_link(&link).unwrap(),
-            side.main.join(".arboria/notebooks/sparse-attn.py"),
+            side.main.join(".arboria/notebooks").join(target),
             "{}",
             link.display()
         );

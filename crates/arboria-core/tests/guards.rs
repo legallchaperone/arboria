@@ -218,3 +218,30 @@ fn only_submission_asks_for_touch_id() {
         }
     }
 }
+
+#[test]
+fn the_helper_and_the_views_never_approve() {
+    for (file, text) in sources() {
+        if !["helper.rs", "view.rs", "notifier.rs", "registry.rs"].contains(&file.as_str()) {
+            continue;
+        }
+        for needle in [
+            "Confirmed",
+            "approve(",
+            "approve_",
+            "confirm(",
+            "confirm_",
+            "submission::",
+            "INSERT INTO decisions",
+            "UPDATE decisions",
+            "require_terminal",
+            "lessons::accept",
+            "probe::enable(",
+        ] {
+            assert!(
+                code_hits(&text, needle).is_empty(),
+                "{file} must not use {needle}"
+            );
+        }
+    }
+}

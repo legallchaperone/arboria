@@ -1016,6 +1016,72 @@ mod tests {
     }
 
     #[test]
+    fn the_helper_polls_and_notifies() {
+        use crate::helper::{self, Deps, HelperState};
+        let mut w = world("helper");
+        let roots = vec![w.ctx.main.clone()];
+        let mut st = HelperState::default();
+        let fake = w.fake.clone();
+        let mut sent: Vec<String> = Vec::new();
+        let pass = |st: &mut HelperState, sent: &mut Vec<String>| {
+            let f = fake.clone();
+            let mut make = move |_: &RepoContext, _: &Run| -> Result<Box<dyn Backend>> {
+                Ok(Box::new(f.clone()))
+            };
+            let mut notify = |_: &str, b: &str| sent.push(b.to_string());
+            let mut deps = Deps {
+                make_backend: &mut make,
+                runner: std::sync::Arc::new(crate::backend::SystemRunner),
+                notify: &mut notify,
+                now: 1_800_000_000,
+                probes: false,
+            };
+            helper::tick_at(st, &roots, None, &mut deps)
+        };
+        let s1 = submit_run(&mut w, "12h");
+        let p = pass(&mut st, &mut sent);
+        assert!(p.errors.is_empty(), "{:?}", p.errors);
+        assert!(sent.is_empty(), "the first pass only sets the cursor");
+        let s2 = submit_run(&mut w, "2h");
+        pass(&mut st, &mut sent);
+        assert_eq!(sent, [format!("WaveFront · {} 等你签字", s2.run.id)]);
+        sent.clear();
+        approve_run(&mut w, s1.run.id.as_str()).unwrap();
+        fake.advance(100_000).unwrap();
+        let p = pass(&mut st, &mut sent);
+        let run = records::get_run(&w.ledger, &s1.run.id).unwrap();
+        assert_eq!(run.status, RunStatus::Succeeded, "{p:?}");
+        assert_eq!(sent.len(), 1, "{sent:?}");
+        assert!(
+            sent[0].starts_with(&format!("WaveFront · {} ", s1.run.id)),
+            "{sent:?}"
+        );
+        sent.clear();
+        approve_run(&mut w, s2.run.id.as_str()).unwrap();
+        fake.set_need_login(true).unwrap();
+        pass(&mut st, &mut sent);
+        assert!(
+            sent.iter().any(|s| s.starts_with("fake 需要登录：")),
+            "{sent:?}"
+        );
+        assert!(st.needs_login.contains_key("fake"));
+        sent.clear();
+        pass(&mut st, &mut sent);
+        assert!(
+            !sent.iter().any(|s| s.starts_with("fake 需要登录")),
+            "reported once: {sent:?}"
+        );
+        fake.set_need_login(false).unwrap();
+        sent.clear();
+        pass(&mut st, &mut sent);
+        assert!(
+            st.needs_login.is_empty(),
+            "cleared once the machine answers"
+        );
+        assert_eq!(st.last_tick.as_deref(), Some("2027-01-15T08:00:00Z"));
+    }
+
+    #[test]
     fn approve_on_device_needs_the_shown_card_and_touch_id() {
         let mut w = world("device");
         let s = submit_run(&mut w, "12h");

@@ -59,6 +59,7 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
             "claudemd",
             "export",
             "projects",
+            "helper",
         ],
     ),
 ];
@@ -261,6 +262,34 @@ pub enum Cmd {
     /// The projects the app and the background helper look at (`arb init` adds each repo).
     #[command(subcommand, arg_required_else_help = true)]
     Projects(ProjectsCmd),
+    /// The background helper: polls runs, runs probes, sends system notifications.
+    #[command(subcommand, arg_required_else_help = true)]
+    Helper(HelperCmd),
+}
+
+/// `arb helper …`.
+#[derive(Debug, Subcommand)]
+pub enum HelperCmd {
+    /// Poll active runs, run due probes and send notifications, every --every seconds
+    /// (what the installed service runs).
+    Run {
+        /// Seconds between passes.
+        #[arg(long, default_value_t = arboria_core::helper::DEFAULT_EVERY_S)]
+        every: u64,
+        /// One pass, then exit.
+        #[arg(long)]
+        once: bool,
+    },
+    /// Start the helper at login: a LaunchAgent (macOS) or a systemd user service (Linux).
+    Install {
+        /// Print the service file instead of installing it.
+        #[arg(long)]
+        print: bool,
+    },
+    /// Stop the helper and remove its service file.
+    Uninstall,
+    /// Whether it is installed and running, its last pass, machines that need a login.
+    Status,
 }
 
 /// `arb projects …`.
@@ -1540,8 +1569,86 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         Cmd::Probe(cmd) => probe_cmd(cmd, json)?,
         Cmd::Lab => return lab_request(),
         Cmd::Projects(cmd) => projects_cmd(cmd, json)?,
+        Cmd::Helper(cmd) => helper_cmd(cmd, json)?,
     }
     Ok(0)
+}
+
+/// `arb helper run|install|uninstall|status`.
+fn helper_cmd(cmd: HelperCmd, json: bool) -> anyhow::Result<()> {
+    use arboria_core::helper;
+    let home = std::env::home_dir().context("no home directory")?;
+    match cmd {
+        HelperCmd::Run { every, once } => {
+            helper::run(every, once, &mut |pass| {
+                for m in &pass.messages {
+                    println!("{m}");
+                }
+                for (_, body) in &pass.notified {
+                    println!("notified: {body}");
+                }
+                for e in &pass.errors {
+                    warn(e);
+                }
+            })?;
+        }
+        HelperCmd::Install { print } => {
+            let exe = std::env::current_exe()?.canonicalize()?;
+            let env = helper::install_env();
+            if print {
+                let text = if cfg!(target_os = "macos") {
+                    helper::launch_agent_plist(&exe, &env, &home.join("Library/Logs/Arboria"))
+                } else {
+                    helper::systemd_unit(&exe, &env)
+                };
+                print!("{text}");
+                return Ok(());
+            }
+            let (path, _) = helper::write_service(&home, &exe, &env)?;
+            println!("wrote {}", path.display());
+            let cmds = helper::load_commands(&path, true);
+            helper::run_commands(&cmds)?;
+            println!(
+                "started the helper ({}); it runs `{} helper run` at login",
+                cmds.last().map(|c| c.join(" ")).unwrap_or_default(),
+                exe.display()
+            );
+        }
+        HelperCmd::Uninstall => {
+            let path = helper::service_path(&home);
+            if !path.is_file() {
+                println!("not installed ({} does not exist)", path.display());
+                return Ok(());
+            }
+            helper::run_commands(&helper::load_commands(&path, false))?;
+            std::fs::remove_file(&path)?;
+            println!("stopped the helper and removed {}", path.display());
+        }
+        HelperCmd::Status => {
+            let st = helper::status(&home)?;
+            if json {
+                println!("{}", pretty(&st)?);
+                return Ok(());
+            }
+            println!(
+                "helper: {} · {} · last pass {}",
+                if st.installed {
+                    format!("installed ({})", st.service.display())
+                } else {
+                    "not installed (arb helper install)".to_string()
+                },
+                if st.running { "running" } else { "not running" },
+                st.last_tick.as_deref().unwrap_or("never")
+            );
+            for (machine, msg) in &st.needs_login {
+                println!("  {machine} needs a login: {msg}");
+            }
+            for e in &st.errors {
+                println!("  {e}");
+            }
+        }
+    }
+    Ok(())
 }
 
 /// `arb projects add|list|remove`.

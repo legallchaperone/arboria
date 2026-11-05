@@ -33,6 +33,7 @@ pub mod notebooks;
 pub mod paths;
 pub mod probe;
 pub mod records;
+pub mod registry;
 pub mod report;
 pub mod schema;
 pub mod slurm;
@@ -41,6 +42,7 @@ pub mod state;
 pub mod submission;
 pub mod tasks;
 pub mod ui;
+pub mod view;
 
 pub use error::{Error, Result};
 

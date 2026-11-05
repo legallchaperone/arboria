@@ -23,7 +23,7 @@ use std::str::FromStr;
 use anyhow::{bail, Context as _};
 use arboria_core::model::{Confidence, IdeaName, LessonId, RunId, TaskId};
 use arboria_core::paths::RepoContext;
-use arboria_core::{claudemd, report, slurm, state, submission, tasks, ui};
+use arboria_core::{claudemd, registry, report, slurm, state, submission, tasks, ui};
 use arboria_core::{
     commands, db, hook, human, ideas, inspection, install, lessons, machine, monitor, paths, probe,
     records,
@@ -52,7 +52,14 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
     ),
     (
         "安装与内部",
-        &["init", "install-claude", "hook", "claudemd", "export"],
+        &[
+            "init",
+            "install-claude",
+            "hook",
+            "claudemd",
+            "export",
+            "projects",
+        ],
     ),
 ];
 
@@ -251,6 +258,26 @@ pub enum Cmd {
     /// (Internal) one write of the notebook kernel (arboria.lab) on a schema v8 ledger: a JSON request on stdin, a JSON reply on stdout.
     #[command(hide = true)]
     Lab,
+    /// The projects the app and the background helper look at (`arb init` adds each repo).
+    #[command(subcommand, arg_required_else_help = true)]
+    Projects(ProjectsCmd),
+}
+
+/// `arb projects …`.
+#[derive(Debug, Subcommand)]
+pub enum ProjectsCmd {
+    /// Add the initialized repo at PATH (default: the current one), by its main worktree.
+    Add {
+        /// A directory in the repo.
+        path: Option<PathBuf>,
+    },
+    /// The listed projects (the seed home is always shown and never listed).
+    List,
+    /// Take a repo out of the list (its ledger is not touched).
+    Remove {
+        /// The repo (or a directory in it).
+        path: PathBuf,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -1464,6 +1491,12 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         Cmd::Init => {
             let ctx = paths::locate(None)?;
             let actions = state::init_state(&ctx, &mut warn)?;
+            if let Err(e) = registry::add_context(&ctx) {
+                warn(&format!(
+                    "could not add the repo to {}: {e}",
+                    registry::path().display()
+                ));
+            }
             for a in &actions {
                 println!("{a}");
             }
@@ -1506,8 +1539,55 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         }
         Cmd::Probe(cmd) => probe_cmd(cmd, json)?,
         Cmd::Lab => return lab_request(),
+        Cmd::Projects(cmd) => projects_cmd(cmd, json)?,
     }
     Ok(0)
+}
+
+/// `arb projects add|list|remove`.
+fn projects_cmd(cmd: ProjectsCmd, json: bool) -> anyhow::Result<()> {
+    match cmd {
+        ProjectsCmd::Add { path } => {
+            let dir = path.unwrap_or_else(|| PathBuf::from("."));
+            let (entry, new) = registry::add(&dir)?;
+            if new {
+                println!("added {}", entry.path.display());
+            } else {
+                println!("already listed: {}", entry.path.display());
+            }
+        }
+        ProjectsCmd::List => {
+            let all = registry::list()?;
+            if json {
+                println!("{}", pretty(&all)?);
+                return Ok(());
+            }
+            if all.is_empty() {
+                println!("no projects listed (`arb init` or `arb projects add` adds one)");
+            }
+            for e in &all {
+                let state = if e
+                    .path
+                    .join(paths::STATE_DIR_NAME)
+                    .join(db::DB_NAME)
+                    .is_file()
+                {
+                    ""
+                } else {
+                    "  (no ledger here any more)"
+                };
+                println!("{}{state}", e.path.display());
+            }
+        }
+        ProjectsCmd::Remove { path } => {
+            if registry::remove(&path)? {
+                println!("removed {}", path.display());
+            } else {
+                println!("not listed: {}", path.display());
+            }
+        }
+    }
+    Ok(())
 }
 
 /// `arb lab`: `{"ok": reply, "warnings": […]}` or `{"error": message, …}` (exit 1).

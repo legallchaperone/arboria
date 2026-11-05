@@ -1,0 +1,15 @@
+/* Maple Mono CN, the vendored copy in the Python package (SIL OFL 1.1, see its NOTICE). */
+@font-face {
+  font-family: "Maple Mono CN";
+  src: url("@fonts/MapleMono-CN-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Maple Mono CN";
+  src: url("@fonts/MapleMono-CN-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}

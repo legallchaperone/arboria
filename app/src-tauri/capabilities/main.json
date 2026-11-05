@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "The main window, which loads only the app's own pages, and nothing else: the notebook windows (marimo on 127.0.0.1) get no capability (ADR 0004).",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "allow-platform",
+    "allow-projects",
+    "allow-board",
+    "allow-add-project",
+    "allow-card-shown",
+    "allow-approve",
+    "allow-helper-status",
+    "allow-helper-install",
+    "allow-open-notebook",
+    "allow-pty-open",
+    "allow-pty-write",
+    "allow-pty-resize",
+    "allow-pty-close"
+  ]
+}

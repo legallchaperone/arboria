@@ -11,7 +11,7 @@ publish.workspace = true
 # objc2 family (ADR 0001: system integration uses objc2). Only built on macOS.
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "=0.6.2"
-objc2 = "=0.6.3"
+objc2 = "=0.6.4"
 objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSString", "NSError"] }
 objc2-local-authentication = { version = "=0.3.2", default-features = false, features = ["std", "LAContext", "block2"] }
 

@@ -1,0 +1,91 @@
+/* The app's own layout. Colours, spacing, radii and sizes come only from the design
+   tokens (tokens.css): src/lib/styles.test.ts rejects colour literals here. */
+
+html, body, #root { height: 100%; }
+body { margin: 0; overflow: hidden; }
+.app { height: 100%; display: flex; flex-direction: column; background: var(--bg); color: var(--ink); }
+.app-titlebar { border-radius: 0; flex: none; padding-left: var(--col-2); user-select: none; -webkit-user-select: none; }
+.app.is-mac .app-titlebar { padding-left: 76px; }
+.app-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.app-main { display: flex; justify-content: center; padding: var(--space-5) var(--col-4); }
+.app-column { width: 100%; max-width: var(--size-measure); display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.app-wide { width: 100%; max-width: 80em; display: flex; flex-direction: column; gap: var(--space-5); min-width: 0; }
+.app-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--col-2); }
+.app-head h1, .app-head h2, .app-head-block h1 { margin: 0; }
+.app-head-block { display: flex; flex-direction: column; gap: var(--space-1); }
+.app-stats { display: flex; flex-wrap: wrap; gap: 0 var(--col-2); }
+.app-section { display: flex; flex-direction: column; gap: var(--space-3); }
+.app-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--col-2); }
+.app-pad { margin: 0; padding: 0 var(--col-2); }
+.app-gap { margin-top: var(--space-2); }
+.app-inbox { gap: var(--space-4); max-width: none; }
+.app-group { display: flex; flex-direction: column; }
+.app-group-label { padding: 0 var(--col-2) var(--space-1); }
+.ab-item { cursor: default; }
+.app-run[role="button"] { cursor: pointer; }
+.app-pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.app-note { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--col-2); border-radius: var(--radius-md); background: var(--bg-subtle); }
+
+/* plain buttons that read as text */
+.app-link { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.app-link:hover { color: var(--accent-text); }
+.app-tool { font: inherit; border: 0; background: none; cursor: pointer; height: var(--size-control); }
+.app-tool:hover { background: var(--fill); }
+button:focus-visible, input:focus-visible, [role="option"]:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.app-input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; }
+.app-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--col-2); padding: var(--space-3) var(--col-2); border-radius: var(--radius-md); background: var(--bg-subtle); }
+.app-add .app-input { background: var(--bg-raised); padding: var(--space-1) var(--col-1); border-radius: var(--radius-sm); }
+
+/* modal layers */
+.app-modal { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; padding: var(--space-4) var(--col-2); z-index: 10; }
+.app-modal-top { align-items: flex-start; padding-top: 12vh; }
+.app-slip { width: 100%; max-width: 48em; max-height: 86vh; overflow-y: auto; background: var(--bg-raised); box-shadow: var(--shadow-sheet); }
+.app-card-text { margin: 0 0 var(--space-3); padding: var(--space-3) var(--col-2); background: var(--fill); border-radius: var(--radius-sm); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow-y: auto; }
+.app-slip .ab-btn .ab-glyph { margin-right: calc(var(--col-1) / 2); }
+.app-toasts { position: fixed; left: var(--col-2); bottom: var(--space-4); z-index: 20; max-width: calc(100% - 2 * var(--col-2)); }
+.app-toasts .ab-toast { gap: var(--col-2); }
+
+/* timeline */
+.app-scroll-x { overflow-x: auto; }
+.app-tl { min-width: 52em; display: flex; gap: var(--col-2); padding: var(--space-2) 0; }
+.app-tl-names { flex: none; width: 13em; display: flex; flex-direction: column; }
+.app-tl-name { display: flex; flex-direction: column; justify-content: flex-start; }
+.app-tl-plot { position: relative; flex: 1 1 auto; min-width: 0; margin-right: var(--col-4); }
+.app-tl-grid { position: absolute; top: 0; width: 1px; background: var(--line); }
+.app-tl-axis { position: absolute; left: 0; right: 0; height: 1px; background: var(--line-strong); }
+.app-tl-tick { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.app-tl-bar { position: absolute; height: 2px; background: var(--line-strong); }
+.app-tl-bar.is-muted, .app-tl-fork.is-muted { background: var(--line); }
+.app-tl-fork { position: absolute; width: 2px; background: var(--line-strong); }
+.app-tl-mark { position: absolute; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--bg); }
+.app-tl-id { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.app-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--col-2); }
+.app-legend > span { display: inline-flex; align-items: center; gap: var(--col-1); }
+.app-legend-fork { display: inline-block; width: 2px; height: 1em; background: var(--line-strong); }
+
+/* spend */
+.app-spend { display: flex; gap: 2px; height: 12px; border-radius: var(--radius-sm); overflow: hidden; background: var(--fill); }
+.app-spend-part { flex: none; }
+.app-swatch { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 2px; }
+.s1 { background: var(--series-1); } .s2 { background: var(--series-2); } .s3 { background: var(--series-3); }
+.s4 { background: var(--series-4); } .s5 { background: var(--series-5); } .s6 { background: var(--series-6); }
+
+/* machines */
+.app-cards { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--col-2); }
+.app-probe { min-width: 16em; padding: var(--space-2) var(--col-2); }
+.app-helper { padding: var(--space-2) var(--col-2); }
+
+/* terminal */
+.app-term { flex: none; height: 38vh; min-height: 180px; display: flex; flex-direction: column; background: var(--bg-subtle); border-top: 1px solid var(--line); }
+.app-term-tabs { display: flex; align-items: center; gap: var(--col-2); padding: var(--space-1) var(--col-2); }
+.app-term-tab { display: inline-flex; gap: var(--col-1); padding: 0 var(--col-1); border-radius: var(--radius-sm); color: var(--ink-muted); }
+.app-term-tab.is-on { background: var(--fill-active); color: var(--ink); }
+.app-term-pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 0 var(--col-1) var(--space-1); }
+.app-term-pane[hidden] { display: none; }
+.app-term-box { flex: 1 1 auto; min-height: 0; }
+.ab-btn[disabled] { cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .app-main { padding: var(--space-4) 16px; }
+}
+.ab-palette .app-input:focus-visible { outline: 0; }

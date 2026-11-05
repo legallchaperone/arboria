@@ -1,1 +1,784 @@
-{"boards":[],"projects":[]}
+{
+  "now": "2026-11-04T12:00:00Z",
+  "platform": {
+    "os": "macos",
+    "touch_id": true,
+    "in_claude_code": null,
+    "min_shown_ms": 2000
+  },
+  "helper": {
+    "service": "/Users/you/Library/LaunchAgents/world.cwx.arboria.helper.plist",
+    "installed": true,
+    "running": true,
+    "last_tick": "2026-11-04T11:58:00Z",
+    "needs_login": {},
+    "errors": []
+  },
+  "projects": [
+    {
+      "root": "/Users/you/lm",
+      "name": "lm",
+      "kind": "project",
+      "error": null,
+      "open_ideas": 2,
+      "seeds": 0,
+      "inbox": [
+        {
+          "kind": "approve",
+          "when": "2026-11-04T11:48:00Z",
+          "title": "r014 待签字",
+          "meta": "warmup-long · 4 GPU × 12h · deltaai · ≈ 48 SU · 预算剩 284.1 SU",
+          "idea": "warmup-long",
+          "run": "r014",
+          "task": null,
+          "lesson": null,
+          "probe": null,
+          "command": "arb approve r014"
+        },
+        {
+          "kind": "failed",
+          "when": "2026-11-03T09:40:00Z",
+          "title": "r010 失败",
+          "meta": "label-smooth · baseline + bf16 · 第 1 段 · CUDA out of memory · 用了 0.62 SU",
+          "idea": "label-smooth",
+          "run": "r010",
+          "task": null,
+          "lesson": null,
+          "probe": null,
+          "command": null
+        },
+        {
+          "kind": "finished",
+          "when": "2026-11-04T10:00:00Z",
+          "title": "r012 跑完了",
+          "meta": "warmup-long · warmup 4k · val/loss 2.879，没有尖峰 · 花了 11.86 SU",
+          "idea": "warmup-long",
+          "run": "r012",
+          "task": null,
+          "lesson": null,
+          "probe": null,
+          "command": null
+        },
+        {
+          "kind": "agent_done",
+          "when": "2026-11-04T09:55:00Z",
+          "title": "agent 写好了命令（t007）",
+          "meta": "warmup-long · svd：前 20 个奇异值 · 写好了 lab.svd(run, step=…)",
+          "idea": "warmup-long",
+          "run": null,
+          "task": "t007",
+          "lesson": null,
+          "probe": null,
+          "command": null
+        }
+      ]
+    },
+    {
+      "root": "/Users/you/arboria",
+      "name": "种子园",
+      "kind": "home",
+      "error": null,
+      "open_ideas": 0,
+      "seeds": 1,
+      "inbox": []
+    }
+  ],
+  "boards": [
+    {
+      "project": {
+        "root": "/Users/you/lm",
+        "name": "lm",
+        "kind": "project",
+        "project_id": "lm-3f2a",
+        "total_su": 400.0,
+        "config_error": null,
+        "loaded_at": "2026-11-04T12:00:00Z"
+      },
+      "ideas": [
+        {
+          "id": 1,
+          "name": "data-dedup",
+          "stage": "merged",
+          "confidence": "confirmed",
+          "gist": null,
+          "hypothesis": "去重后的数据让 val/loss 降 0.05",
+          "metric": "val/loss",
+          "parent": null,
+          "from_run": null,
+          "created_at": "2026-10-20T09:00:00Z",
+          "closed_at": "2026-10-26T18:00:00Z",
+          "last_active": "2026-10-26T18:00:00Z",
+          "su_used": 46.2,
+          "runs": 5,
+          "worktree": null,
+          "notebook": "/Users/you/lm/.arboria/notebooks/data-dedup.py"
+        },
+        {
+          "id": 2,
+          "name": "no-dropout",
+          "stage": "dropped",
+          "confidence": "rejected",
+          "gist": null,
+          "hypothesis": "去掉 dropout 收敛更快",
+          "metric": "val/loss",
+          "parent": "data-dedup",
+          "from_run": "r003",
+          "created_at": "2026-10-22T10:00:00Z",
+          "closed_at": "2026-10-27T12:00:00Z",
+          "last_active": "2026-10-27T12:00:00Z",
+          "su_used": 10.6,
+          "runs": 2,
+          "worktree": null,
+          "notebook": "/Users/you/lm/.arboria/notebooks/no-dropout.py"
+        },
+        {
+          "id": 3,
+          "name": "label-smooth",
+          "stage": "open",
+          "confidence": "prelim",
+          "gist": null,
+          "hypothesis": "label smoothing 0.1 改善 ppl",
+          "metric": "val/ppl",
+          "parent": "data-dedup",
+          "from_run": "r005",
+          "created_at": "2026-10-27T09:00:00Z",
+          "closed_at": null,
+          "last_active": "2026-11-03T11:00:00Z",
+          "su_used": 24.1,
+          "runs": 3,
+          "worktree": "/Users/you/lm-label-smooth",
+          "notebook": "/Users/you/lm/.arboria/notebooks/label-smooth.py"
+        },
+        {
+          "id": 4,
+          "name": "warmup-long",
+          "stage": "open",
+          "confidence": "guess",
+          "gist": null,
+          "hypothesis": "warmup 拉长到 8k，前 3k 步的尖峰会消失",
+          "metric": "val/loss",
+          "parent": "data-dedup",
+          "from_run": "r005",
+          "created_at": "2026-10-28T09:00:00Z",
+          "closed_at": null,
+          "last_active": "2026-11-04T11:48:00Z",
+          "su_used": 35.0,
+          "runs": 4,
+          "worktree": "/Users/you/lm-warmup-long",
+          "notebook": "/Users/you/lm/.arboria/notebooks/warmup-long.py"
+        }
+      ],
+      "runs": [
+        {
+          "id": "r001",
+          "idea": "data-dedup",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "基线",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 9.4,
+          "summary": "val/loss 3.02",
+          "wandb_url": null,
+          "created_at": "2026-10-20T10:00:00Z",
+          "updated_at": "2026-10-20T22:00:00Z",
+          "finished_at": "2026-10-20T22:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400001",
+              "state": "completed",
+              "elapsed_s": 8460,
+              "billed_su": 9.4
+            }
+          ]
+        },
+        {
+          "id": "r002",
+          "idea": "data-dedup",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "去重 v1",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 9.1,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-10-21T10:00:00Z",
+          "updated_at": "2026-10-21T22:00:00Z",
+          "finished_at": "2026-10-21T22:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400002",
+              "state": "completed",
+              "elapsed_s": 8190,
+              "billed_su": 9.1
+            }
+          ]
+        },
+        {
+          "id": "r003",
+          "idea": "data-dedup",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "去重 v2（minhash）",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 9.3,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-10-22T09:00:00Z",
+          "updated_at": "2026-10-22T21:00:00Z",
+          "finished_at": "2026-10-22T21:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400003",
+              "state": "completed",
+              "elapsed_s": 8370,
+              "billed_su": 9.3
+            }
+          ]
+        },
+        {
+          "id": "r004",
+          "idea": "data-dedup",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "v2 + 长序列",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 9.2,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-10-23T09:00:00Z",
+          "updated_at": "2026-10-23T21:00:00Z",
+          "finished_at": "2026-10-23T21:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400004",
+              "state": "completed",
+              "elapsed_s": 8280,
+              "billed_su": 9.2
+            }
+          ]
+        },
+        {
+          "id": "r005",
+          "idea": "data-dedup",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "v2 定稿",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 9.2,
+          "summary": "val/loss 2.97",
+          "wandb_url": null,
+          "created_at": "2026-10-24T09:00:00Z",
+          "updated_at": "2026-10-24T21:00:00Z",
+          "finished_at": "2026-10-24T21:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400005",
+              "state": "completed",
+              "elapsed_s": 8280,
+              "billed_su": 9.2
+            }
+          ]
+        },
+        {
+          "id": "r006",
+          "idea": "no-dropout",
+          "parent_run": "r003",
+          "status": "succeeded",
+          "change_reason": "dropout 0",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "6h",
+          "est_su": 24,
+          "billed_su": 5.3,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-10-25T09:00:00Z",
+          "updated_at": "2026-10-25T15:00:00Z",
+          "finished_at": "2026-10-25T15:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400006",
+              "state": "completed",
+              "elapsed_s": 4770,
+              "billed_su": 5.3
+            }
+          ]
+        },
+        {
+          "id": "r007",
+          "idea": "no-dropout",
+          "parent_run": "r006",
+          "status": "succeeded",
+          "change_reason": "dropout 0 + wd 0.1",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "6h",
+          "est_su": 24,
+          "billed_su": 5.3,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-10-26T09:00:00Z",
+          "updated_at": "2026-10-26T15:00:00Z",
+          "finished_at": "2026-10-26T15:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400007",
+              "state": "completed",
+              "elapsed_s": 4770,
+              "billed_su": 5.3
+            }
+          ]
+        },
+        {
+          "id": "r008",
+          "idea": "label-smooth",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "smoothing 0.1",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 11.7,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-10-29T09:00:00Z",
+          "updated_at": "2026-10-29T21:00:00Z",
+          "finished_at": "2026-10-29T21:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400008",
+              "state": "completed",
+              "elapsed_s": 10530,
+              "billed_su": 11.7
+            }
+          ]
+        },
+        {
+          "id": "r009",
+          "idea": "label-smooth",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "smoothing 0.05",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 11.78,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-10-31T09:00:00Z",
+          "updated_at": "2026-10-31T21:00:00Z",
+          "finished_at": "2026-10-31T21:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400009",
+              "state": "completed",
+              "elapsed_s": 10602,
+              "billed_su": 11.78
+            }
+          ]
+        },
+        {
+          "id": "r010",
+          "idea": "label-smooth",
+          "parent_run": null,
+          "status": "failed",
+          "change_reason": "baseline + bf16",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 0.62,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-11-03T09:00:00Z",
+          "updated_at": "2026-11-03T09:40:00Z",
+          "finished_at": "2026-11-03T09:40:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400010",
+              "state": "failed",
+              "elapsed_s": 558,
+              "billed_su": 0.62
+            }
+          ]
+        },
+        {
+          "id": "r011",
+          "idea": "warmup-long",
+          "parent_run": null,
+          "status": "succeeded",
+          "change_reason": "warmup 2k",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 11.6,
+          "summary": "val/loss 2.915，1.2k–3k 步三次尖峰",
+          "wandb_url": null,
+          "created_at": "2026-11-01T09:00:00Z",
+          "updated_at": "2026-11-01T21:00:00Z",
+          "finished_at": "2026-11-01T21:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400011",
+              "state": "completed",
+              "elapsed_s": 10440,
+              "billed_su": 11.6
+            }
+          ]
+        },
+        {
+          "id": "r012",
+          "idea": "warmup-long",
+          "parent_run": "r011",
+          "status": "succeeded",
+          "change_reason": "warmup 4k",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 11.86,
+          "summary": "val/loss 2.879，没有尖峰",
+          "wandb_url": null,
+          "created_at": "2026-11-02T09:00:00Z",
+          "updated_at": "2026-11-04T10:00:00Z",
+          "finished_at": "2026-11-04T10:00:00Z",
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400012",
+              "state": "completed",
+              "elapsed_s": 10674,
+              "billed_su": 11.86
+            }
+          ]
+        },
+        {
+          "id": "r013",
+          "idea": "warmup-long",
+          "parent_run": "r011",
+          "status": "running",
+          "change_reason": "warmup 8k",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 11.54,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-11-03T12:00:00Z",
+          "updated_at": "2026-11-04T11:30:00Z",
+          "finished_at": null,
+          "jobs": [
+            {
+              "segment": 1,
+              "job_id": "4400013",
+              "state": "running",
+              "elapsed_s": 10386,
+              "billed_su": 11.54
+            }
+          ]
+        },
+        {
+          "id": "r014",
+          "idea": "warmup-long",
+          "parent_run": "r013",
+          "status": "awaiting_approval",
+          "change_reason": "warmup 16k",
+          "machine": "deltaai",
+          "partition": "ghx4",
+          "gpus": 4,
+          "walltime": "12h",
+          "est_su": 48,
+          "billed_su": 0.0,
+          "summary": null,
+          "wandb_url": null,
+          "created_at": "2026-11-04T11:48:00Z",
+          "updated_at": "2026-11-04T11:48:00Z",
+          "finished_at": null,
+          "jobs": []
+        }
+      ],
+      "inbox": [
+        {
+          "kind": "approve",
+          "when": "2026-11-04T11:48:00Z",
+          "title": "r014 待签字",
+          "meta": "warmup-long · 4 GPU × 12h · deltaai · ≈ 48 SU · 预算剩 284.1 SU",
+          "idea": "warmup-long",
+          "run": "r014",
+          "task": null,
+          "lesson": null,
+          "probe": null,
+          "command": "arb approve r014"
+        },
+        {
+          "kind": "failed",
+          "when": "2026-11-03T09:40:00Z",
+          "title": "r010 失败",
+          "meta": "label-smooth · baseline + bf16 · 第 1 段 · CUDA out of memory · 用了 0.62 SU",
+          "idea": "label-smooth",
+          "run": "r010",
+          "task": null,
+          "lesson": null,
+          "probe": null,
+          "command": null
+        },
+        {
+          "kind": "finished",
+          "when": "2026-11-04T10:00:00Z",
+          "title": "r012 跑完了",
+          "meta": "warmup-long · warmup 4k · val/loss 2.879，没有尖峰 · 花了 11.86 SU",
+          "idea": "warmup-long",
+          "run": "r012",
+          "task": null,
+          "lesson": null,
+          "probe": null,
+          "command": null
+        },
+        {
+          "kind": "agent_done",
+          "when": "2026-11-04T09:55:00Z",
+          "title": "agent 写好了命令（t007）",
+          "meta": "warmup-long · svd：前 20 个奇异值 · 写好了 lab.svd(run, step=…)",
+          "idea": "warmup-long",
+          "run": null,
+          "task": "t007",
+          "lesson": null,
+          "probe": null,
+          "command": null
+        }
+      ],
+      "cards": [
+        {
+          "run": "r014",
+          "text": "审核单 r014（idea warmup-long）\n检查:\n  ✓ 快照 7c41e09ab2d3（不含被 .gitignore 忽略的文件）\n  ✓ 账户 bjki-dtai-gh\n  ✓ 计费卡数 = 申请卡数 = 4\n资源:\n  机器 deltaai（aarch64），分区 ghx4，4 GPU\n  每节点 CPU 288，内存 443.592G\n  时长 12h\n  命令 python train.py warmup=16000\n  项目 lm-3f2a：作业名 arb-lm-3f2a-r014-s1，远程目录 /projects/bjki/you/runs/lm-3f2a/r014\n估计:\n  上限 4 卡 × 12.00 h × 1 = 48.00 SU（按申请的时长算满）\n预算:\n  项目已用 115.9 / 400 SU，剩余 284.1\n  本 idea 已用 35 SU\n审核单哈希: 3f9ac21e77b04d1c",
+          "card_hash": "3f9ac21e77b04d1c000000000000000000000000000000000000000000000000",
+          "matches": true,
+          "est_su": 48.0,
+          "resources": [
+            "机器 deltaai（aarch64），分区 ghx4，4 GPU",
+            "每节点 CPU 288，内存 443.592G",
+            "时长 12h",
+            "命令 python train.py warmup=16000",
+            "项目 lm-3f2a：作业名 arb-lm-3f2a-r014-s1，远程目录 /projects/bjki/you/runs/lm-3f2a/r014"
+          ],
+          "estimate": [
+            "上限 4 卡 × 12.00 h × 1 = 48.00 SU（按申请的时长算满）"
+          ],
+          "budget": [
+            "项目已用 115.9 / 400 SU，剩余 284.1",
+            "本 idea 已用 35 SU"
+          ],
+          "error": null
+        }
+      ],
+      "todos": [
+        {
+          "id": "t007",
+          "idea": "warmup-long",
+          "kind": "command_new",
+          "status": "done",
+          "text": "svd：前 20 个奇异值",
+          "created_at": "2026-11-04T09:30:00Z",
+          "done_at": "2026-11-04T09:55:00Z",
+          "result": "写好了 lab.svd(run, step=…)"
+        },
+        {
+          "id": "t008",
+          "idea": "warmup-long",
+          "kind": "inspect",
+          "status": "running",
+          "text": "attention logit 在哪里缩放",
+          "created_at": "2026-11-04T11:00:00Z",
+          "done_at": null,
+          "result": null
+        }
+      ],
+      "notes": [
+        {
+          "id": 3,
+          "idea": "warmup-long",
+          "run": "r011",
+          "text": "r011 在 1.2k 到 3k 步之间有三次尖峰，都出现在 lr 爬到 2e-4 左右的时候。",
+          "author": "human",
+          "created_at": "2026-11-02T08:00:00Z"
+        },
+        {
+          "id": 2,
+          "idea": "label-smooth",
+          "run": null,
+          "text": "0.05 和 0.1 差不多，先看 bf16 能不能省时间。",
+          "author": "human",
+          "created_at": "2026-11-01T10:00:00Z"
+        },
+        {
+          "id": 1,
+          "idea": "data-dedup",
+          "run": "r005",
+          "text": "minhash 去重定稿，合进 main。",
+          "author": "human",
+          "created_at": "2026-10-26T17:00:00Z"
+        }
+      ],
+      "lessons": [],
+      "notifications": [
+        {
+          "at": "2026-11-04T10:00:05Z",
+          "text": "r012 已成功（11.86 SU）"
+        },
+        {
+          "at": "2026-11-03T09:40:10Z",
+          "text": "r010 失败：s1 日志出现异常（匹配 CUDA out of memory）"
+        }
+      ],
+      "spend": {
+        "used": 115.9,
+        "total": 400.0,
+        "by_idea": [
+          {
+            "idea": "data-dedup",
+            "su": 46.2
+          },
+          {
+            "idea": "warmup-long",
+            "su": 35.0
+          },
+          {
+            "idea": "label-smooth",
+            "su": 24.1
+          },
+          {
+            "idea": "no-dropout",
+            "su": 10.6
+          }
+        ]
+      },
+      "probes": [
+        {
+          "machine": "deltaai",
+          "probe": "builtin:balance",
+          "at": "2026-11-04T11:40:00Z",
+          "result": {
+            "kind": "number",
+            "label": "余额",
+            "value": 284,
+            "of": 400,
+            "unit": "SU"
+          }
+        },
+        {
+          "machine": "deltaai",
+          "probe": "project:queue",
+          "at": "2026-11-04T11:40:00Z",
+          "result": {
+            "kind": "table",
+            "label": "排队",
+            "columns": [
+              "分区",
+              "排队",
+              "运行"
+            ],
+            "rows": [
+              [
+                "ghx4",
+                31,
+                112
+              ],
+              [
+                "ghx4-interactive",
+                2,
+                9
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "project": {
+        "root": "/Users/you/arboria",
+        "name": "种子园",
+        "kind": "home",
+        "project_id": null,
+        "total_su": 0.0,
+        "config_error": null,
+        "loaded_at": "2026-11-04T12:00:00Z"
+      },
+      "ideas": [
+        {
+          "id": 1,
+          "name": "rank-schedule",
+          "stage": "seed",
+          "confidence": "guess",
+          "gist": "LoRA 的 rank 随训练增长，前期小 rank 省算力",
+          "hypothesis": null,
+          "metric": "val/loss",
+          "parent": null,
+          "from_run": null,
+          "created_at": "2026-10-30T09:00:00Z",
+          "closed_at": null,
+          "last_active": "2026-11-02T09:00:00Z",
+          "su_used": 0.0,
+          "runs": 0,
+          "worktree": null,
+          "notebook": "/Users/you/arboria/seeds/rank-schedule.py"
+        }
+      ],
+      "runs": [],
+      "inbox": [],
+      "cards": [],
+      "todos": [],
+      "notes": [],
+      "lessons": [],
+      "notifications": [],
+      "spend": {
+        "used": 0.0,
+        "total": 0.0,
+        "by_idea": []
+      },
+      "probes": []
+    }
+  ]
+}

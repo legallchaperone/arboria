@@ -54,7 +54,7 @@ pub struct ProjectInfo {
     pub loaded_at: String,
 }
 
-/// An idea (or a seed: `stage = "seed"`).
+/// An idea (or a seed: `stage = "seed"`, or `"planted"` once it is in a repo).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct IdeaView {
     pub id: i64,
@@ -417,6 +417,15 @@ fn load(conn: &Connection, project: ProjectInfo, state_dir: &Path) -> Result<Boa
         })
         .collect();
     let notes: Vec<Note> = db::all(conn, "SELECT * FROM notes ORDER BY id DESC", [])?;
+    // a planted seed is still a `seed` idea in the home's ledger; `arb idea list` says
+    // 已种下 from its plantings, and so does the view
+    let planted: std::collections::HashSet<i64> = if kind == Place::Home {
+        let mut stmt = conn.prepare("SELECT DISTINCT seed_idea_id FROM plantings")?;
+        let ids = stmt.query_map([], |r| r.get::<_, i64>(0))?;
+        ids.collect::<rusqlite::Result<_>>()?
+    } else {
+        Default::default()
+    };
     let idea_views: Vec<IdeaView> = ideas
         .iter()
         .map(|i| {
@@ -446,7 +455,11 @@ fn load(conn: &Connection, project: ProjectInfo, state_dir: &Path) -> Result<Boa
             };
             IdeaView {
                 id: i.id.0,
-                stage: i.stage.as_str().to_string(),
+                stage: if i.stage == IdeaStage::Seed && planted.contains(&i.id.0) {
+                    "planted".to_string()
+                } else {
+                    i.stage.as_str().to_string()
+                },
                 confidence: i.confidence.as_str().to_string(),
                 gist: i.gist.clone(),
                 hypothesis: i.hypothesis.clone(),

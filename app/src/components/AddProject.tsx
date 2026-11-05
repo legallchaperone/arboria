@@ -1,7 +1,7 @@
 // 添加项目: a repo already on this Mac (the folder dialog), or a repo link that the app
 // clones, runs `arb init` in and lists.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, message } from "../api";
 import type { Cloned } from "../types";
 import { Glyph } from "./Glyph";
@@ -15,6 +15,18 @@ export function AddProject(props: {
   const [parent, setParent] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api.cloneDir().then(setParent, () => undefined);
+  }, []);
+  /** Pick another folder; it becomes the default for later clones too. */
+  const change = async () => {
+    try {
+      const p = await api.pickFolder();
+      if (p) setParent(await api.cloneDir(p));
+    } catch (e) {
+      setError(message(e));
+    }
+  };
   const clone = async () => {
     if (!url.trim() || busy) return;
     setBusy(true);
@@ -66,10 +78,11 @@ export function AddProject(props: {
             />
             <span className="app-row small">
               <span className="ab-muted">放在</span>
-              <span className="code">{parent ?? "~/code（没有就放在主目录）"}</span>
-              <button type="button" className="app-link ab-accent" disabled={busy} onClick={() => api.pickFolder().then((p) => p && setParent(p), (e) => setError(message(e)))}>
+              <span className="code">{parent ?? "…"}</span>
+              <button type="button" className="app-link ab-accent" disabled={busy} onClick={() => void change()}>
                 换一个…
               </button>
+              <span className="ab-muted">（以后也放这里）</span>
             </span>
             {error && <span className="small ab-bad app-pre">{error}</span>}
             <span className="app-row">

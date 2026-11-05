@@ -50,6 +50,7 @@ pub const COMMANDS: &[&str] = &[
     "terminal_launchers",
     "pick_folder",
     "clone_project",
+    "clone_dir",
 ];
 
 type Res<T> = Result<T, String>;
@@ -332,7 +333,17 @@ async fn pick_folder(app: tauri::AppHandle) -> Res<Option<String>> {
     .map_err(err)?
 }
 
-/// Clone a repo link into `parent` (default `~/code`), `arb init` it and list it.
+/// Where clones go by default; with `set`, remember that folder from now on.
+#[tauri::command]
+fn clone_dir(set: Option<String>) -> Res<String> {
+    match set {
+        Some(dir) => clone::set_default_parent(Path::new(&dir)).map(|p| p.display().to_string()),
+        None => Ok(clone::default_parent().display().to_string()),
+    }
+}
+
+/// Clone a repo link into `parent` (default [`clone::default_parent`]), `arb init` it and
+/// list it.
 #[tauri::command]
 async fn clone_project(url: String, parent: Option<String>) -> Res<clone::Cloned> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -438,6 +449,7 @@ pub fn run() {
             terminal_launchers,
             pick_folder,
             clone_project,
+            clone_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Arboria");

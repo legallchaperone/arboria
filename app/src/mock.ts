@@ -81,6 +81,8 @@ mockIPC(
           { id: "codex", label: "Codex", installed: false, group: "agent" },
           { id: "ssh:deltaai", label: "登录 deltaai", installed: true, group: "ssh" },
         ];
+      case "clone_dir":
+        return (a.set as string | null) ?? "/Users/you/code";
       case "pick_project":
       case "pick_folder":
       case "pty_write":

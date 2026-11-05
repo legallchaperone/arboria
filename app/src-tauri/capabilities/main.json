@@ -29,6 +29,7 @@
     "allow-open-in-editor",
     "allow-terminal-launchers",
     "allow-pick-folder",
-    "allow-clone-project"
+    "allow-clone-project",
+    "allow-clone-dir"
   ]
 }

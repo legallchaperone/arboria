@@ -23,6 +23,7 @@ fn main() {
         "terminal_launchers",
         "pick_folder",
         "clone_project",
+        "clone_dir",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

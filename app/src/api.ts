@@ -28,6 +28,7 @@ export const api = {
   openNotebook: (root: string, idea: string) => invoke<void>("open_notebook", { root, idea }),
   terminalLaunchers: () => invoke<Launcher[]>("terminal_launchers"),
   pickFolder: () => invoke<string | null>("pick_folder"),
+  cloneDir: (set?: string) => invoke<string>("clone_dir", { set: set ?? null }),
   cloneProject: (url: string, parent: string | null) => invoke<Cloned>("clone_project", { url, parent }),
   pickProject: () => invoke<{ path: string; added_at: string } | null>("pick_project"),
   clustersRead: () => invoke<ClustersCheck>("clusters_read"),

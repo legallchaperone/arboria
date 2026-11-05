@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clone-dir"
+description = "Enables the clone_dir command without any pre-configured scope."
+commands.allow = ["clone_dir"]
+
+[[permission]]
+identifier = "deny-clone-dir"
+description = "Denies the clone_dir command without any pre-configured scope."
+commands.deny = ["clone_dir"]

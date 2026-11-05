@@ -28,7 +28,7 @@ npm run tauri build      # 生成 src-tauri/target/release/bundle/macos/Arboria.
 app 看的是**登记过的项目**：`arb init` 会自动登记；已有的仓库运行一次 `arb projects add`，或者在 app 里 ⌘K →「添加项目…」：
 
 - **本机的仓库**：在系统的文件夹对话框里选它；还没 `arb init` 过的，顺便初始化。
-- **从仓库链接**：粘贴 `git@github.com:you/lm.git` 或 `https://…`，选放在哪个文件夹（默认 `~/code`），app 用系统的 `git` 克隆下来、`arb init`、加进列表。用的是你自己的 git 凭据（ssh key、钥匙串）；要输密码的仓库会直接报错，不会卡住。之后在它的 `arboria.toml` 里填 `default_machine` 等设置。
+- **从仓库链接**：粘贴 `git@github.com:you/lm.git` 或 `https://…`，选放在哪个文件夹（默认 `~/code`；「换一个…」选的文件夹会记住，以后都放那里，存在 `~/.config/arboria/app.json`），app 用系统的 `git` 克隆下来、`arb init`、加进列表。用的是你自己的 git 凭据（ssh key、钥匙串）；要输密码的仓库会直接报错，不会卡住。之后在它的 `arboria.toml` 里填 `default_machine` 等设置。
 
 种子园总在列表里。
 

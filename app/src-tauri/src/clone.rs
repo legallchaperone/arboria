@@ -122,8 +122,23 @@ fn clone_to(url: &str, dest: &Path) -> Result<Cloned, String> {
     })
 }
 
-/// Where clones go unless the human picks another folder: `~/code` when it exists.
+/// The app's own settings: `<config dir>/app.json` (`{"clone_dir": "…"}`).
+fn settings_path() -> PathBuf {
+    arboria_core::clusters::config_dir().join("app.json")
+}
+
+/// Where clones go unless the human picks another folder: the folder picked last time
+/// (saved by [`set_default_parent`]), else `~/code` (or `~/src`, `~/projects`,
+/// `~/Developer`) when it exists, else the home folder.
 pub fn default_parent() -> PathBuf {
+    let saved = std::fs::read_to_string(settings_path())
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v["clone_dir"].as_str().map(PathBuf::from))
+        .filter(|p| p.is_dir());
+    if let Some(p) = saved {
+        return p;
+    }
     let home = std::env::home_dir().unwrap_or_default();
     ["code", "src", "projects", "Developer"]
         .iter()
@@ -132,9 +147,37 @@ pub fn default_parent() -> PathBuf {
         .unwrap_or(home)
 }
 
+/// Remember `dir` as where clones go from now on.
+pub fn set_default_parent(dir: &Path) -> Result<PathBuf, String> {
+    if !dir.is_dir() {
+        return Err(format!("{} 不是一个文件夹", dir.display()));
+    }
+    let path = settings_path();
+    let mut v: serde_json::Value = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .filter(|v: &serde_json::Value| v.is_object())
+        .unwrap_or_else(|| serde_json::json!({}));
+    v["clone_dir"] = dir.display().to_string().into();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(
+        &tmp,
+        serde_json::to_string_pretty(&v).map_err(|e| e.to_string())? + "\n",
+    )
+    .map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
+    Ok(dir.to_path_buf())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Both tests below set the process-wide ARBORIA_CONFIG_DIR.
+    static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn repo_links() {
@@ -159,6 +202,7 @@ mod tests {
 
     #[test]
     fn clones_inits_and_lists() {
+        let _env = ENV.lock().unwrap_or_else(|e| e.into_inner());
         let tmp = std::env::temp_dir().join(format!("arboria-clone-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&tmp);
         std::fs::create_dir_all(&tmp).unwrap();
@@ -197,6 +241,25 @@ mod tests {
         assert!(registry::list().unwrap().iter().any(|e| e.path == got.path));
         let again = clone_and_init("https://example.com/me/lm.git", &parent).unwrap_err();
         assert!(again.contains("已经存在"), "{again}");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn the_clone_folder_is_remembered() {
+        let _env = ENV.lock().unwrap_or_else(|e| e.into_inner());
+        let tmp = std::env::temp_dir().join(format!("arboria-clonedir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("elsewhere")).unwrap();
+        std::env::set_var("ARBORIA_CONFIG_DIR", tmp.join("cfg"));
+        assert!(set_default_parent(&tmp.join("missing")).is_err());
+        set_default_parent(&tmp.join("elsewhere")).unwrap();
+        assert_eq!(default_parent(), tmp.join("elsewhere"));
+        std::fs::remove_dir_all(tmp.join("elsewhere")).unwrap();
+        assert_ne!(
+            default_parent(),
+            tmp.join("elsewhere"),
+            "a folder that is gone is ignored"
+        );
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

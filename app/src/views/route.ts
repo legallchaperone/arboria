@@ -5,6 +5,7 @@ export type Route =
   | { k: "project"; root: string }
   | { k: "idea"; root: string; idea: string }
   | { k: "seeds" }
+  | { k: "agent" }
   | { k: "settings"; tab: SettingsTab; root?: string };
 
 /** What the inspector on the right shows. */

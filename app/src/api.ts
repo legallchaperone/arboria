@@ -19,6 +19,15 @@ import type {
   HelperStatus,
   Platform,
   ProjectSummary,
+  NbView,
+  NbDoc,
+  NbCached,
+  NbEvent,
+  KernelInfo,
+  CommandEntry,
+  AgentRow,
+  AgentLogLine,
+  AgentSettings,
 } from "./types";
 
 export const api = {
@@ -63,6 +72,20 @@ export const api = {
   removeProject: (path: string) => invoke<boolean>("remove_project", { path }),
   /** Finder: the project's folder, or one of its ideas' worktrees. */
   reveal: (root: string, path?: string) => invoke<void>("reveal", { root, path: path ?? null }),
+  // the app's notebook (ADR 0005): `root` is the project (or the seed home), `idea` the name
+  nbLoad: (root: string, idea: string) => invoke<NbView>("nb_load", { root, idea }),
+  nbSave: (root: string, idea: string, text: string) =>
+    invoke<{ text: string; doc: NbDoc }>("nb_save", { root, idea, text }),
+  /** Runs `code` as block `block`; streams arrive as `nb-event` meanwhile. */
+  nbRun: (root: string, idea: string, block: string, code: string) =>
+    invoke<NbCached>("nb_run", { root, idea, block, code }),
+  nbCommands: (root: string) => invoke<CommandEntry[]>("nb_commands", { root }),
+  nbInterrupt: (root: string, idea: string) => invoke<void>("nb_interrupt", { root, idea }),
+  nbRestart: (root: string, idea: string) => invoke<void>("nb_restart", { root, idea }),
+  agentRows: (root: string) => invoke<AgentRow[]>("agent_rows", { root }),
+  agentLog: (root: string, task: string) => invoke<AgentLogLine[]>("agent_log", { root, task }),
+  agentSettings: () => invoke<AgentSettings>("agent_settings"),
+  agentSaveSettings: (settings: AgentSettings) => invoke<AgentSettings>("agent_save_settings", { settings }),
   ptyOpen: (
     cwd: string,
     program: string | null,
@@ -93,6 +116,27 @@ export function onChange(f: (root: string | null) => void): Promise<UnlistenFn[]
 /** `clusters-changed`: clusters.toml was written (by the app, an editor, arb machine init). */
 export function onClustersChange(f: () => void): Promise<UnlistenFn> {
   return listen("clusters-changed", () => f());
+}
+
+/** `nb-event` (a running block's streams and outputs) and `nb-kernel` (a kernel started:
+ * its info; stopped: null). */
+export function onNotebook(
+  ev: (e: NbEvent) => void,
+  kernel: (root: string, idea: string, info: KernelInfo | null) => void,
+): Promise<UnlistenFn[]> {
+  return Promise.all([
+    listen<NbEvent>("nb-event", (e) => ev(e.payload)),
+    listen<[string, string, KernelInfo | null]>("nb-kernel", (e) => kernel(...e.payload)),
+  ]);
+}
+
+/** `agent-changed` (a root whose queue moved) and `agent-line` (the running attempt wrote
+ * a line of its stream-json log). */
+export function onAgent(changed: (root: string) => void, line: (root: string) => void): Promise<UnlistenFn[]> {
+  return Promise.all([
+    listen<string>("agent-changed", (e) => changed(e.payload)),
+    listen<{ root: string; line: string }>("agent-line", (e) => line(e.payload.root)),
+  ]);
 }
 
 /** A message for an error thrown by `invoke` (the Rust side returns strings). */

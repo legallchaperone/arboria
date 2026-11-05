@@ -49,6 +49,7 @@
     "allow-nb-load",
     "allow-nb-save",
     "allow-nb-run",
+    "allow-nb-commands",
     "allow-nb-interrupt",
     "allow-nb-restart",
     "allow-agent-rows",

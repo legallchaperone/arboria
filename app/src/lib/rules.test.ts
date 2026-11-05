@@ -25,9 +25,11 @@ describe("rules", () => {
     }
   });
   it("styles with tokens only", () => {
-    const css = readFileSync(join(app, "src/styles/app.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(css.match(/#[0-9a-fA-F]{3,8}\b/g)).toBeNull();
-    expect(css.match(/\b(rgb|rgba|hsl|hsla)\(/g)).toBeNull();
+    for (const name of ["app.css", "notebook.css"]) {
+      const css = readFileSync(join(app, "src/styles", name), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+      expect(css.match(/#[0-9a-fA-F]{3,8}\b/g), name).toBeNull();
+      expect(css.match(/\b(rgb|rgba|hsl|hsla)\(/g), name).toBeNull();
+    }
     for (const f of files(join(app, "src"), /\.tsx$/)) {
       expect(readFileSync(f, "utf8").match(/#[0-9a-fA-F]{6}\b/g), f).toBeNull();
     }

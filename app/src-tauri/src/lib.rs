@@ -76,6 +76,7 @@ pub const COMMANDS: &[&str] = &[
     "nb_load",
     "nb_save",
     "nb_run",
+    "nb_commands",
     "nb_interrupt",
     "nb_restart",
     "agent_rows",
@@ -699,6 +700,14 @@ async fn nb_run(
     .map_err(err)?
 }
 
+/// The commands a block can call, for completion.
+#[tauri::command]
+async fn nb_commands(root: String) -> Res<Vec<nb::CommandEntry>> {
+    tauri::async_runtime::spawn_blocking(move || nb::commands(&listed(&root)?))
+        .await
+        .map_err(err)?
+}
+
 #[tauri::command]
 fn nb_interrupt(state: tauri::State<'_, AppState>, root: String, idea: String) -> Res<()> {
     let root = listed(&root)?;
@@ -810,6 +819,7 @@ pub fn run() {
             nb_load,
             nb_save,
             nb_run,
+            nb_commands,
             nb_interrupt,
             nb_restart,
             agent_rows,

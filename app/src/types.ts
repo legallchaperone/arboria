@@ -295,4 +295,153 @@ export type Action =
   | { kind: "seed_new"; name: string; gist: string; hypothesis: string | null; metric: string | null }
   | { kind: "seed_drop"; name: string }
   | { kind: "seed_revive"; name: string }
-  | { kind: "seed_plant"; name: string; as_name: string | null; hypothesis: string | null; metric: string | null };
+  | { kind: "seed_plant"; name: string; as_name: string | null; hypothesis: string | null; metric: string | null }
+  | { kind: "migrate"; name: string }
+  | { kind: "agent_queue"; task: string }
+  | { kind: "agent_stop"; task: string };
+
+// ---------------------------------------------------------------- the notebook (ADR 0005)
+
+/** `nbdoc::Part`: text (restricted markdown) or a command block. */
+export type NbPart = { kind: "text"; text: string } | { kind: "block"; id: string; code: string };
+
+export interface NbDoc {
+  front: [string, string][];
+  parts: NbPart[];
+}
+
+/** One structured output (`arboria.output`), by `kind`. */
+export type NbOutput =
+  | { kind: "text"; text: string; truncated?: boolean }
+  | { kind: "stream"; stderr: boolean; text: string }
+  | { kind: "markdown"; text: string; truncated?: boolean }
+  | { kind: "table"; columns: string[]; rows: unknown[][]; total: number; title?: string }
+  | {
+      kind: "plot";
+      series: { name: string; x: (number | null)[]; y: (number | null)[] }[];
+      title?: string;
+      x?: string;
+      y?: string;
+      log?: boolean;
+      style?: "line" | "bar";
+      note?: string;
+    }
+  | { kind: "image"; mime: string; data: string }
+  | { kind: "error"; ename: string; evalue: string; traceback: string[] }
+  | { kind: "pending"; task: string | null; what?: string; name?: string; ask?: string; text?: string }
+  | { kind: "run"; run: string; status?: string; text?: string }
+  | {
+      kind: "inspect";
+      task: string | null;
+      status: string;
+      question: string;
+      view: string;
+      result: InspectResult | null;
+      text?: string;
+    };
+
+export interface InspectSpan {
+  id: string;
+  path: string;
+  start: number;
+  end: number;
+  note: string | null;
+  line_notes: Record<string, string>;
+  lines: string[];
+}
+
+export interface InspectResult {
+  view: string;
+  question: string;
+  code_ref: string;
+  title: string;
+  summary: string | null;
+  spans: InspectSpan[];
+  text?: string;
+  lang?: string;
+  mermaid?: string;
+}
+
+/** `nbout::Cached`: a block's last result. */
+export interface NbCached {
+  code_sha: string;
+  ran_at: string;
+  duration_ms: number;
+  ok: boolean;
+  outputs: NbOutput[];
+  defines: string[];
+  uses: string[];
+}
+
+export interface NbView {
+  notebook: { owner: string; name: string; path: string; marimo: string | null; cwd: string };
+  exists: boolean;
+  text: string;
+  doc: NbDoc;
+  outputs: Record<string, NbCached>;
+  kernel: KernelInfo | null;
+}
+
+/** The kernel's `ready` event (and its pid). */
+export interface KernelInfo {
+  python?: string;
+  lab?: boolean;
+  lab_error?: string | null;
+  pid?: number;
+}
+
+/** `nb-event`: what a running block says. */
+export type NbEvent = { root: string; idea: string; block: string } & (
+  | { event: "stream"; name: string; text: string }
+  | { event: "output"; data: NbOutput }
+);
+
+export interface CommandEntry {
+  name: string;
+  kind: "内置" | "项目" | "全局";
+  signature: string;
+  description: string;
+}
+
+// ---------------------------------------------------------------- the agent queue
+
+export interface AgentUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  turns: number;
+  cost_usd: number;
+}
+
+export interface AgentRow {
+  id: string;
+  idea: string | null;
+  seed: string | null;
+  text: string;
+  status: "open" | "queued" | "running" | "check_failed" | "needs_human" | "done" | "dropped";
+  kind: string;
+  created_at: string;
+  done_at: string | null;
+  result: string | null;
+  attempts: number;
+  session_id: string | null;
+  model: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  block_id: string | null;
+  usage: AgentUsage | null;
+}
+
+export interface AgentLogLine {
+  kind: "text" | "tool" | "result" | "done" | "error";
+  text: string;
+}
+
+export interface AgentSettings {
+  auto: boolean;
+  model: string;
+  max_turns: number;
+  daily_limit: number;
+  timeout_s: number;
+  claude: string | null;
+}

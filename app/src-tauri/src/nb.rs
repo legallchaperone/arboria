@@ -175,6 +175,48 @@ pub fn run(
     res.map_err(err)
 }
 
+/// A command the editor completes (`lab.<name>` / `/name`).
+#[derive(Debug, Serialize)]
+pub struct CommandEntry {
+    pub name: String,
+    /// `内置` / `项目` / `全局`.
+    pub kind: &'static str,
+    pub signature: String,
+    pub description: String,
+}
+
+/// The built-ins, then the project's and the global library's commands (seeds: the
+/// global ones only). Reads the files with `ast`, never runs them.
+pub fn commands(root: &Path) -> Result<Vec<CommandEntry>, String> {
+    let (state_dir, _, home) = arboria_core::agent::place_of(root).map_err(err)?;
+    let seed = home.is_some();
+    let mut out: Vec<CommandEntry> = arboria_core::commands::BUILTINS
+        .iter()
+        .filter(|(n, _)| !seed || matches!(*n, "todo" | "todos" | "metric"))
+        .map(|(n, d)| CommandEntry {
+            name: n.to_string(),
+            kind: "内置",
+            signature: String::new(),
+            description: d.to_string(),
+        })
+        .collect();
+    let rows = arboria_core::commands::discover(if seed { None } else { Some(&state_dir) })
+        .map_err(err)?;
+    for r in rows.into_iter().filter(|r| r.active && r.problem.is_none()) {
+        out.push(CommandEntry {
+            kind: if r.scope == arboria_core::commands::Scope::Project {
+                "项目"
+            } else {
+                "全局"
+            },
+            name: r.name,
+            signature: r.signature,
+            description: r.description,
+        });
+    }
+    Ok(out)
+}
+
 pub fn interrupt(ks: &Kernels, root: &Path, idea: &str) -> Result<(), String> {
     let k = key(&root.display().to_string(), idea);
     let i = ks.interrupters.lock().map_err(err)?.get(&k).cloned();

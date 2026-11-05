@@ -42,6 +42,7 @@ fn main() {
         "nb_load",
         "nb_save",
         "nb_run",
+        "nb_commands",
         "nb_interrupt",
         "nb_restart",
         "agent_rows",

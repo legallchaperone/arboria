@@ -48,6 +48,42 @@ kind = "slurm"
 host = "lab-box"
 account = "<your account>"
 `;
+// the notebook screen: the editor prototype's warmup-long, with cached results
+const steps = Array.from({ length: 60 }, (_, i) => i * 100);
+const curve = (warm: number, spike: number) =>
+  steps.map((x) => +(2.75 + 1.8 * Math.exp(-x / warm) + (x > 1200 && x < 3000 && x % 700 < 100 ? spike : 0)).toFixed(3));
+const ran = (outputs: unknown[], uses: string[] = []) => ({
+  code_sha: "", ran_at: "2026-11-05T09:12:00Z", duration_ms: 840, ok: true, outputs, defines: [], uses,
+});
+const NOTEBOOK = {
+  notebook: { owner: "idea", name: "warmup-long", path: "/Users/you/lm/.arboria/notebooks/warmup-long.md", marimo: null, cwd: "/Users/you/lm-warmup-long" },
+  exists: true,
+  text: "",
+  doc: {
+    front: [["arboria", "1"], ["idea", "warmup-long"]],
+    parts: [
+      { kind: "text", text: "# warmup-long\n\n假设：把 warmup 从 2k 步拉长到 8k，前 3k 步的 loss 尖峰会消失，最终 `val/loss` 至少低 0.02。\n\n## 尖峰\n\n`r011` 在 1.2k 到 3k 步之间有三次尖峰，都出现在 lr 爬到 2e-4 左右的时候。先把曲线放在一起看。" },
+      { kind: "block", id: "k3f9", code: "/plot r011 r012 val/loss" },
+      { kind: "text", text: "`r012` 很平。再看两次的最终结果：" },
+      { kind: "block", id: "cmp1", code: "lab.compare(\"r011\", \"r012\", \"val/loss\", last=True)" },
+      { kind: "text", text: "接着看第 9 到 12 层 QK 矩阵的奇异值。这个命令还没有，运行一次就交给 agent 写：" },
+      { kind: "block", id: "svd1", code: "lab.svd(\"r011\", step=2000, ask=\"前 20 个奇异值\")" },
+    ],
+  },
+  outputs: {
+    k3f9: ran([{ kind: "plot", title: "val/loss", x: "step", series: [
+      { name: "r011", x: steps, y: curve(900, 0.35) },
+      { name: "r012", x: steps, y: curve(1600, 0) },
+    ] }]),
+    cmp1: ran([{ kind: "table", columns: ["run", "warmup", "lr", "val/loss", "状态"], rows: [["r011", 2000, 3e-4, 2.912, "完成"], ["r012", 8000, 3e-4, 2.871, "完成"]], total: 2 }]),
+    svd1: ran([{ kind: "pending", task: "t007", what: "command", name: "svd", text: "命令 svd 还不存在，已交给 agent（t007）。写好后这里会自动重跑。" }]),
+  },
+  kernel: { python: "3.13.1", lab: true, pid: 48211 },
+};
+const AGENT_ROWS = [
+  { id: "t007", idea: "warmup-long", seed: null, text: "写 notebook 命令 svd（项目）：前 20 个奇异值\n调用：lab.svd(\"r011\", step=2000)", status: "running", kind: "command_new", created_at: "2026-11-05T09:12:00Z", done_at: null, result: null, attempts: 1, session_id: "s1", model: "sonnet", started_at: "2026-11-05T09:12:10Z", finished_at: null, block_id: "svd1", usage: null },
+  { id: "t006", idea: "warmup-long", seed: null, text: "读代码：训练循环里 lr 和梯度裁剪", status: "done", kind: "inspect", created_at: "2026-11-05T08:40:00Z", done_at: "2026-11-05T08:43:00Z", result: null, attempts: 1, session_id: "s0", model: "sonnet", started_at: "2026-11-05T08:40:05Z", finished_at: "2026-11-05T08:43:00Z", block_id: "ins1", usage: { input_tokens: 18200, output_tokens: 2400, cache_read_tokens: 96000, turns: 9, cost_usd: 0.142 } },
+];
 const started = Date.now();
 clock.now = () => now + (Date.now() - started);
 
@@ -144,6 +180,30 @@ mockIPC(
           : { output: "ok" };
       case "remove_project":
         return true;
+      case "nb_load":
+        return NOTEBOOK;
+      case "nb_save":
+        return { text: a.text, doc: NOTEBOOK.doc };
+      case "nb_commands":
+        return [
+          { name: "plot", kind: "内置", signature: "", description: "几个 run 的一条 wandb 曲线画在一起" },
+          { name: "compare", kind: "内置", signature: "", description: "几个 run 的 wandb 曲线（长表）" },
+          { name: "attn_entropy", kind: "项目", signature: "attn_entropy(run, *, step=None)", description: "每层注意力熵" },
+        ];
+      case "nb_run":
+        return NOTEBOOK.outputs[a.block as keyof typeof NOTEBOOK.outputs] ?? ran([{ kind: "text", text: "ok" }]);
+      case "agent_rows":
+        return a.root === fixture.projects[0].root ? AGENT_ROWS : [];
+      case "agent_log":
+        return [
+          { kind: "text", text: "先看 arb commands guide 的约定，再读 model.py 里 QK 投影在哪。" },
+          { kind: "tool", text: "Bash · arb commands guide" },
+          { kind: "tool", text: "Grep · q_proj" },
+          { kind: "text", text: "写 .arboria/commands/svd.py：取第 9–12 层 q_proj、k_proj 的权重，算 QKᵀ 的奇异值。" },
+        ];
+      case "agent_settings":
+      case "agent_save_settings":
+        return { auto: true, model: "sonnet", max_turns: 20, daily_limit: 30, timeout_s: 1200, claude: null };
       case "reveal":
       case "close_notebook":
       case "pty_write":
@@ -181,6 +241,7 @@ setTimeout(() => {
     nav("设置");
     setTimeout(() => [...document.querySelectorAll<HTMLElement>(".settings-nav .nav")].find((e) => e.textContent === (screen === "machines" ? "机器" : "项目"))?.click(), 200);
   }
+  if (screen === "agent") nav("Agent");
   if (screen === "palette") press("k", true);
   if (screen === "terminal") press("`", true);
   if (screen === "add") nav("添加第一个项目…");

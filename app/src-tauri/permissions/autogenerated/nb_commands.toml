@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-nb-commands"
+description = "Enables the nb_commands command without any pre-configured scope."
+commands.allow = ["nb_commands"]
+
+[[permission]]
+identifier = "deny-nb-commands"
+description = "Denies the nb_commands command without any pre-configured scope."
+commands.deny = ["nb_commands"]

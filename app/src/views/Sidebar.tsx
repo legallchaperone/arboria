@@ -38,6 +38,10 @@ export function Sidebar(props: {
           <span className="lbl">收件箱</span>
           {props.waiting > 0 && <span className="count is-hot">{props.waiting}</span>}
         </button>
+        <button type="button" className={"nav" + (r.k === "agent" ? " is-on" : "")} onClick={() => props.go({ k: "agent" })}>
+          <Glyph name="sparkle" />
+          <span className="lbl">Agent</span>
+        </button>
         <div className="side-group">
           <span>项目</span>
           <button type="button" className="icon-btn" style={{ width: 20, height: 20 }} aria-label="添加项目" title="添加项目" onClick={props.onAdd}>

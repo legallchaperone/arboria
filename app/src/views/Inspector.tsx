@@ -10,6 +10,7 @@ import { ago, su, STATUS_TEXT, statusTone } from "../lib/format";
 import { Glyph } from "../components/Glyph";
 import { cancelRun, rejectRun, useActions, writeNote } from "./actions";
 import type { Inspect } from "./route";
+import { AgentTask } from "./AgentView";
 
 const TONE: Record<string, string> = { ok: "ok", ink: "ok", accent: "run", warn: "warn", bad: "bad", muted: "" };
 
@@ -268,46 +269,8 @@ export function Inspector(props: {
       );
     }
   } else if (w.k === "todo") {
-    const t = props.boards[w.root]?.todos.find((x) => x.id === w.task);
     title = w.task;
-    body = t ? (
-      <>
-        <div className="chips">
-          <span className="pill" data-tone={t.status === "done" ? "ok" : "run"}>{t.status === "done" ? "做完了" : t.status}</span>
-          <button type="button" className="link small" onClick={() => props.onIdea(w.root, t.idea)}>
-            {t.idea}
-          </button>
-        </div>
-        <p className="pre">{t.text}</p>
-        {t.result && (
-          <div className="section">
-            <div className="small muted">agent 的结果</div>
-            <p className="pre">{t.result}</p>
-          </div>
-        )}
-        {t.status !== "done" && t.status !== "dropped" && (
-          <div className="app-row">
-            <button
-              type="button"
-              className="ab-btn body"
-              onClick={() =>
-                a.ask({
-                  title: `放弃待办 ${t.id}`,
-                  body: "agent 不再做它。",
-                  confirm: "放弃",
-                  danger: true,
-                  run: () => a.act(w.root, { kind: "todo_drop", task: t.id }, `已放弃 ${t.id}`),
-                })
-              }
-            >
-              <Glyph name="trash" /> 放弃这个待办
-            </button>
-          </div>
-        )}
-      </>
-    ) : (
-      <p className="small muted">读取中…</p>
-    );
+    body = <AgentTask root={w.root} task={w.task} onIdea={(i) => props.onIdea(w.root, i)} />;
   } else {
     title = w.title;
     body = (

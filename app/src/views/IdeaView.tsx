@@ -1,6 +1,6 @@
 // An idea: 概览 (what it tests, its runs — select one: the inspector —, what the agent is
-// doing, your notes) and Notebook (its marimo notebook embedded, until phase 3 brings the
-// app's own: a sandboxed 127.0.0.1 iframe).
+// doing, your notes) and Notebook (the app's own notebook, ADR 0005; an old marimo one is
+// offered for migration and can still be opened in a sandboxed 127.0.0.1 iframe).
 
 import { useEffect, useState } from "react";
 import { api, message } from "../api";
@@ -9,9 +9,10 @@ import { ago, clip, su, STATUS_TEXT, statusTone } from "../lib/format";
 import { Glyph } from "../components/Glyph";
 import { MenuButton } from "../components/Menu";
 import { ideaMenu, newSeed, seedMenu, useActions } from "./actions";
+import { NotebookPage } from "../notebook/Notebook";
 
-/** The notebook tab: start (or reuse) the idea's marimo server and embed it. */
-function Notebook(props: { root: string; idea: string }) {
+/** An old marimo notebook: start (or reuse) its server and embed it. */
+function Marimo(props: { root: string; idea: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [n, setN] = useState(0);
@@ -49,6 +50,7 @@ export function IdeaPage(props: {
   tab: "overview" | "notebook";
   onTab: (t: "overview" | "notebook") => void;
   onRun: (run: string) => void;
+  onTask: (task: string) => void;
 }) {
   const a = useActions();
   const root = props.board.project.root;
@@ -80,7 +82,14 @@ export function IdeaPage(props: {
         </span>
       </div>
       {props.tab === "notebook" && hasNotebook ? (
-        <Notebook root={root} idea={props.idea.name} />
+        <NotebookPage
+          root={root}
+          idea={props.idea.name}
+          board={props.board}
+          onRun={props.onRun}
+          onTask={props.onTask}
+          marimo={() => <Marimo root={root} idea={props.idea.name} />}
+        />
       ) : (
         <div className="idea-scroll">
           <IdeaView {...props} />

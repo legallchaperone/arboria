@@ -20,6 +20,7 @@ import { InboxView } from "./views/InboxView";
 import { ProjectView } from "./views/ProjectView";
 import { IdeaPage, SeedsView } from "./views/IdeaView";
 import { SettingsView } from "./views/SettingsView";
+import { AgentView } from "./views/AgentView";
 import type { Inspect, Route } from "./views/route";
 
 /** The clock (the screenshots pin it to the fixture's time). */
@@ -280,7 +281,9 @@ export function App() {
           ? [{ label: "设置" }]
           : route.k === "project"
             ? [{ label: board?.project.name ?? "项目" }]
-            : [
+            : route.k === "agent"
+              ? [{ label: "Agent" }]
+              : [
                 board?.project.kind === "home"
                   ? { label: "种子园", to: { k: "seeds" } as Route }
                   : { label: board?.project.name ?? "项目", to: { k: "project", root: route.root } as Route },
@@ -320,10 +323,13 @@ export function App() {
           onTab={setIdeaTab}
           selectedRun={inspect?.k === "run" ? inspect.run : null}
           onRun={(run) => setInspect({ k: "run", root: route.root, run })}
+          onTask={(task) => setInspect({ k: "todo", root: route.root, task })}
         />
       ) : (
         <div className="empty">{errors[route.root] ?? "读取中…"}</div>
       );
+  else if (route.k === "agent")
+    page = <AgentView projects={projects} now={now} onTask={(root, task) => setInspect({ k: "todo", root, task })} />;
   else if (route.k === "seeds") page = <SeedsView board={home ? boards[home.root] ?? null : null} homeRoot={platform?.home ?? null} now={now} onOpen={(seed) => home && go({ k: "idea", root: home.root, idea: seed })} />;
   else
     page = (

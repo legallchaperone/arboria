@@ -40,7 +40,8 @@ pub const COMMANDS_DIR: &str = "commands";
 pub const RESERVED_KWARGS: &[&str] = &["scope", "ask"];
 /// A long default is clipped to this many characters in signatures.
 pub const DEFAULT_CLIP: usize = 24;
-/// The interpreter [`describe`] runs (default `python3`).
+/// The Python interpreter arb uses for what stays on the Python side ([`describe`],
+/// the dashboard); default `python3`.
 pub const PYTHON_ENV: &str = "ARBORIA_PYTHON";
 /// How long [`describe`] waits for the parser.
 pub const DESCRIBE_TIMEOUT: Duration = Duration::from_secs(20);
@@ -318,7 +319,7 @@ out = {"description": doc, "problem": problem,
 sys.stdout.write(json.dumps(out))
 "#;
 
-fn python() -> String {
+pub fn python_exe() -> String {
     std::env::var(PYTHON_ENV)
         .ok()
         .filter(|p| !p.is_empty())
@@ -329,7 +330,7 @@ fn python() -> String {
 /// module notes); never imports it. A file Python cannot parse is a `problem`, not an
 /// error; a missing interpreter is an error.
 pub fn describe(path: &Path, name: &str) -> Result<Described> {
-    let exe = python();
+    let exe = python_exe();
     let mut child = Command::new(&exe)
         .args(["-I", "-c", DESCRIBE_SCRIPT])
         .arg(path)

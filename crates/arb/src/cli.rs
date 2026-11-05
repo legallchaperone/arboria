@@ -9,7 +9,8 @@
 //!
 //! Every subcommand dispatches to one core function and prints what the Python CLI prints
 //! (`tests/cli_parity.rs` runs both on the same steps); commands whose core module is not
-//! ported yet (commands, inspect, machine, doctor, ui, probe) still reach `todo!()`.
+//! ported yet (the rest of `arb probe`) still reach `todo!()`; `arb ui` runs the Python
+//! dashboard until the app replaces it.
 //! Exit status: 0, or 1 with `error: <message>` on stderr (Python `handle_errors`);
 //! `arb hook session-start` always exits 0 silently.
 
@@ -1085,8 +1086,18 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
             }
         }
         Cmd::Ui { idea, port, home } => {
+            let home = home
+                || match paths::locate(None) {
+                    Err(arboria_core::Error::NotARepo(_)) => true,
+                    Err(e) => return Err(e.into()),
+                    Ok(_) => ideas::home_of(None).is_some(),
+                };
             let code = if home {
-                ui::launch_home(&paths::home_root(), port)?
+                if idea.is_some() {
+                    bail!("--idea is for a project's dashboard, not the seed home");
+                }
+                let h = ideas::ensure_home(&mut info)?;
+                ui::launch_home(&h.root, port)?
             } else {
                 let ctx = paths::locate(None)?.require_initialized()?;
                 ui::launch(&ctx.main, ctx.toplevel.as_deref(), idea.as_deref(), port)?

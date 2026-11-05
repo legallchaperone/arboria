@@ -351,3 +351,18 @@ def test_seed_markdown_extraction() -> None:
     md = notebooks.seed_markdown(src, "x")
     assert md[0].startswith("## 为什么会有用\n\n低秩") and md[1] == "- 先在小模型上看奇异值谱"
     assert notebooks.seed_markdown("def broken(:\n", "x") == []
+
+
+def test_a_repo_under_the_home_folder_is_that_repo(isolated_home: Path) -> None:
+    """`~/arboria/lm` with `~/arboria` the home: inside lm, `arb idea …` is about lm's
+    ideas (the more specific place wins); the home's own folders are still the home."""
+    h = seeds.home()
+    lm = h.root / "code" / "lm"
+    (lm / "src").mkdir(parents=True)
+    (lm / ".git").mkdir()
+    assert h.contains(h.root)
+    assert h.contains(h.root / "seeds")
+    assert h.contains(h.root / "code")
+    assert not h.contains(lm)
+    assert not h.contains(lm / "src")
+    assert seeds.home_of(lm / "src") is None

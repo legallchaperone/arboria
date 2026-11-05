@@ -49,8 +49,8 @@ pub enum Action {
     SeedDrop { name: String },
     /// `arb idea revive NAME` in the seed home.
     SeedRevive { name: String },
-    /// `arb idea plant NAME [--as AS] [--hypothesis H] [--metric M]` in the target
-    /// project (`root`); empty: the seed's own.
+    /// `arb idea plant --repo ROOT NAME [--as AS] [--hypothesis H] [--metric M]`; empty:
+    /// the seed's own.
     SeedPlant {
         name: String,
         as_name: Option<String>,
@@ -205,7 +205,9 @@ pub fn argv(
             metric,
         } => {
             slug("种子名字", name)?;
-            let mut a = vec![s("idea"), s("plant")];
+            // the project the human picked, said explicitly: never guessed from the folder
+            // arb runs in (a repo under the seed home's folder reads as "in the seed home")
+            let mut a = vec![s("idea"), s("plant"), format!("--repo={}", root.display())];
             if let Some(n) = as_name.as_deref().filter(|n| !n.is_empty()) {
                 slug("idea 名字", n)?;
                 a.push(format!("--as={n}"));
@@ -384,7 +386,10 @@ mod tests {
             .unwrap_or_else(|e| e.into_inner());
         let tmp = std::env::temp_dir().join(format!("arboria-actions-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&tmp);
-        let (repo, home, cfg) = (tmp.join("lm"), tmp.join("home"), tmp.join("cfg"));
+        // the project lives inside the seed home's folder (as ~/arboria/lm would): planting
+        // must still go into the project the human picked
+        let (home, cfg) = (tmp.join("home"), tmp.join("cfg"));
+        let repo = home.join("code").join("lm");
         std::fs::create_dir_all(&repo).unwrap();
         std::fs::create_dir_all(&cfg).unwrap();
         std::fs::create_dir_all(&home).unwrap();

@@ -29,6 +29,8 @@ cd ~/code/lm && arb idea plant rank-schedule       # 在这个仓库里建 idea
 | 在 git 仓库里，但还没 `arb init` | 报错，和以前一样（不会悄悄记成种子） |
 | 在 `arb init` 过的仓库里 | 这个仓库的 idea |
 
+仓库放在种子园的文件夹里面（比如 `~/arboria/lm`）也算仓库：越具体的位置说了算，在 `~/arboria/lm` 里 `arb idea new` 建的是 lm 的 idea，不是种子。
+
 `arb idea set` 和 `arb idea revive` 只用于种子，要在仓库外运行；`arb idea plant` 正相反，在目标仓库里运行。在仓库外运行 `arb idea new` 会多打印一行：记成了种子、放在哪里、以后怎么种下。
 
 旧写法 `arb seed new/list/show/set/drop/revive/plant` 仍然可用（`--help` 里不再列出），在任何目录下都作用于种子。

@@ -223,10 +223,17 @@ impl Home {
         self.seeds_dir().join(format!("{name}.py"))
     }
 
-    /// Whether `path` is inside the home.
+    /// Whether `path` is inside the home, and not inside a git repo kept in a folder
+    /// under it (`~/arboria/lm` with `~/arboria` the home: there `arb idea …` is about
+    /// that repo's ideas, not seeds; the more specific place wins).
     pub fn contains(&self, path: &Path) -> bool {
         let p = resolve(path);
-        p.starts_with(&self.root)
+        if !p.starts_with(&self.root) {
+            return false;
+        }
+        !p.ancestors()
+            .take_while(|d| *d != self.root)
+            .any(|d| d.join(".git").exists())
     }
 }
 
@@ -284,4 +291,26 @@ pub fn seed_of_notebook(path: &Path) -> Option<(Home, String)> {
     };
     let name = p.file_stem()?.to_str()?.to_string();
     home.initialized().then_some((home, name))
+}
+
+#[cfg(test)]
+mod home_tests {
+    use super::*;
+
+    /// A git repo kept under the home's folder is that repo, not the home.
+    #[test]
+    fn a_repo_under_the_home_folder_is_that_repo() {
+        let tmp = std::env::temp_dir().join(format!("arboria-home-{}", std::process::id()));
+        let lm = tmp.join("code/lm");
+        std::fs::create_dir_all(lm.join("src")).unwrap();
+        std::fs::create_dir_all(lm.join(".git")).unwrap();
+        let h = Home {
+            root: resolve(&tmp),
+        };
+        assert!(h.contains(&tmp));
+        assert!(h.contains(&tmp.join("code")));
+        assert!(!h.contains(&lm));
+        assert!(!h.contains(&lm.join("src")));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
 }

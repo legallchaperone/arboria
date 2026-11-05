@@ -126,7 +126,16 @@ class Home:
             p = Path(path).resolve()
         except (OSError, RuntimeError):
             return False
-        return p == self.root or self.root in p.parents
+        if not (p == self.root or self.root in p.parents):
+            return False
+        # a git repo kept in a folder under the home is that repo, not the home (the more
+        # specific place wins: `~/arboria/lm` with `~/arboria` the home)
+        for d in [p, *p.parents]:
+            if d == self.root:
+                return True
+            if (d / ".git").exists():
+                return False
+        return True
 
 
 def home_root() -> Path:

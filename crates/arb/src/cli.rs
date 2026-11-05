@@ -777,16 +777,6 @@ fn read_answer(file: &str) -> anyhow::Result<String> {
     std::fs::read_to_string(file).map_err(|e| anyhow::anyhow!("cannot read {file}: {e}"))
 }
 
-fn read_file_arg(file: &str) -> anyhow::Result<String> {
-    if file == "-" {
-        let mut s = String::new();
-        std::io::Read::read_to_string(&mut std::io::stdin(), &mut s)?;
-        Ok(s)
-    } else {
-        std::fs::read_to_string(file).with_context(|| format!("cannot read {file}"))
-    }
-}
-
 /// The text lines of the Python CLI's printers, to be ported with it.
 mod lines {
     use arboria_core::{ideas, lessons, tasks};
@@ -2048,23 +2038,44 @@ fn probe_cmd(cmd: ProbeCmd, json: bool) -> anyhow::Result<()> {
     match cmd {
         ProbeCmd::Guide => print!("{}", probe::guide()),
         ProbeCmd::Enable { name } => {
-            let prov = human::require_human(&format!("arb probe enable {name}"), &name)?;
+            human::require_terminal(&format!("arb probe enable {name}"))?;
             let (ctx, file) = find_probe(&name)?;
+            println!("{}", probe::describe_for_enable(&file)?);
+            let confirmed = human::confirm(&name)?;
             let mut ledger = probe_ledger(ctx.as_ref())?;
-            let d = probe::enable(&mut ledger, &file, &prov)?;
-            println!("{} enabled ({})", file.key, d.id);
+            let d = probe::enable(&mut ledger, &file, &confirmed)?;
+            println!(
+                "enabled {} (decision {}, sha256 {})",
+                file.key,
+                d.id,
+                &file.sha256[..12]
+            );
         }
         ProbeCmd::Run { name } => {
             human::require_terminal(&format!("arb probe run {name}"))?;
             let (ctx, file) = find_probe(&name)?;
             let mut ledger = probe_ledger(ctx.as_ref())?;
             let r = probe::run_once(&mut ledger, &file)?;
-            emit(json, &r, |r| r.to_ledger_json().unwrap_or_default())?;
+            emit(json, &r, probe::result_text)?;
         }
         ProbeCmd::Check { name, input } => {
             let (_ctx, file) = find_probe(&name)?;
-            let r = probe::check(&file, read_file_arg(&input)?.as_bytes())?;
-            emit(json, &r, |r| r.to_ledger_json().unwrap_or_default())?;
+            let input = if input == "-" {
+                let mut buf = Vec::new();
+                std::io::Read::read_to_end(&mut std::io::stdin(), &mut buf)?;
+                buf
+            } else {
+                std::fs::read(&input).map_err(|e| anyhow::anyhow!("cannot read {input}: {e}"))?
+            };
+            let r = probe::check(&file, &input)?;
+            emit(json, &r, |r| {
+                format!(
+                    "{}\n\nok: {} parses this input (nothing saved; the human enables it with `arb probe enable {}`)",
+                    probe::result_text(r),
+                    file.key.name,
+                    file.key.name
+                )
+            })?;
         }
     }
     Ok(())

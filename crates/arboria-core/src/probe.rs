@@ -38,9 +38,9 @@
 //!   length limits, finite numbers, no HTML, no control characters. Display escapes anyway.
 //! - An `api` this build does not know disables the probe with a message; it is never run.
 //!
-//! Real in phase 1: [`parse_header`], [`parse_every`], [`validate_name`],
-//! [`validate_result`], [`set_probe_result`], [`enabled_hash`], [`ProbeKey`]. Stubbed:
-//! discovery, enabling, running, the host, the guide.
+//! The host is `python -I` ([`crate::commands::python_exe`]) for now, not `uv run
+//! --project`: phase 1 allows the project environment's standard library only, and the
+//! interpreter is the one arb already uses for the Python side.
 
 use std::path::{Path, PathBuf};
 
@@ -738,7 +738,7 @@ pub fn enabled_hash(conn: &rusqlite::Connection, probe: &ProbeKey) -> Result<Opt
     })
 }
 
-// ---------------------------------------------------------------- files (stubs)
+// ---------------------------------------------------------------- files
 
 /// A probe file found on disk with its parsed header.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -766,55 +766,409 @@ pub enum ProbeState {
     Invalid(String),
 }
 
-/// `<state dir>/probes` and `<config dir>/probes`; the project wins on a name clash.
+/// `<state dir>/probes` (project) or `<config dir>/probes` (global).
+pub fn probes_dir(scope: ProbeScope, state_dir: Option<&Path>) -> Option<PathBuf> {
+    match scope {
+        ProbeScope::Project => state_dir.map(|s| s.join(PROBES_DIR)),
+        ProbeScope::Global => Some(crate::clusters::config_dir().join(PROBES_DIR)),
+        ProbeScope::Builtin => None,
+    }
+}
+
+/// Read one probe file (header parsed from comments only; never executed).
+pub fn read_file(key: ProbeKey, path: &Path) -> Result<ProbeFile> {
+    let bytes = std::fs::read(path)?;
+    let header = match std::str::from_utf8(&bytes) {
+        Ok(text) => parse_header(text).map_err(|e| e.to_string()),
+        Err(e) => Err(format!("not UTF-8 ({e})")),
+    };
+    Ok(ProbeFile {
+        key,
+        path: path.to_path_buf(),
+        sha256: crate::cards::sha256_hex(&bytes),
+        header,
+    })
+}
+
+/// `<state dir>/probes` and `<config dir>/probes`, by name; the project wins on a name
+/// clash (the shadowed global file is left out).
 pub fn discover(state_dir: Option<&Path>) -> Result<Vec<ProbeFile>> {
-    let _ = state_dir;
-    todo!("probe discovery (ADR 0003; mirrors arboria.commands.discover)")
+    let mut out: Vec<ProbeFile> = Vec::new();
+    for scope in [ProbeScope::Project, ProbeScope::Global] {
+        let Some(dir) = probes_dir(scope, state_dir) else {
+            continue;
+        };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        let mut paths: Vec<PathBuf> = entries
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "py"))
+            .collect();
+        paths.sort();
+        for path in paths {
+            let Some(name) = path.file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+            let Ok(key) = ProbeKey::new(scope, name) else {
+                continue;
+            };
+            if out.iter().any(|f| f.key.name == key.name) {
+                continue; // shadowed by the project's
+            }
+            out.push(read_file(key, &path)?);
+        }
+    }
+    out.sort_by(|a, b| a.key.name.cmp(&b.key.name));
+    Ok(out)
 }
 
 /// One probe file's state against the ledger.
 pub fn state(conn: &rusqlite::Connection, file: &ProbeFile) -> Result<ProbeState> {
-    let _ = (conn, file);
-    todo!("probe state (ADR 0003)")
+    if let Err(e) = &file.header {
+        return Ok(ProbeState::Invalid(e.clone()));
+    }
+    Ok(match enabled_hash(conn, &file.key)? {
+        None => ProbeState::Disabled,
+        Some(h) if h == file.sha256 => ProbeState::Enabled,
+        Some(_) => ProbeState::NeedsReenable,
+    })
 }
 
-/// `arb probe enable NAME` (human only, [`crate::human::require_human`]): show machine,
-/// argv, every and the hash, the human types the name, record the hash-bound Decision
-/// (`probe_enable` event, backup commit).
+/// The header, refusing an invalid one.
+pub fn header_of(file: &ProbeFile) -> Result<&ProbeHeader> {
+    file.header.as_ref().map_err(|e| {
+        Error::Arb(format!(
+            "probe {} cannot run: {e}",
+            crate::records::py_repr(&file.key.name)
+        ))
+    })
+}
+
+/// What the human sees before enabling (`arb probe enable`).
+pub fn describe_for_enable(file: &ProbeFile) -> Result<String> {
+    let h = header_of(file)?;
+    Ok(format!(
+        "probe {} ({})\n  文件：{}\n  机器：{}\n  命令：{}\n  每隔：{}\n  结果：{}\n  sha256：{}\n\
+         启用的是这份字节：文件改了一个字节就会停用，要你重新启用。",
+        file.key.name,
+        file.key.scope.as_str(),
+        file.path.display(),
+        h.machine,
+        crate::slurm::shlex_join(&h.argv),
+        h.every,
+        h.kind.as_str(),
+        file.sha256
+    ))
+}
+
+/// The question of a probe Decision.
+pub const ENABLE_QUESTION: &str = "启用这个 probe（绑定文件内容哈希）吗？";
+
+/// `arb probe enable NAME` (human only): record the hash-bound Decision (`probe_enable`
+/// event, backup commit). `confirmed` is the human's typed confirmation
+/// ([`crate::human::confirm`] after [`describe_for_enable`] was shown).
 pub fn enable(
     ledger: &mut Ledger,
     file: &ProbeFile,
-    provenance: &crate::human::Provenance,
+    confirmed: &crate::human::Confirmed,
 ) -> Result<crate::model::Decision> {
-    let _ = (ledger, file, provenance);
-    todo!("arb probe enable (ADR 0003)")
+    header_of(file)?;
+    // the bytes enabled are the bytes on disk now
+    let now = read_file(file.key.clone(), &file.path)?;
+    if now.sha256 != file.sha256 {
+        return Err(Error::Arb(format!(
+            "{} changed while you were looking at it; run `arb probe enable {}` again",
+            file.path.display(),
+            file.key.name
+        )));
+    }
+    let key = file.key.to_string();
+    let id = ledger.write(|tx| {
+        let id = crate::records::insert_probe_decision(
+            tx,
+            &key,
+            ENABLE_QUESTION,
+            "enable",
+            Some(&file.sha256),
+            confirmed,
+        )?;
+        tx.event(
+            crate::model::EventKind::ProbeEnable,
+            &key,
+            &serde_json::json!({"decision": id.as_str(), "sha256": file.sha256,
+                                "path": file.path.display().to_string()}),
+        )?;
+        Ok(id)
+    })?;
+    crate::records::get_decision_in(ledger.conn(), &id)
+}
+
+// ---------------------------------------------------------------- the host
+
+/// How long the parser may run.
+pub const HOST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// The short-lived host (`python -I`): reads `{"source", "path", "name", "text"}` on stdin,
+/// runs the probe's source in a fresh namespace, calls `<name>(text)` and prints its
+/// answer as JSON. It gets the bytes the core hashed (never re-reads the file).
+const HOST: &str = r#"
+import json, sys
+req = json.loads(sys.stdin.buffer.read().decode("utf-8"))
+ns = {"__name__": "arb_probe", "__file__": req["path"]}
+exec(compile(req["source"], req["path"], "exec"), ns)
+fn = ns.get(req["name"])
+if not callable(fn):
+    sys.stderr.write(f"{req['path']} defines no function {req['name']}(text)\n")
+    sys.exit(2)
+sys.stdout.write(json.dumps(fn(req["text"]), ensure_ascii=False, allow_nan=False))
+"#;
+
+/// The last line of `text` (an error's useful part).
+fn last_line(text: &str) -> String {
+    crate::records::py_splitlines(crate::records::py_strip(text))
+        .last()
+        .map(|l| l.to_string())
+        .unwrap_or_default()
+}
+
+/// Run `source`'s parser on `input` (truncated to [`MAX_INPUT_BYTES`]) in the host and
+/// validate the answer. The process group is killed after [`HOST_TIMEOUT`].
+fn run_host(file: &ProbeFile, source: &[u8], input: &[u8]) -> Result<ProbeResult> {
+    use std::io::{Read as _, Write as _};
+    use std::os::unix::process::CommandExt as _;
+    let header = header_of(file)?;
+    let input = &input[..input.len().min(MAX_INPUT_BYTES)];
+    let request = serde_json::json!({
+        "source": String::from_utf8_lossy(source),
+        "path": file.path.display().to_string(),
+        "name": file.key.name,
+        "text": String::from_utf8_lossy(input),
+    });
+    let exe = crate::commands::python_exe();
+    let mut child = std::process::Command::new(&exe)
+        .args(["-I", "-c", HOST])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .process_group(0)
+        .spawn()
+        .map_err(|e| {
+            Error::Arb(format!(
+                "cannot run {exe} for the probe host ({e}); set ARBORIA_PYTHON"
+            ))
+        })?;
+    let mut stdin = child.stdin.take().expect("piped");
+    let body = serde_json::to_vec(&request)?;
+    let writer = std::thread::spawn(move || {
+        let _ = stdin.write_all(&body);
+    });
+    let mut stdout = child.stdout.take().expect("piped");
+    let mut stderr = child.stderr.take().expect("piped");
+    let out_reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = (&mut stdout)
+            .take(MAX_OUTPUT_BYTES as u64 + 1)
+            .read_to_end(&mut buf);
+        buf
+    });
+    let err_reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = (&mut stderr).take(64 * 1024).read_to_end(&mut buf);
+        buf
+    });
+    let start = std::time::Instant::now();
+    let status = loop {
+        if let Some(st) = child.try_wait()? {
+            break Some(st);
+        }
+        if start.elapsed() > HOST_TIMEOUT {
+            // the whole group: a parser that forked cannot outlive its deadline
+            let _ = std::process::Command::new("kill")
+                .args(["-KILL", &format!("-{}", child.id())])
+                .status();
+            let _ = child.kill();
+            let _ = child.wait();
+            break None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    let _ = writer.join();
+    let out = out_reader.join().unwrap_or_default();
+    let err = err_reader.join().unwrap_or_default();
+    let Some(status) = status else {
+        return Err(result_err(format!(
+            "the parser ran longer than {}s and was stopped",
+            HOST_TIMEOUT.as_secs()
+        )));
+    };
+    if !status.success() {
+        return Err(result_err(format!(
+            "the parser failed: {}",
+            last_line(&String::from_utf8_lossy(&err))
+        )));
+    }
+    parse_output(header.kind, &out)
 }
 
 /// `arb probe check NAME --input FILE`: run only the parser on a saved input, never the
 /// remote command (for the agent to test its probe). Returns the validated result.
 pub fn check(file: &ProbeFile, input: &[u8]) -> Result<ProbeResult> {
-    let _ = (file, input);
-    todo!("arb probe check (ADR 0003): run the host on `input`")
+    let source = std::fs::read(&file.path)?;
+    run_host(file, &source, input)
 }
 
-/// `arb probe run NAME`: the human runs an enabled probe once now (ssh gate, argv, host,
+/// `arb probe run NAME`: the human runs an enabled probe once now (the bytes on disk
+/// must hash to the enabled hash; ssh gate; the header's argv; the host;
 /// [`set_probe_result`]).
 pub fn run_once(ledger: &mut Ledger, file: &ProbeFile) -> Result<ProbeResult> {
-    let _ = (ledger, file);
-    todo!("arb probe run (ADR 0003)")
+    run_once_with(
+        ledger,
+        file,
+        std::sync::Arc::new(crate::backend::SystemRunner),
+    )
+}
+
+/// [`run_once`] with a given runner for the remote command (tests).
+pub fn run_once_with(
+    ledger: &mut Ledger,
+    file: &ProbeFile,
+    runner: std::sync::Arc<dyn crate::backend::Runner>,
+) -> Result<ProbeResult> {
+    let header = header_of(file)?.clone();
+    let source = std::fs::read(&file.path)?;
+    let sha = crate::cards::sha256_hex(&source);
+    match enabled_hash(ledger.conn(), &file.key)? {
+        None => {
+            return Err(Error::Arb(format!(
+                "probe {} is not enabled; the human enables it with `arb probe enable {}`",
+                file.key.name, file.key.name
+            )))
+        }
+        Some(h) if h != sha => {
+            return Err(Error::Arb(format!(
+                "{} changed since it was enabled (待重新启用); the human enables it again with `arb probe enable {}`",
+                file.path.display(),
+                file.key.name
+            )))
+        }
+        Some(_) => {}
+    }
+    let profile = crate::clusters::load_profile(&header.machine, None)?;
+    let session = crate::backend::SshSession::new(&profile.host, runner);
+    let out = session.remote(&crate::slurm::shlex_join(&header.argv), None, &[0])?;
+    let input = out.stdout.as_bytes();
+    let input = &input[..input.len().min(MAX_INPUT_BYTES)];
+    let result = run_host(file, &source, input)?;
+    set_probe_result(
+        ledger,
+        &header.machine,
+        &file.key,
+        &crate::cards::sha256_hex(input),
+        Some(&sha),
+        &result,
+    )?;
+    Ok(result)
+}
+
+/// `text` made storable as a text result: control characters (but `\n`, `\t`) and `<`
+/// shown as spaces / `‹`, cut to [`MAX_TEXT`].
+fn plain_text(text: &str) -> String {
+    let cleaned: String = text
+        .chars()
+        .map(|c| match c {
+            '\n' | '\t' => c,
+            '<' => '‹',
+            c if c.is_control() => ' ',
+            c => c,
+        })
+        .collect();
+    let cleaned = crate::records::py_strip(&cleaned).to_string();
+    if cleaned.chars().count() > MAX_TEXT {
+        cleaned.chars().take(MAX_TEXT - 1).collect::<String>() + "…"
+    } else {
+        cleaned
+    }
 }
 
 /// The built-in `balance` probe: `Profile.balance_cmd` parsed by
-/// [`crate::machine::parse_accounts`]; on a parse failure a text result with the raw
-/// output (escaped on display).
+/// [`crate::machine::parse_accounts`]; the profile's account as a number, or on a parse
+/// failure a text result with the raw output (escaped on display).
 pub fn builtin_balance(profile: &crate::clusters::Profile, stdout: &str) -> ProbeResult {
-    let _ = (profile, stdout);
-    todo!("built-in balance probe (ADR 0003)")
+    let rows = crate::machine::parse_accounts(stdout);
+    let found = rows
+        .iter()
+        .find(|(a, _)| *a == profile.account)
+        .and_then(|(_, b)| b.parse::<f64>().ok().filter(|v| v.is_finite()))
+        .and_then(|v| {
+            if v.fract() == 0.0 && v.abs() < 9e15 {
+                Some(serde_json::Number::from(v as i64))
+            } else {
+                serde_json::Number::from_f64(v)
+            }
+        });
+    match found {
+        Some(value) => ProbeResult::Number(NumberResult {
+            label: "余额".into(),
+            value,
+            of: None,
+            unit: Some("小时".into()),
+        }),
+        None => {
+            let text = plain_text(stdout);
+            ProbeResult::Text(TextResult {
+                label: Some("余额".into()),
+                text: if text.is_empty() {
+                    "（没有输出）".into()
+                } else {
+                    text
+                },
+            })
+        }
+    }
 }
+
+/// A result as plain text (the CLI; the app renders its own, escaped).
+pub fn result_text(r: &ProbeResult) -> String {
+    match r {
+        ProbeResult::Number(n) => {
+            let mut out = format!("{}: {}", n.label, n.value);
+            if let Some(of) = &n.of {
+                out.push_str(&format!(" / {of}"));
+            }
+            if let Some(u) = &n.unit {
+                out.push_str(&format!(" {u}"));
+            }
+            out
+        }
+        ProbeResult::Text(t) => match &t.label {
+            Some(l) => format!("{l}:\n{}", t.text),
+            None => t.text.clone(),
+        },
+        ProbeResult::Table(t) => {
+            let cell = |c: &Cell| match c {
+                Cell::Number(n) => n.to_string(),
+                Cell::Text(s) => s.clone(),
+                Cell::Empty => String::new(),
+            };
+            let mut lines: Vec<String> = t.label.iter().cloned().collect();
+            lines.push(t.columns.join("\t"));
+            lines.extend(
+                t.rows
+                    .iter()
+                    .map(|r| r.iter().map(cell).collect::<Vec<_>>().join("\t")),
+            );
+            lines.join("\n")
+        }
+    }
+}
+
+/// The guide (for the agent).
+const GUIDE: &str = include_str!("probe_guide.md");
 
 /// `arb probe guide`: the conventions for writing a probe (for the agent).
 pub fn guide() -> &'static str {
-    todo!("arb probe guide (ADR 0003)")
+    GUIDE
 }
 
 #[cfg(test)]
@@ -1032,5 +1386,57 @@ def deltaai_credits(text: str) -> dict:
         assert!(parse_output(ProbeKind::Number, br#"{"label": "x", "value": 1}"#).is_ok());
         assert!(parse_output(ProbeKind::Number, b"not json").is_err());
         assert!(parse_output(ProbeKind::Text, &vec![b' '; MAX_OUTPUT_BYTES + 1]).is_err());
+    }
+
+    #[test]
+    fn enable_binds_the_files_bytes() {
+        let dir = std::env::temp_dir().join(format!("arb-probe-enable-{}", std::process::id()));
+        let probes = dir.join(PROBES_DIR);
+        std::fs::create_dir_all(&probes).unwrap();
+        let path = probes.join("credits.py");
+        std::fs::write(
+            &path,
+            format!("{EXAMPLE}\ndef credits(text):\n    return {{}}\n"),
+        )
+        .unwrap();
+        let mut ledger = Ledger::open(&dir).unwrap();
+        crate::db::init_backup_repo(&dir).unwrap();
+        let file = read_file(
+            ProbeKey::new(ProbeScope::Project, "credits").unwrap(),
+            &path,
+        )
+        .unwrap();
+        assert_eq!(state(ledger.conn(), &file).unwrap(), ProbeState::Disabled);
+        let shown = describe_for_enable(&file).unwrap();
+        assert!(
+            shown.contains("命令：accounts") && shown.contains(&file.sha256),
+            "{shown}"
+        );
+        let d = enable(&mut ledger, &file, &crate::human::Confirmed::for_tests()).unwrap();
+        assert_eq!(d.choice.as_deref(), Some("enable"));
+        assert_eq!(d.decided_by.as_deref(), Some("human"));
+        assert_eq!(
+            enabled_hash(ledger.conn(), &file.key).unwrap().as_deref(),
+            Some(file.sha256.as_str())
+        );
+        assert_eq!(state(ledger.conn(), &file).unwrap(), ProbeState::Enabled);
+        // one changed byte: the enabled hash no longer matches
+        std::fs::write(
+            &path,
+            format!("{EXAMPLE}\ndef credits(text):\n    return {{ }}\n"),
+        )
+        .unwrap();
+        let changed = read_file(file.key.clone(), &path).unwrap();
+        assert_eq!(
+            state(ledger.conn(), &changed).unwrap(),
+            ProbeState::NeedsReenable
+        );
+        // enabling refuses bytes that changed after they were shown
+        let err = enable(&mut ledger, &file, &crate::human::Confirmed::for_tests()).unwrap_err();
+        assert!(
+            err.to_string().contains("changed while you were looking"),
+            "{err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

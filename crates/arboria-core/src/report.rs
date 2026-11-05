@@ -225,7 +225,23 @@ pub fn status_data(ctx: &RepoContext, ledger: &Ledger) -> Result<StatusData> {
         pending_approvals(ledger)?.into(),
     );
     data.insert("finished_unseen".into(), finished_unseen(ledger)?.into());
+    let stale = probes_to_reenable(ctx, ledger)?;
+    if !stale.is_empty() {
+        // v8 (ADR 0003); absent otherwise, so the JSON stays Python's
+        data.insert("probes_to_reenable".into(), stale.into());
+    }
     Ok(StatusData(Value::Object(data)))
+}
+
+/// Probes enabled once whose file changed since ("待重新启用").
+pub fn probes_to_reenable(ctx: &RepoContext, ledger: &Ledger) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for f in crate::probe::discover(Some(&ctx.state_dir()))? {
+        if crate::probe::state(ledger.conn(), &f)? == crate::probe::ProbeState::NeedsReenable {
+            out.push(f.key.name.clone());
+        }
+    }
+    Ok(out)
 }
 
 fn scope_data(ctx: &RepoContext, ledger: &Ledger) -> Result<Row> {
@@ -713,7 +729,21 @@ pub fn status_parts(data: &StatusData, brief: bool) -> (String, String) {
             format!("待你批准的 run：{pending} 个（`arb card RUN` 看审核单，由你运行 `arb approve RUN`）"),
         );
     }
-    if pending != 0 || truthy(data.get("proposed_lessons")) || truthy(data.get("finished_unseen")) {
+    let stale: Vec<&str> = arr(data, "probes_to_reenable")
+        .into_iter()
+        .filter_map(Value::as_str)
+        .collect();
+    if !stale.is_empty() {
+        tail.push(format!(
+            "probe 待重新启用（文件改过，停用了）：{}——由你运行 `arb probe enable NAME`",
+            stale.join("、")
+        ));
+    }
+    if pending != 0
+        || !stale.is_empty()
+        || truthy(data.get("proposed_lessons"))
+        || truthy(data.get("finished_unseen"))
+    {
         tail.push(BOARD_LINE.into()); // something waits for the human
     }
     if brief {

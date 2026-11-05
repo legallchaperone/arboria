@@ -641,6 +641,36 @@ fn py_truthy(v: &serde_json::Value) -> bool {
     }
 }
 
+/// The human's probe Decision, decided at once (inside a write): `enable` bound to the
+/// file's sha256, or `disable`. Needs the human's [`crate::human::Confirmed`] token, so
+/// only a typed confirmation in the human's terminal reaches it (`probe::enable`).
+pub fn insert_probe_decision(
+    tx: &mut WriteTx<'_>,
+    probe_key: &str,
+    question: &str,
+    choice: &str,
+    bound_hash: Option<&str>,
+    confirmed: &crate::human::Confirmed,
+) -> Result<DecisionId> {
+    if choice == "enable" && bound_hash.is_none() {
+        bail!("enabling a probe binds the file's hash");
+    }
+    let id = insert_decision(
+        tx,
+        SubjectType::Probe,
+        probe_key,
+        question,
+        &["enable", "disable"],
+    )?;
+    tx.execute(
+        "UPDATE decisions SET bound_hash = ?1 WHERE id = ?2",
+        rusqlite::params![bound_hash, id],
+    )?;
+    let prov = serde_json::to_value(confirmed.provenance())?;
+    set_decision(tx, &id, choice, AUTHOR_HUMAN, Some(&prov))?;
+    Ok(id)
+}
+
 /// Open a decision in its own write.
 pub fn open_decision(
     ledger: &mut Ledger,

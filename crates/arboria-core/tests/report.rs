@@ -236,3 +236,41 @@ fn cap_keeps_the_limit() {
     assert_eq!(capped.chars().count(), hook::MAX_CONTEXT_CHARS);
     assert!(capped.ends_with(hook::TRUNCATED));
 }
+
+#[test]
+fn status_names_probes_to_reenable() {
+    let tmp = TempDir::new("report-probe");
+    let main = tmp.path().canonicalize().unwrap().join("WaveFront");
+    std::fs::create_dir_all(&main).unwrap();
+    git(&main, &["init", "-q", "-b", "main"]);
+    git(&main, &["commit", "-q", "--allow-empty", "-m", "init"]);
+    let ctx = paths::locate(Some(&main)).unwrap();
+    let ledger = Ledger::open(&ctx.state_dir()).unwrap();
+    let probes = ctx.state_dir().join("probes");
+    std::fs::create_dir_all(&probes).unwrap();
+    std::fs::write(
+        probes.join("credits.py"),
+        "# /// arb-probe\n# api = 1\n# machine = \"deltaai\"\n# argv = [\"accounts\"]\n# every = \"30m\"\n# kind = \"number\"\n# ///\n",
+    )
+    .unwrap();
+    let data = report::status_data(&ctx, &ledger).unwrap();
+    assert!(
+        data.0.get("probes_to_reenable").is_none(),
+        "absent when nothing waits"
+    );
+    ledger
+        .conn()
+        .execute(
+            "INSERT INTO decisions (id, subject_type, subject_id, question, options_json, choice, \
+             decided_by, created_at, bound_hash) VALUES ('d001', 'probe', 'project:credits', 'q', \
+             '[]', 'enable', 'human', '2026-11-05T00:00:00Z', ?1)",
+            ["0".repeat(64)],
+        )
+        .unwrap();
+    let data = report::status_data(&ctx, &ledger).unwrap();
+    let text = report::format_status(&data, false);
+    assert!(
+        text.contains("probe 待重新启用（文件改过，停用了）：credits——由你运行 `arb probe enable NAME`\n看板：arb ui"),
+        "{text}"
+    );
+}

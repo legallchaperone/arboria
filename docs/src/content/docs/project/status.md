@@ -24,7 +24,7 @@ CI 在 Python 3.11 和 3.13 上运行全部测试，测试用临时 git 仓库�
 
 ## 还没做
 
-- 在 Mac 上按指纹签字（只能由人做）。CI 的 macOS 任务已经验证：打包并启动 Arboria.app、触控 ID 查询、真实的系统通知、LaunchAgent 小助手跑完一轮。签名和公证需要 Apple 开发者账号。
+- 在 Mac 上按指纹签字（只能由人做）。CI 的 macOS 任务已经验证：打包并启动 Arboria.app（截图）、触控 ID 查询、签字一路走到系统认证提示（没人应答就拒绝、什么都不提交）、真实的系统通知、LaunchAgent 小助手跑完一轮。签名和公证需要 Apple 开发者账号。
 
 - 通过 `SshSlurm` 的**第一个真实 run**：submit → approve → watch → 拉回 `ARBORIA_OUT`，核对命令行、日志路径、`sacct` 状态和花费。
 - 计算节点上的 Python 环境（uv venv 或 NGC PyTorch 容器），以及计算节点能不能上网。

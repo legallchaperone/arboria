@@ -5,6 +5,12 @@ description: 按日期整理的主要变化，来自 git 历史。
 
 还没有发布版本，版本号是 0.1.0。下面按日期列出主要变化；细节见 [提交历史](https://github.com/legallchaperone/arboria/commits/main)。
 
+## 2026-11-05
+
+- **app 自己的 notebook**（第 3 期，ADR 0005）：idea 和种子的 notebook 改成 markdown（`.arboria/notebooks/<idea>.md`，worktree 里是 `notebook.md`），文字块加 ` ```arb ` 命令块。在 Arboria.app 里编辑和运行：一个 notebook 一个 Python kernel，`/plot r001 r002 val/loss` 这样的斜杠命令、`lab.xxx(...)` 或几行 Python；表格、交互曲线、图片、错误、审核单、读代码的答案画在块下面，结果缓存在 `.arboria/outputs/`。终端里 `arb nb run` / `arb nb show`。
+- **后台 agent**：缺的命令和读代码的请求交给 `claude -p`（你自己登录的 claude），一个项目一次一个，完了 notebook 里那一块自动重跑。app 里的 Agent 面板：状态、模型、轮数、token、花费、日志、交给 agent / 停止 / 重试；设置在 `agent.toml`。命令行 `arb agent run/list/queue/stop/log`。
+- **marimo 下线**：`arb idea migrate [NAME…] [--all]` 把 marimo notebook 转成新格式（只用 `ast` 读，不执行，原文件留着）；app 打开旧 notebook 时提示迁移。新的 idea、种子和种下都写 `.md`。
+
 ## 2026-11-04
 
 - **读代码** `lab.inspect(question, view=..., run=...)`：agent 讲代码（代码摘录加批注、伪代码、简化代码、Mermaid 架构图），答案缓存在账本里（schema v7，`inspections`）。agent 只给位置和批注，代码由 arb 从 git 取出；代码变了标出来，`.refresh()` 再问。`arb inspect guide/source/check/done`。

@@ -26,7 +26,7 @@ Arboria 是一个本地命令行工具 `arb`，让你和 agent（目前是 Claud
 
 | 概念 | 是什么 | 谁来写 |
 | --- | --- | --- |
-| **种子** | 还没有仓库的 idea：名字、一句话想法、可选的假设和指标，加一个 marimo notebook（`~/arboria/seeds/NAME.py`）。在仓库外 `arb idea …` 管的就是种子。 | 你（仓库外的 `arb idea new`） |
+| **种子** | 还没有仓库的 idea：名字、一句话想法、可选的假设和指标，加一个 notebook（`~/arboria/seeds/NAME.md`）。在仓库外 `arb idea …` 管的就是种子。 | 你（仓库外的 `arb idea new`） |
 | **idea** | 一个可检验的假设。对应分支 `idea/NAME`、同级的 worktree 文件夹和一个 notebook；有指标和置信度（`guess`、`prelim`、`confirmed`、`rejected`）。 | 你（`arb idea new`、`arb idea plant`、`lab.fork`） |
 | **run** | 一次实验：worktree 当前状态的快照（`refs/arboria/runs/<id>`，不动你的分支和暂存区）、请求的资源、改动原因，以及集群上的作业和花费。 | 你或 Claude 发起；状态由程序写 |
 | **审核单** | run 上集群之前的清单：检查、资源、估计、预算。批准绑定在它的哈希上，任何一项变了旧批准就作废。 | 程序生成，你批准 |

@@ -1,6 +1,6 @@
 ---
 title: 自定义命令
-description: notebook 的中心是命令库：内置的分析加上 Claude 为你写的命令。lab.<名字>(...) 第一次调用时交给 Claude，写好后 cell 自动重跑。
+description: notebook 的中心是命令库：内置的分析加上 Claude 为你写的命令。lab.<名字>(...) 第一次调用时交给 agent，写好后那一块自动重跑。
 ---
 
 原则：**分析由 agent 写成命令，你只写一行调用。** 你在 notebook 里直接写想要的分析，一行一个：
@@ -53,13 +53,17 @@ lab.commands()
 
 ## 自动重跑
 
-marimo 正在运行时，调用命令的 cell 会盯着命令文件（每秒看一次，文件稳定一秒后才算）；文件出现或改动就自动重跑这个 cell。结果下面有一行出处：
+在 app 的 notebook 里：命令不存在时，这一块显示“已交给 agent（t007）”和 agent 走到哪了；app 开着时后台的 agent 接着写（见 [后台 agent](/guides/agent/)），待办一做完，这一块自动重跑一次（notebook 开着、kernel 在跑时）。在 Claude Code 会话里做也一样：`arb todo done` 之后就重跑。
+
+还在用 marimo 时，调用命令的 cell 会盯着命令文件（每秒看一次，文件稳定一秒后才算）；文件出现或改动就自动重跑这个 cell。结果下面有一行出处：
 
 ```text
 命令 svd · v1a2b3c4d · 项目
 ```
 
 版本是文件 sha256 的前 8 位。之后每次调用都只是运行存下来的函数：不花 token，结果可复现。返回值在 marimo 里是一个带出处的包装（原始值在 `.value`），在普通 Python 里直接是原始值。
+
+在 app 的 notebook 里，命令的返回值按种类画出来，下面跟着出处那一行：DataFrame 或 `list[dict]` 是表格，matplotlib 的 Figure 是图片，字符串是文本，`{"kind": "plot", "series": [{"name", "x", "y"}], "title", "x", "y", "log", "style"}` 是交互的曲线（`style="bar"` 是柱状图）。不能返回 HTML；app 里 `ctx.mo` 是 None。
 
 :::note[实现细节]
 marimo 公开的响应式只重跑引用了被改动全局变量的 cell，`lab.svd(r)` 这种 cell 碰不到，所以这里用了 marimo 的私有接口（对着 0.25.2 核对过，测试守着）。拿不到时退回成“重新运行这个 cell”的提示。
@@ -112,7 +116,7 @@ def svd(ctx, run, *, k=20, log=False):
     ...
 ```
 
-`ctx` 还有：`ctx.idea`（name、hypothesis、metric）、`ctx.mo`（marimo 模块或 None）、`ctx.cache_dir`（`.arboria/cache/commands/<名字>/`）、`ctx.value(x)`（marimo 控件取 `.value`）。种子 notebook 里 `ctx.idea` 是 None，`ctx.seed` 有种子的字段。
+`ctx` 还有：`ctx.idea`（name、hypothesis、metric）、`ctx.mo`（marimo 模块；app 和普通 Python 里是 None）、`ctx.cache_dir`（`.arboria/cache/commands/<名字>/`）、`ctx.value(x)`（marimo 控件取 `.value`）。种子 notebook 里 `ctx.idea` 是 None，`ctx.seed` 有种子的字段。
 
 ## 命令的安全
 

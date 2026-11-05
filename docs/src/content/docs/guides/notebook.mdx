@@ -1,25 +1,90 @@
 ---
 title: idea notebook 与 lab API
-description: 每个 idea 一个 marimo notebook：它放在哪里、怎么打开，以及 notebook 里的 lab API 和待办。
+description: 每个 idea 一个 notebook：文字块加命令块，在 Arboria.app 里写和运行；文件格式、kernel、输出、从 marimo 迁移，以及 lab API 和待办。
 ---
 
 import Shot from '../../../components/Shot.astro';
-import nbTop from '../../../assets/shots/nb-top.webp';
-import nbBottom from '../../../assets/shots/nb-bottom.webp';
+import nbLight from '../../../assets/shots/app-notebook-light.webp';
+import nbDark from '../../../assets/shots/app-notebook-dark.webp';
 
-每个 idea 有一个 [marimo](https://marimo.io) notebook。你在里面整理思路、发起实验、分析结果，就像普通 notebook；Claude 能读，不能改，它的活来自你在 notebook 里留下的待办。
+每个 idea 有一个 notebook：文字块加命令块，在 Arboria.app 里写、在 app 里跑。你在里面整理思路、一行命令出图、发起实验；还没有的分析命令一运行就交给 agent，写好后这一块自动重跑。Claude 能读 notebook，不能改。
 
-<Shot src={nbTop} alt="idea warmup-long 的 notebook：假设、指标、动机，lab.runs() 的表格列出成功的 r001、r002 和待批准的 r003" caption="notebook 开头：idea 的假设和指标、你的动机，lab.runs() 列出这个 idea 的 run（演示数据）。" />
+<Shot src={nbLight} dark={nbDark} alt="Arboria.app 里 idea warmup-long 的 notebook：假设和观察的文字，/plot r011 r012 val/loss 画出两条曲线，lab.compare 的结果是一张表" caption="app 里的 notebook：文字和命令块，结果画在块下面（演示数据）。" />
 
 ## 放在哪里
 
-- `arb idea new`（或 `arb idea plant`、`lab.fork`）同时创建 `.arboria/notebooks/<idea>.py`，worktree 里的 `notebook.py` 是指向它的符号链接。模板只在新建时写入，以后不会改你的 notebook。
-- `notebook.py` 写进了 `.git/info/exclude`，**快照永远不包含它**：改 notebook 不会让快照变化，合并时也不会冲突。仓库里本来就有被跟踪的 `notebook.py` 时，arb 不覆盖它，只提示你直接打开 `.arboria/notebooks/<idea>.py`。
-- 关闭 idea 时只删掉符号链接，notebook 本身保留；备份仓库每次提交都带上 `notebooks/*.py`。
-- `arb install-claude` 禁止 Claude 用 Edit/Write/MultiEdit/NotebookEdit 改 `**/notebook.py` 和 `.arboria/notebooks/**`，读不受限。
+- `arb idea new`（或 `arb idea plant`、`lab.fork`）同时创建 `.arboria/notebooks/<idea>.md`，worktree 里的 `notebook.md` 是指向它的符号链接；种子的是 `~/arboria/seeds/<名字>.md`。模板只在新建时写入，以后不会改你的 notebook。
+- `notebook.md` 写进了 `.git/info/exclude`，**快照永远不包含它**：改 notebook 不会让快照变化，合并时也不会冲突。关闭 idea 时只删掉链接，notebook 本身保留；备份仓库每次提交都带上 `notebooks/*.md`。
+- 运行结果不写进文件，存在 `.arboria/outputs/<idea>/<块 id>.json`（种子：`outputs/seed-<名字>/`）。再打开 notebook 时显示上次的结果。
+- `arb install-claude` 禁止 Claude 用 Edit/Write 改 `**/notebook.md`、`.arboria/notebooks/**` 和结果缓存，读不受限。
 - 旧的 idea 没有 notebook（或者你删了它）：`arb idea notebook [NAME]` 补建；已经有了就什么都不改。
-- 字体：所有 notebook 的正文、标题和 marimo 界面文字用 Noto Sans SC，代码（编辑器、行内代码、输出）用 Maple Mono CN（保留连字，`@ $ & % Q => ->` 用普通字形）。字体随 arb 安装，不依赖你的机器装了什么，也不联网：notebook 写的是 `marimo.App(..., css_file="arboria.css")`，arb 在 notebook 旁边写好 `arboria.css`（两种字体直接嵌在里面，约 25 MB；worktree 里的 `arboria.css` 是指向它的链接，同样写进了 `.git/info/exclude`；备份仓库只收 `*.py`，不收它）。
-- 更早建的 notebook 没有这一行：在你自己的终端里运行一次 `arb idea style`（在仓库里改这个仓库的所有 idea notebook，在仓库外改所有种子 notebook）。它只往 `marimo.App(...)` 里加 `css_file="arboria.css"`，不碰任何 cell，可以重复运行；在 Claude Code 里拒绝。
+
+## 文件格式
+
+notebook 是普通的 markdown，用别的编辑器打开也能读：
+
+````markdown
+---
+arboria: 1
+idea: warmup-long
+---
+# warmup-long
+
+前 2k 步的尖峰可能和 warmup 太短有关，先对比两条曲线。
+
+```arb {#k3f9}
+/plot r001 r002 val/loss
+```
+````
+
+- 开头只有格式版本和 idea（或 seed）名。
+- 文字支持标题、段落、列表、引用、粗体、斜体、行内代码和链接；别的写法原样当文字保留，不会被当成 HTML。普通的代码块（不是 `arb`）原样保留，不执行。
+- ` ```arb {#id} ` 是命令块，`id` 是 4 位小写字母和数字。app 保存时补上缺的 id，复制出来的重复 id 换成新的。
+
+## 编辑器
+
+在 app 里打开 idea，点 **Notebook** 标签。
+
+- 在空行输入 `/`：插入命令块、标题、列表、引用。
+- 命令块里：`Shift ↩`（或 `⌘ ↩`）运行；`↩` 在一行命令后面是跳出这一块继续写字，在多行 Python、冒号或括号后面是换行；`⌥ ↩` 总是换行；方向键在块的开头和结尾移进移出；块是空的时 `⌫` 把它变回一段文字。
+- 输入 `/` 或 `lab.` 补全命令（内置的、这个项目的、全局的，带签名和一句说明），命令参数里输入 `r` 补全这个 idea 的 run。
+- 边写边保存（停下半秒后），文件是上面那种规整的 markdown；没改过的 notebook 打开后不会被重写。
+- 顶上一行是 kernel 的状态（Python 版本、pid、几块在跑），右边「全部运行」「中断」「重启 kernel」。
+
+## 命令块和 kernel
+
+一块里可以写三种东西：
+
+- 斜杠命令，一行一个：`/plot r001 r002 val/loss` 就是 `lab.plot("r001", "r002", "val/loss")`；`k=v` 是关键字参数，能读成 Python 字面量（数字、`True`、带引号的字符串）就按字面量。
+- `lab.xxx(...)`。
+- 几行 Python。超过几行的分析让 agent 写成命令（见 [自定义命令](/guides/commands/)）。
+
+每个 notebook 有自己的 kernel：第一次运行时在 idea 的 worktree 里起 `python -m arboria.kernel`（解释器和 `arb-py` 的一样，可以用 `ARBORIA_PYTHON` 指定），命名空间里已经有 `lab`。同一个 notebook 的块一个接一个跑，变量在块之间共享，app 开着就一直在；「重启 kernel」清空变量。「中断」在块里抛 `KeyboardInterrupt`。
+
+块最后一个表达式的值就是它的输出，`print` 的内容边跑边出现：
+
+| 返回值 | 显示成 |
+|---|---|
+| 字符串、数字、别的对象 | 文本 |
+| `list[dict]`、pandas DataFrame | 表格（最多 2000 行，表头下写总行数） |
+| `{"kind": "plot", "series": [{"name", "x", "y"}], …}` | 交互的曲线或柱状图（`style="bar"`、`log=True`、`title`、`x`、`y`） |
+| matplotlib 的 Figure、PIL 图片 | 图片 |
+| 异常 | 错误名和信息，traceback 折叠 |
+| `lab.run(...)`、`lab.inspect(...)`、缺的命令 | 审核单、读代码的答案、“已交给 agent” |
+
+app 从不把输出当 HTML 渲染。结果下面一行写着什么时候跑的、用了多久；代码改过之后标“代码改过”；上面的块重跑后改了这一块用到的变量，标“过期”（不会自动重跑）。
+
+终端里也能跑：在 worktree 里 `arb nb run [--block ID]` 依次运行，结果同样进缓存，`arb nb show` 列出各块。
+
+## 从 marimo 迁移
+
+以前的 idea 和种子是 marimo notebook（`.py`）。在 app 里打开时，Notebook 标签会提示「迁移到新 notebook」，也可以先用 marimo 打开；命令行是在你自己的终端里运行
+
+```bash
+arb idea migrate --all        # 或者 arb idea migrate NAME…；在种子园里迁种子
+```
+
+迁移只用 `ast` 读 `.py`，不执行：`mo.md("...")` 的 cell 变成文字，其他 cell 变成命令块（去掉 marimo 的函数外壳和最后的 `return`），只 import marimo 或 arboria 的 cell 去掉。原来的 `.py` 留着，迁过的不再迁。在 Claude Code 里会被拒绝。
 
 ## lab API
 
@@ -61,15 +126,15 @@ lab.prune("loss 不降")   # = arb idea drop，理由记成你的笔记
 
 ### 当前 idea 怎么确定
 
-按顺序：`lab.use("<idea>")` 手动指定 → 调用者的 `__file__`（marimo 里就是 notebook 文件）→ 正在运行的 marimo app → 当前目录所在的 idea worktree。都不行就报错，提示你 `lab.use(...)`。
+按顺序：`lab.use("<idea>")` 手动指定 → 调用者的 `__file__`（app 的 kernel 里就是 notebook 文件）→ 正在运行的 marimo app → 当前目录所在的 idea worktree。都不行就报错，提示你 `lab.use(...)`。
 
 ### Run 句柄
 
 `.id`、`.status()`、`.card()`、`.jobs()`、`.wandb_url`、`.metrics(keys)`、`.local_out`（拉回来的 `ARBORIA_OUT`）、`.config`（解析后的 config）。
 
-在 notebook 里，一个 run 显示成两行：第一行是 `r003 · 待批准 · 原因 · 来自 r002`；第二行随状态变化：待批准时是 `arb approve r003`，运行中是已运行多久（分段时是第几段），成功时是用时、SU 和 wandb 链接，失败时是失败原因（`arb watch` 记下的那一行日志）。审核单、作业表和 run 总结折叠在下面。
+在 notebook 里，`lab.run(...)` 显示成审核单的摘要和「看审核单」按钮：签字在右边的审核单面板里用触控 ID（见 [Mac app](/guides/app/)）。marimo 里一个 run 显示成两行：第一行是 `r003 · 待批准 · 原因 · 来自 r002`；第二行随状态变化：待批准时是 `arb approve r003`，运行中是已运行多久（分段时是第几段），成功时是用时、SU 和 wandb 链接，失败时是失败原因（`arb watch` 记下的那一行日志）。审核单、作业表和 run 总结折叠在下面。
 
-<Shot src={nbBottom} alt={'notebook 下半部分：初步结论，lab.run 生成的 r003 待批准和 arb approve r003 提示，以及 lab.svd(r2, ask="前 20 个奇异值") 命令还不存在、已交给 agent（t002）'} caption="写下结论，发起下一个 run；还不存在的命令 lab.svd 交给了 agent（演示数据）。" />
+
 
 ### lab.runs() 的列
 
@@ -77,7 +142,7 @@ run、状态、父 run、原因、资源（`4 GPU × 12h`）、SU（结束后是
 
 ## 待办
 
-- 你在 notebook 里写 `lab.todo("...")`；SessionStart hook 在当前 idea 的状态里列出未完成的待办，Claude 据此干活。
+- 你在 notebook 里写 `lab.todo("...")`；SessionStart hook 在当前 idea 的状态里列出未完成的待办，Claude 据此干活。在 app 的 [Agent 面板](/guides/agent/) 里也可以把它交给后台的 agent。
 - 在 notebook 里，`lab.todo("...")` 显示成一行：`已交给 agent（t001）：<待办>`；cell 重跑时找到同一个未完成的待办是 `已在待办里（t001）：<待办>`；做完的是 `已完成（t001）：<待办> → <结果>`。
 - `lab.todos(include_closed=False)` 是一行一个待办的简短列表：`t001 · 等 agent · <待办> · 3 分钟前`（状态：等 agent、已完成、已放弃）。文字一律转义，太长的截短，悬停看全文。
 - 返回值照旧能当数据用：`t.id`、`t.text`、`t.status`、`t.result`、`t.existed`（是不是复用的），`t["id"]` 也行，`t.data` 是完整的 dict；`lab.todos()` 可以遍历、取下标，`.data` 是 dict 的列表（要 DataFrame 就 `pd.DataFrame(lab.todos().data)`）。

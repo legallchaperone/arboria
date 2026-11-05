@@ -1,0 +1,49 @@
+---
+title: 后台 agent
+description: 缺的命令、读代码的请求交给后台的 claude -p：怎么排队、跑在哪里、能做什么不能做什么，Agent 面板和设置。
+---
+
+import Shot from '../../../components/Shot.astro';
+import agentLight from '../../../assets/shots/app-agent-light.webp';
+import agentDark from '../../../assets/shots/app-agent-dark.webp';
+
+notebook 里一行 `lab.svd(r001, ask="前 20 个奇异值")` 找不到命令时，会写一个“写命令”的待办；`lab.inspect(...)` 写一个“读代码”的待办。Arboria.app 开着时，后台的 agent 会接着把它做完，notebook 里那一块再自动重跑一次。你不用开 Claude Code 会话。
+
+## 怎么跑
+
+- agent 就是你自己登录的 `claude`，用 `claude -p`（非交互）跑，花的是你的订阅额度。找 `claude` 的顺序：`ARBORIA_CLAUDE` → `agent.toml` 里的 `claude` → PATH。
+- 写命令、改命令和读代码的待办一出现就排队（设置里可以关掉）；普通的 `lab.todo` 待办要你点「交给 agent」。
+- app 每 10 秒看一次各项目的队列，**同一个项目一次只跑一个**（`.arboria/agent.lock`）。app 没开时，可以在终端里 `arb agent run`（`--once` 只跑一个）。
+- 在 idea 的 worktree 里跑（种子：种子园），提示里是 `arb commands guide` 或 `arb inspect guide` 的约定、这个待办和它来自哪一块。
+- agent 交东西只走已有的校验：命令文件、`arb todo done`、`arb inspect done`。跑完没关掉待办算“没通过检查”，在同一个会话里（`--resume`）再修一次；还不行就“要你看”。
+- 每次的日志（stream-json 原样）存在 `.arboria/agent/<待办>-<第几次>.jsonl`；用了多少轮、token（输入 / 输出 / 缓存读）和花费记在账本里。
+
+## agent 不能做的
+
+agent 的工具是白名单：读文件、搜索、编辑代码、`arb commands`、`arb inspect`、`arb todo`、只读的 git、`python`。明确禁止的有 `arb approve`、`arb lesson accept`、`arb note`、`arb submit`、`sbatch`、`ssh`，以及编辑 notebook、`.arboria/` 下的账本和结果缓存。它的工具进程带着 `CLAUDECODE`，所以就算绕过了白名单，`arb approve` 和写种子的命令也会被代码拒绝。命令写好后第一次运行，仍然是你的 notebook 在跑。
+
+## Agent 面板
+
+侧栏的 **Agent**：每个项目一张表，一个待办一行，写着种类、属于哪个 idea、状态（排队、在做、没通过检查、要你看、做完了）、模型、第几次、轮数、token、花费和用时。点一行在右边看详情：待办全文、agent 的结果、最近一次的日志（说了什么、调用了哪些工具），按钮是「交给 agent」「停止」「重试」「放弃」。notebook 里“已交给 agent”的那一块也能点进来。
+
+「设置」（存在 `~/.config/arboria/agent.toml`）：
+
+| 设置 | 默认 | 说明 |
+|---|---|---|
+| 一出现就交给 agent | 开 | 写命令、改命令、读代码的待办自动排队 |
+| 模型 | `sonnet` | `sonnet`、`opus`、`haiku` 或完整的模型名 |
+| 每次最多几轮 | 20 | `--max-turns` |
+| 每天最多几次 | 30 | 每个项目分开算，到了就停到第二天 |
+| 每次最多几秒 | 1200 | 超时就停下，算没通过 |
+
+<Shot src={agentLight} dark={agentDark} alt="Agent 面板：项目 lm 的两个待办，t007 写命令 svd 在做，t006 读代码已做完，带模型、轮数、token 和花费" caption="Agent 面板（演示数据）。" />
+
+## 命令行
+
+```bash
+arb agent list [--all]        # 队列
+arb agent queue t007          # 交给 agent，或重试（只由人）
+arb agent stop t007           # 停下正在跑的
+arb agent log t007            # 最近一次的日志
+arb agent run [--once]        # 在终端里跑队列（只由人）
+```

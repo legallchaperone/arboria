@@ -52,6 +52,7 @@ export default defineConfig({
 						'guides/notebook',
 						'guides/commands',
 						'guides/inspect',
+						'guides/agent',
 						'guides/submit',
 						'guides/monitor',
 						'guides/app',

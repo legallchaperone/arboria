@@ -11,7 +11,8 @@ CI 在 Python 3.11 和 3.13 上运行全部测试，测试用临时 git 仓库�
 
 - 本地账本、idea 生命周期、快照、笔记、status / export、SessionStart hook、install-claude、托管的 CLAUDE.md 区块与经验。
 - 提交、审核单、批准、拒绝、分段、计费、Slurm 作业记录、poll / watch / cancel / logs / remote ls。
-- 每个 idea 的 notebook、`lab` API、待办、notebook 命令和自动重跑（用真的 marimo）。
+- 每个 idea 的 notebook、`lab` API、待办、notebook 命令和自动重跑。
+- app 自己的 notebook 和派活（第 3 期，ADR 0005）：markdown 文件格式、kernel 和结构化输出、编辑器、后台 `claude -p` 队列和 Agent 面板、marimo 迁移。kernel 和 agent 的完整流程用真的 Python 和假的 `claude` 测试；app 在 Linux 上实际跑过（Xvfb）：运行、流式输出、中断、重启、缺命令交给 agent 再自动重跑、迁移。
 - 只读看板和种子园看板。
 - 种子、种下、种子的放弃和恢复，种子园里的 Claude Code 设置。
 - Rust 核心和 `arb`（第 1 期）：和 Python 版逐字节对照的测试向量、输出对比。
@@ -39,7 +40,9 @@ CI 在 Python 3.11 和 3.13 上运行全部测试，测试用临时 git 仓库�
 
 - `find_job` 用 `sacct --starttime=now-30days` 查找已有作业。
 - 加入项目 id 之前提交的 run 不能再 approve，要重新 submit。
-- 自动重跑依赖 marimo 的私有接口；marimo 改了接口时退回成“重新运行这个 cell”的提示。
+- 还没迁移的 marimo notebook 里，自动重跑依赖 marimo 的私有接口；marimo 改了接口时退回成“重新运行这个 cell”的提示。
+- app 的 notebook 还没有在真的 `claude -p` 上跑过派活（测试用假的 `claude`）。
+- `arb nb`、`arb agent`、`arb idea migrate` 只在 Rust 版 `arb` 里，还没进 CLI 参考页（它由 Python 版生成）。
 - `refs/arboria/*` 默认不会被 push，换机器 clone 时不会带过去。
 
 ## 开发

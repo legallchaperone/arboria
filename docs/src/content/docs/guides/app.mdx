@@ -11,7 +11,7 @@ import overviewDark from '../../../assets/shots/app-overview-dark.webp';
 import cardLight from '../../../assets/shots/app-card-light.webp';
 import cardDark from '../../../assets/shots/app-card-dark.webp';
 
-Arboria.app 是 `arb` 的窗口：不用开终端就能看作业、签字。它和命令行用的是同一个 Rust 核心，读的是同一份账本。notebook 这一期还是 marimo，app 在单独的窗口里打开它（自己的 notebook 是下一期）。设计说明见 [ADR 0004](https://github.com/legallchaperone/arboria/blob/main/docs/adr/0004-app-shell.md)。
+Arboria.app 是 `arb` 的窗口：不用开终端就能看作业、签字。它和命令行用的是同一个 Rust 核心，读的是同一份账本。notebook 也在 app 里：文字块加命令块，块在你的 Python kernel 里跑（见 [idea notebook](/guides/notebook/)）；缺的命令交给后台的 agent（见 [后台 agent](/guides/agent/)）。设计说明见 [ADR 0004](https://github.com/legallchaperone/arboria/blob/main/docs/adr/0004-app-shell.md) 和 [ADR 0005](https://github.com/legallchaperone/arboria/blob/main/docs/adr/0005-notebook-and-agents.md)。
 
 ## 安装
 
@@ -75,7 +75,11 @@ arb projects remove ~/code/old
 - app 是从 Claude Code 里启动的（进程环境里有 `CLAUDECODE`）：拒绝，提示你去自己的终端。
 - 不是 Mac：没有触控 ID，按钮变成“在终端里签字”，在下面的终端里填好 `arb approve rNNN`，由你按回车并输入 run id。
 
-这些检查在核心里，不在界面上：app 只是把“这张审核单显示了多久、哈希是什么”交给核心，没有指纹就不会有 Decision。notebook 窗口（marimo）加载的是 `127.0.0.1` 上的页面，没有任何调用 app 的权限，notebook 里的代码碰不到签字。
+这些检查在核心里，不在界面上：app 只是把“这张审核单显示了多久、哈希是什么”交给核心，没有指纹就不会有 Decision。notebook 里的代码在单独的 kernel 进程里跑，只能经 `lab` 生成审核单，碰不到签字；`lab.run` 的结果只有一个「看审核单」按钮，签字仍然在审核单面板里。还没迁移的 marimo notebook 加载的是 `127.0.0.1` 上的页面，没有任何调用 app 的权限。
+
+## Agent
+
+侧栏的 **Agent** 列出各项目交给后台 `claude -p` 的待办：状态、模型、轮数、token、花费和日志，以及交给 agent、停止、重试。见 [后台 agent](/guides/agent/)。
 
 ## 项目
 
@@ -89,7 +93,7 @@ arb projects remove ~/code/old
 
 ## idea
 
-两个标签：**概览**（假设、指标、花费、从哪个 run 分出；run 列表，点一个在右边看详情或签字；agent 在做的待办；笔记，下面的框里直接写一条，⌘⏎ 保存，选中了 run 时可以记在那个 run 上）和 **Notebook**（这个 idea 的 marimo notebook，直接嵌在 app 里：第一次打开时在 worktree 里起 `marimo edit notebook.py`，只听 `127.0.0.1`，地址里带一段随机路径（不知道它的程序打不开），之后复用，退出 app 时停掉；notebook 文件不存在时先补一个，不覆盖已有的）。
+两个标签：**概览**（假设、指标、花费、从哪个 run 分出；run 列表，点一个在右边看详情或签字；agent 在做的待办；笔记，下面的框里直接写一条，⌘⏎ 保存，选中了 run 时可以记在那个 run 上）和 **Notebook**（这个 idea 的 notebook：文字和命令块，`Shift ↩` 运行，结果画在块下面，见 [idea notebook](/guides/notebook/)）。还是 marimo `.py` 的 notebook 会先提示「迁移到新 notebook」；也可以「先用 marimo 打开」：在 worktree 里起 `marimo edit notebook.py`，只听 `127.0.0.1`，地址里带一段随机路径，退出 app 时停掉。
 
 标签栏右边的「⋯」：写笔记、从这里分出新 idea、在 worktree 里开终端、在 Finder 中显示，以及**合并进主分支**（`arb idea close --merge`）和**放弃这个 idea**（`arb idea drop`：先存最终快照、打 tag，再删 worktree 和分支）。两个都会先让你确认；账本、run 和笔记都留着。
 
@@ -97,7 +101,7 @@ run 的详情里：待签字的 run 有「拒绝」（可以写原因，记成�
 
 ## 种子园
 
-还没有仓库的想法。「新的种子」：名字和一句话（假设、指标可以以后再填）。点一个种子打开它：**概览**（一句话、假设、指标）和 **Notebook**（`seeds/<名字>.py`，和 idea 一样嵌在 app 里）。侧栏里种子园下面列着思考中的种子。每个种子的「⋯」：**种进项目…**（选项目，填假设和指标，可以改名；在那个项目里新建 idea，notebook 链回种子）、放弃（移到「已放弃」，点「恢复」回来）。种过的在「已种下」里。
+还没有仓库的想法。「新的种子」：名字和一句话（假设、指标可以以后再填）。点一个种子打开它：**概览**（一句话、假设、指标）和 **Notebook**（`seeds/<名字>.md`，和 idea 的一样）。侧栏里种子园下面列着思考中的种子。每个种子的「⋯」：**种进项目…**（选项目，填假设和指标，可以改名；在那个项目里新建 idea，notebook 链回种子）、放弃（移到「已放弃」，点「恢复」回来）。种过的在「已种下」里。
 
 这些按钮都是 app 替你运行对应的 `arb` 命令（同样的检查、同样的错误信息），没有一个会批准 run：签字只有上面那张审核单。app 是从 Claude Code 里启动的话，写笔记和改种子会被 `arb` 拒绝，和命令行一样。
 

@@ -14,8 +14,11 @@ myproj/                       主 worktree
 └── .arboria/
     ├── ledger.db             SQLite 账本（WAL），schema 版本在 PRAGMA user_version
     ├── backup/ledger.sql     备份提交时导出的数据库
-    ├── notebooks/<idea>.py   每个 idea 的 notebook
-    ├── notebooks/arboria.css notebook 的样式和字体（arb 生成，不进备份）
+    ├── notebooks/<idea>.md   每个 idea 的 notebook（以前的 marimo 是 <idea>.py）
+    ├── notebooks/arboria.css marimo notebook 的样式和字体（arb 生成，不进备份）
+    ├── outputs/<idea>/<块>.json  notebook 每一块上次的结果（不进备份）
+    ├── agent/<待办>-<次>.jsonl   后台 agent 每次的日志（stream-json）
+    ├── agent.lock            同一个项目一次只跑一个 agent
     ├── commands/<名字>.py    项目的 notebook 命令（Claude 写）
     ├── cache/commands/<名字>/ 命令的缓存
     ├── runs/<run>/out/       拉回来的 ARBORIA_OUT
@@ -23,7 +26,8 @@ myproj/                       主 worktree
     ├── notifications.log     watch / poll 的通知
     └── hook.log              hook 的错误
 myproj-<idea>/                每个 idea 的 worktree（分支 idea/<idea>）
-├── notebook.py → ../myproj/.arboria/notebooks/<idea>.py
+├── notebook.md → ../myproj/.arboria/notebooks/<idea>.md
+├── notebook.py → ../myproj/.arboria/notebooks/<idea>.py   （还没迁移的 marimo notebook）
 └── arboria.css → ../myproj/.arboria/notebooks/arboria.css
 ```
 
@@ -35,7 +39,7 @@ myproj-<idea>/                每个 idea 的 worktree（分支 idea/<idea>）
 
 ## 备份仓库
 
-`.arboria/` 本身是一个只做备份的小 git 仓库。下面这些事件之后，arb 把数据库导出到 `backup/ledger.sql`，连同 `notebooks/*.py` 和 `commands/*.py` 一起提交：
+`.arboria/` 本身是一个只做备份的小 git 仓库。下面这些事件之后，arb 把数据库导出到 `backup/ledger.sql`，连同 `notebooks/*.md`、`notebooks/*.py` 和 `commands/*.py` 一起提交：
 
 - idea 新建、关闭；笔记；新 run；决定；
 - 经验的提出、接受、拒绝、退役；待办的新建、完成、放弃；置信度和指标修改；
@@ -49,8 +53,9 @@ myproj-<idea>/                每个 idea 的 worktree（分支 idea/<idea>）
 | --- | --- |
 | `~/.config/arboria/clusters.toml` | 机器配置（`ARBORIA_CONFIG_DIR`） |
 | `~/.config/arboria/commands/` | 全局 notebook 命令 |
+| `~/.config/arboria/agent.toml` | 后台 agent 的设置（自动派活、模型、轮数、每天几次、超时） |
 | `~/.cache/arboria/ui/` | 看板的样式（带字体）和指向包内看板的链接（`ARBORIA_CACHE_DIR`；可以随时删，`arb ui` 会重建） |
-| `~/arboria/`（`ARBORIA_HOME`） | 种子园：`seeds/<名字>.py` 是种子 notebook，`seeds/arboria.css` 是它们的样式和字体；`.arboria/` 和项目的一样，另有 `.arboria/seeds/`（每次备份提交前把种子 notebook 复制进来） |
+| `~/arboria/`（`ARBORIA_HOME`） | 种子园：`seeds/<名字>.md` 是种子 notebook（以前的是 `.py`），`seeds/arboria.css` 是它们的样式和字体；`.arboria/` 和项目的一样，另有 `.arboria/seeds/`（每次备份提交前把种子 notebook 复制进来） |
 
 种子园不是 git 仓库；账本的 schema 和项目的相同（`seeds`、`plantings` 两张表，待办属于一个 idea 或一个种子）。
 

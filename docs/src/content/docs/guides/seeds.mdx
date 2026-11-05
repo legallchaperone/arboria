@@ -8,14 +8,14 @@ import garden from '../../../assets/shots/seed-garden.webp';
 import seedNb from '../../../assets/shots/seed-notebook-full.webp';
 import planted from '../../../assets/shots/seed-planted.webp';
 
-想法常常还在酝酿：不属于任何仓库，也许永远不需要代码。**种子**就是这样的想法：一个还没有仓库的 idea。它放在全局的种子园里，有自己的 marimo notebook；想清楚了，再**种进**某个仓库，变成普通的 idea。
+想法常常还在酝酿：不属于任何仓库，也许永远不需要代码。**种子**就是这样的想法：一个还没有仓库的 idea。它放在全局的种子园里，有自己的 notebook；想清楚了，再**种进**某个仓库，变成普通的 idea。
 
 种子用的也是 `arb idea`：**在仓库外**（或种子园里）运行时，`arb idea` 管的是种子；在初始化过的仓库里，管的是这个仓库的 idea。
 
 ```bash
 cd ~                                               # 不在任何仓库里
 arb idea new rank-schedule "LoRA 的秩随层深度变化" --metric "同参数量下的 GLUE 平均分"
-marimo edit ~/arboria/seeds/rank-schedule.py      # 或在 VS Code 里用 marimo 扩展打开
+# 在 Arboria.app 的种子园里打开它的 notebook（~/arboria/seeds/rank-schedule.md）
 arb idea list                                      # 最近编辑的在前；--all 含已放弃的
 arb idea set rank-schedule --hypothesis "浅层需要更高的秩"
 cd ~/code/lm && arb idea plant rank-schedule       # 在这个仓库里建 idea
@@ -40,7 +40,7 @@ cd ~/code/lm && arb idea plant rank-schedule       # 在这个仓库里建 idea
 ## 种子园
 
 - 位置是 `~/arboria/`，环境变量 `ARBORIA_HOME` 可以改。第一个用到种子的命令（仓库外的 `arb idea …`，以及仓库外的 `arb ui`、`arb install-claude --home`）会自动建好它，并打印一行说明位置。
-- 里面是 `seeds/<名字>.py`（种子 notebook，普通文件，好找好打开）和 `.arboria/`（和项目一样的账本和备份仓库）。种子园本身不是 git 仓库。
+- 里面是 `seeds/<名字>.md`（种子 notebook，普通的 markdown 文件，好找好打开；以前的种子是 marimo 的 `.py`，在种子园里 `arb idea migrate --all` 转过来）和 `.arboria/`（和项目一样的账本和备份仓库）。种子园本身不是 git 仓库。
 - 种子的字段：名字（规则和 idea 一样）、一句话想法（≤300，可空）、可选的假设（≤300）和指标（≤200）、状态（思考中 / 已种下 / 已放弃）、种在哪里（可以有多处）、创建和最近编辑时间（notebook 文件改过也算）。
 
 ## 种子只由你写
@@ -55,7 +55,7 @@ arb idea plant NAME [--repo PATH] [--as IDEA] [--hypothesis T] [--metric T] [--a
 
 - 目标仓库默认是当前目录所在的仓库，必须已经 `arb init`。种子里没有假设和指标时，用 `--hypothesis` / `--metric` 给出。
 - 它走和 `arb idea new` 完全一样的路径：从主 worktree 的 HEAD 建分支、worktree 和 notebook。
-- 新 idea 的 notebook 开头写着“来自种子 NAME”和种子 notebook 的路径，下面一个折叠的“种子里的思路”里是种子 notebook 的**全部 markdown cell**。代码 cell 不复制：它们可能假设了别的环境。
+- 新 idea 的 notebook 开头写着“来自种子 NAME”，下面“种子里的思路”一节引用种子 notebook 的**全部文字**。命令块不复制：它们可能假设了别的环境。
 - 种子变成“已种下”，两个账本里各记一条事件。一个种子默认只种一次；`--again` 可以再种进别的仓库（或换个名字），每处都记下。
 
 <Shot src={planted} alt="种下后的 idea notebook：rank-schedule，假设、指标、来自种子的链接，下面展开的“种子里的思路”" caption="种下后的 idea notebook：开头链接回种子，种子里的 markdown 收在“种子里的思路”里。" />

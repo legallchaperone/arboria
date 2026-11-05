@@ -16,8 +16,9 @@ description: 从一个种子开始，种进仓库成为 idea，打开它的 note
 ```bash
 cd ~
 arb idea new loss-spikes "大 batch 里的 loss 尖峰是不是 Adam 二阶矩滞后"
-marimo edit ~/arboria/seeds/loss-spikes.py
 ```
+
+在 Arboria.app 的种子园里打开它（文件是 `~/arboria/seeds/loss-spikes.md`）。
 
 第一次运行会建好种子园 `~/arboria/`。在 notebook 里写观察、猜想、玩具实验；在仓库外 `arb idea list` 列出所有种子。详见[种子园](/guides/seeds/)。
 
@@ -50,14 +51,16 @@ arb idea new lr-warmup --hypothesis "warmup 能稳定早期训练" --metric "val
 
 ## 4. 打开 notebook
 
+在 Arboria.app 里点开这个 idea，切到 **Notebook** 标签。没有 app 的机器上，`notebook.md` 是普通的 markdown，块可以在终端里跑：
+
 ```bash
 cd ../myproj-loss-spikes
-marimo edit notebook.py   # 或在 VS Code 里用 marimo 扩展打开
+arb nb run
 ```
 
-notebook 开头是 idea 的假设和指标（种下的还带着折叠的“种子里的思路”），然后是 `from arboria import lab` 和 `lab.runs()`。这个 notebook 只有你写；要 Claude 改代码，就在里面留一个待办：
+notebook 开头是 idea 的假设和指标（种下的还带着“种子里的思路”），然后是一个 `/runs` 命令块。在空行输入 `/` 插入命令块，`Shift ↩` 运行。这个 notebook 只有你写；要 Claude 改代码，就在里面留一个待办：
 
-```python
+```arb
 lab.todo("把 eval 改成每 500 步一次")
 ```
 

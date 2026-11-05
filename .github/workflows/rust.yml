@@ -11,6 +11,11 @@ on:
       # the committed Python snapshots the Rust tests compare against
       - "src/arboria/cli.py"
       - "src/arboria/db.py"
+      # the kernel, outputs and migration the notebook tests run for real
+      - "src/arboria/kernel.py"
+      - "src/arboria/output.py"
+      - "src/arboria/migrate.py"
+      - "src/arboria/lab.py"
       - ".github/workflows/rust.yml"
   pull_request:
     paths:
@@ -22,6 +27,11 @@ on:
       # the committed Python snapshots the Rust tests compare against
       - "src/arboria/cli.py"
       - "src/arboria/db.py"
+      # the kernel, outputs and migration the notebook tests run for real
+      - "src/arboria/kernel.py"
+      - "src/arboria/output.py"
+      - "src/arboria/migrate.py"
+      - "src/arboria/lab.py"
       - ".github/workflows/rust.yml"
 
 permissions:
@@ -60,6 +70,34 @@ jobs:
 
       - name: Test
         run: cargo test --workspace --locked
+
+  notebooks:
+    # crates/arb/tests/notebooks.rs: new notebooks, migration, the kernel and the agent
+    # queue (with a fake `claude`) against the real Python package; skipped without one.
+    name: notebook and agent (real Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Toolchain (pinned in rust-toolchain.toml)
+        run: rustup toolchain install && rustup show
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Test
+        env:
+          ARBORIA_PYTHON: ${{ github.workspace }}/.venv/bin/python
+        run: cargo test -p arb --test notebooks --locked -- --nocapture
 
   python-snapshots:
     # crates/arb/tests/python_commands.txt and crates/arboria-core/tests/fixtures/ are

@@ -141,29 +141,30 @@ jobs:
         env:
           ARBORIA_TEST_NOTIFY: "1"
         run: |
-          # through Arboria.app (UserNotifications, as the app): its permission state, then
-          # one notification; what usernoted did with it; screenshots (the banner, or the
-          # system's "Arboria would like to send notifications" prompt the first time)
-          app="$PWD/app/src-tauri/target/release/bundle/macos/Arboria.app/Contents/MacOS/arboria"
+          # through Arboria.app (UserNotifications, as the app): the bundle's signature (an
+          # ad-hoc one, bound to Info.plist), its permission state, then one notification,
+          # run directly (as the helper does) and through LaunchServices; screenshots (the
+          # banner, or the system's "Arboria would like to send notifications" prompt)
+          bundle="$PWD/app/src-tauri/target/release/bundle/macos/Arboria.app"
+          app="$bundle/Contents/MacOS/arboria"
+          codesign -dv "$bundle" 2>&1 | grep -E "Identifier|Signature|Info.plist|Sealed" || true
           "$app" --notify-status
-          start=$(date "+%Y-%m-%d %H:%M:%S")
-          ( "$app" --notify "Arboria" "CI: r001 跑完了（11.86 SU）"; echo "notify exit: $?" ) &
-          for t in 1 3 6; do
-            python3 -c "import time; time.sleep($t)"
-            screencapture -x "$RUNNER_TEMP/notify-$t.png"
-          done
-          wait || true
+          ( "$app" --notify "Arboria" "CI: r001 跑完了（直接运行）"; echo "direct: exit $?" ) &
+          python3 -c "import time; time.sleep(4)"
+          screencapture -x "$RUNNER_TEMP/notify-1.png"
+          open -n -g -a "$bundle" --args --notify "Arboria" "CI: r002 跑完了（open -a）"
+          python3 -c "import time; time.sleep(5)"
+          screencapture -x "$RUNNER_TEMP/notify-2.png"
           "$app" --notify-status
-          echo "--- usernoted since $start"
-          log show --start "$start" --style compact \
-            --predicate 'process == "usernoted" OR process == "NotificationCenter" OR process == "UserNotificationCenter"' \
-            | grep -iE "arboria|deliver|denied|authoriz|present|prompt|request" | head -40 || true
+          log show --last 40s --style compact --predicate 'process == "usernoted"' \
+            | grep -iE "arboria|authoriz|permission|not allowed" | head -20 || true
           db="$HOME/Library/Group Containers/group.com.apple.usernoted/db2/db"
-          sqlite3 "$db" "select a.identifier, r.delivered_date, r.presented from record r join app a on a.app_id = r.app_id order by r.rec_id desc limit 4;" 2>&1 || true
-          for t in 1 3 6; do
+          sqlite3 "$db" "select a.identifier, r.presented from record r join app a on a.app_id = r.app_id order by r.rec_id desc limit 3;" 2>&1 || true
+          for t in 1 2; do
             sips -Z 900 "$RUNNER_TEMP/notify-$t.png" --out "$RUNNER_TEMP/n-$t.png" >/dev/null
             echo "NOTIFY-$t-BEGIN"; base64 -i "$RUNNER_TEMP/n-$t.png" | fold -w 76; echo "NOTIFY-$t-END"
           done
+          pkill -f "Arboria.app/Contents/MacOS/arboria" || true
 
       - name: Upload the screenshot
         if: runner.os == 'macOS'

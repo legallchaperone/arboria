@@ -62,6 +62,7 @@ impl Side {
             .env("ARBORIA_CACHE_DIR", self.root.join("cache"))
             .env("HOME", self.root.join("userhome"))
             .env("PYTHONPATH", repo_root().join("src"))
+            .env("ARBORIA_PYTHON", repo_root().join(".venv/bin/python"))
             .env("NO_COLOR", "1")
             .env("COLUMNS", "200")
             .envs(env.iter().copied())
@@ -269,6 +270,24 @@ fn same_output_as_python() {
             &[],
         ),
         (Main, &["idea", "plant", "sparse"], &[]),
+        (
+            Main,
+            &[
+                "idea",
+                "plant",
+                "sparse",
+                "--as",
+                "sparse-attn",
+                "--metric",
+                "ppl",
+            ],
+            &[],
+        ),
+        (Main, &["idea", "notebook", "base"], &[]),
+        (Main, &["idea", "notebook", "nope"], &[]),
+        (Main, &["idea", "style"], claude),
+        (Main, &["idea", "style"], &[]),
+        (Outside, &["idea", "style"], &[]),
         (Main, &["idea", "list"], &[]),
         (Outside, &["idea", "list"], &[]),
         (Outside, &["idea", "show", "sparse"], &[]),
@@ -316,6 +335,40 @@ fn same_output_as_python() {
                 outs[1].2
             ));
         }
+    }
+    // the notebooks both wrote (the Rust side through the Python package)
+    for (rel, files) in [("WaveFront/.arboria/notebooks", "py"), ("home/seeds", "py")] {
+        let read = |side: &Side| {
+            let mut out = Vec::new();
+            let Ok(dir) = std::fs::read_dir(side.root.join(rel)) else {
+                return out;
+            };
+            for e in dir.flatten() {
+                let p = e.path();
+                if p.extension().is_some_and(|x| x == files) {
+                    let text = side.normalize(&std::fs::read(&p).unwrap());
+                    out.push((p.file_name().unwrap().to_owned(), text));
+                }
+            }
+            out.sort();
+            out
+        };
+        let (a, b) = (read(&rs), read(&pyside));
+        assert!(!b.is_empty(), "python wrote no notebooks in {rel}");
+        if a != b {
+            failures.push(format!(
+                "notebooks in {rel}:\n--- rust\n{a:#?}\n--- python\n{b:#?}"
+            ));
+        }
+    }
+    for side in [&rs, &pyside] {
+        let link = side.root.join("WaveFront-sparse-attn/notebook.py");
+        assert_eq!(
+            std::fs::read_link(&link).unwrap(),
+            side.main.join(".arboria/notebooks/sparse-attn.py"),
+            "{}",
+            link.display()
+        );
     }
     assert!(failures.is_empty(), "{}", failures.join("\n\n"));
 }

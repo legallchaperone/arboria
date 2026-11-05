@@ -1649,6 +1649,13 @@ fn idea(cmd: IdeaCmd, json: bool) -> anyhow::Result<()> {
             };
             let idea = ideas::new_idea(ctx, &mut ledger, &name, new, &mut warn)?;
             emit(json, &idea, |i| i.worktree_path.clone().unwrap_or_default())?;
+            let nb = ideas::notebook_path(&ctx.state_dir(), idea.name.as_str());
+            if nb.exists() {
+                info(&format!(
+                    "notebook: {} (linked as notebook.py; open it in VS Code with the marimo extension, or `marimo edit notebook.py` in the worktree)",
+                    nb.display()
+                ));
+            }
         }
         IdeaCmd::List { show_all } => {
             let Some(ctx) = &ctx else {
@@ -1848,7 +1855,7 @@ fn seed_new(
     ideas::require_human_for_seeds(command, "写一个种子")?;
     let home = ideas::ensure_home(&mut info)?;
     let mut ledger = db::Ledger::open(&home.state_dir())?;
-    let s = ideas::new_seed(&home, &mut ledger, &seed_name(name)?, fields)?;
+    let s = ideas::new_seed(&home, &mut ledger, &seed_name(name)?, fields, &mut warn)?;
     if json {
         println!("{}", pretty(&s)?);
     } else {
@@ -1966,8 +1973,14 @@ fn seed(cmd: SeedCmd, json: bool) -> anyhow::Result<()> {
                 &mut warn,
             )?;
             emit(json, &idea, |i| i.worktree_path.clone().unwrap_or_default())?;
+            let nb = ideas::notebook_path(&target.state_dir(), idea.name.as_str());
+            let nb = if nb.exists() {
+                format!("; notebook: {} (linked as notebook.py)", nb.display())
+            } else {
+                String::new()
+            };
             info(&format!(
-                "planted {} as idea {} in {}",
+                "planted {} as idea {} in {}{nb}",
                 a.name,
                 idea.name,
                 target.main.display()

@@ -22,7 +22,8 @@
 | `model` | `db` 的枚举元组 + 账本行 | **已实现**：id newtype 与校验、枚举、事件 kind、触发备份的事件 |
 | `records` | `records` + `db.validate_text/validate_name/validate_choice` | **已实现**；另有 `get_run_in`、`get_decision_in`、`AUTHOR_HUMAN` |
 | `gitutil` / `snapshot` | 同名 | **已实现**：系统 `git`；快照绝不碰用户的分支、index、工作区（`tests/records.rs` 照 `test_snapshot.py`） |
-| `ideas` | `ideas` + `seeds` + `cli._idea_route` | **已实现** git 和账本一侧：种子是没有 branch 的 ideas 行，种下与否看 `plantings`；notebook 不写（见下） |
+| `ideas` | `ideas` + `seeds` + `cli._idea_route` | **已实现**：种子是没有 branch 的 ideas 行，种下与否看 `plantings`；notebook 由 `notebooks` 交给 Python 包写（见下） |
+| `notebooks` | `notebooks`（经 Python） | 新：在 `commands::python_exe` 里 `-P` 跑 `arboria.notebooks`（模板、带字体的样式表、`ast` 读种子 notebook），一个 JSON 请求一个回答；解释器 import 不了 arboria 只少 notebook（警告，`idea_new` 事件的 `notebook` 是 null），`arb idea notebook` 以后补 |
 | `submission` | `submission` | **已实现**：`SubmitPermit` 只有本模块能造（`guarded_permit` 每段提交前重读账本），`Backend::submit` 要它；`approve` 要 `human::Confirmed` |
 | `human` | `human` | **已实现**：终端检查、输入确认、进程链；`Confirmed` 只有 `human::confirm` 能造（另有只在本 crate 单元测试里存在的 `for_tests`，`guards.rs` 守着） |
 | `backend` | `backends/`（base、fake、ssh） | **已实现** FakeSlurm、SshSlurm（进程只经 `Runner` trait 起，测试可替换）；本机、ssh 工作站、RunPod、Modal 和 `prepare_env` 返回错误 |
@@ -36,7 +37,7 @@
 | `machine` | 同名 | **已实现**；`tests/machine.rs` 在 CPython 和 Rust 里跑同样的场景（真实的 DeltaAI 探测输出），profile 文本、警告、doctor 每一行都相同 |
 | `ui` | `ui.launch` | 在 `$ARBORIA_PYTHON` 里跑 Python 的看板（它只读地读 v8 账本），以后由 app 取代 |
 
-不移植：`lab`、`notebooks`、`analysis`、`style`（留在 Python kernel 一侧或被 app 取代）、`sessions`（ADR 0001 删掉推送）。
+不移植：`lab`、`analysis`、`style`（`notebooks` 经 Python 调用）（留在 Python kernel 一侧或被 app 取代）、`sessions`（ADR 0001 删掉推送）。
 
 ## schema v8（相对 Python v7，只加不拆）
 迁移 SQL 在 `schema::MIGRATION_V8`，每一列的说明在 `schema` 的模块注释里。
@@ -77,7 +78,7 @@ Python 版读 v8 账本（2026-11-04 已做）：`db.READ_ONLY_VERSIONS = (8,)`�
 - 备份的 `ledger.sql` 是 `db::dump`：逐条照抄 CPython 3.13 的 `Lib/sqlite3/dump.py`（值用 SQLite 自己的 `quote()`）。3.11 的 `iterdump` 少开头的 `foreign_key_check` 一行、`sqlite_sequence` 的位置也不同，所以和 3.11 写出的备份比，第一次会多一个格式 diff。
 - 备份在还持有账本锁时做（和 Python 一样，两个进程的备份不会在 git index 上撞车）；单独调 `Ledger::backup` / `commit_backup` 时自己拿锁。
 - 已修（2026-11-04，两边）：状态目录没有自己的 `.git` 时拒绝备份。原来 git 会退到外层的项目仓库，`diff --cached` + `commit` 会把用户暂存的改动当成 `arboria backup: …` 提交掉。
-- notebook 不在核心里（上面的“不移植”）：`ideas::new_idea` / `new_seed` 只做 git 和账本，`idea_new` 事件的 `notebook` 是 null，`notebook` 字段是 Python 一侧的路径（`.arboria/notebooks/<名字>.py`、`<home>/seeds/<名字>.py`）；`ensure_notebook`、`restyle`、`restyle_seeds` 返回错误，指回 Python 版；种下不复制种子 notebook 的文字块（`markdown_cells` 记 0）。app 的 markdown notebook 定下来后再接。
+- notebook（2026-11-05 改）：原来核心不写 notebook；现在 `ideas::new_idea` / `ensure_notebook` / `restyle`、`new_seed`、`plant` 都经 `notebooks` 让 Python 包写 marimo 文件，输出和文件内容与 Python 版相同（`cli_parity.rs` 比两边写出的 notebook）。签名改动：`new_seed` 多一个 `warn`；`SeedOrigin` 加 `markdown`（种子 notebook 的文字块，种下时折叠进 idea 的 notebook，`markdown_cells` 记条数）。app 的 markdown notebook 定下来后换掉。
 - 签名改动（2026-11-04）：`ideas::NewIdea.seed` 是 `SeedOrigin { seed, home }`（`idea_new` 事件要种子园路径）；`CloseInfo` 加 `name`、`mode`、`merge_commit`、`final_ref`，和 Python 的 `close` 一样；`SeedView` 加 `seed_status`（v8 由 stage 和 `plantings` 推出 thinking / planted / dropped）；`db::LedgerRow` 不要求 serde（`TaskView` 自己读行）。
 - v8 的种子：放弃过又恢复的已种下种子仍是 planted（Python 恢复成 thinking；v8 里种下与否只看 `plantings`）。待办的 done / drop 在任何非终态都可以（后台尝试中的 agent 要能交付）。
 - 名字 / 项目 id / 作业 id / host / 分区 / 覆盖参数的 key 都是整串匹配，结尾换行一律拒绝（Python `fullmatch`）。
@@ -90,4 +91,4 @@ Python 版读 v8 账本（2026-11-04 已做）：`db.READ_ONLY_VERSIONS = (8,)`�
 - 签名改动（2026-11-04，state / claudemd / lessons / report / hook / install）：`claudemd::find_block` / `apply_block` 收发字节（区块外不是 UTF-8 也原样保留），`render_block` 返回 `Result`（行数上限），另有 `accepted_lessons`、`lesson_line`、`autocommit_enabled`、`commit_claudemd`、`render_home_block`、`SyncResult::{changed, messages}`；`lessons::propose` 返回 `(Lesson, DecisionId)`，`accept` 内部走 `accept_confirmed`（要 `human::Confirmed`，和 approve 一样），另有 `proposed_count`；`report` 另有 `status_parts`、`todo_lines`、`lesson_lines`、`jobs_line`、`clip`、`display_path`、`HOME_FOOTER`、`VIEW_LABELS`（`StatusData` 仍是 JSON：键和 Python 的行一样）；`hook::session_start` 不自己判断 TTY（CLI 在 stdin 是终端时传空 reader）；`install` 另有 `add_directories`、`remove_directories`、`default_add_dirs`、`LOCAL_EXCLUDE`、`LOCAL_COMMENT`；`canonical::python_pretty`（`json.dumps(indent=2)`）、`python_dumps`（不排序键）。serde_json 开了 `preserve_order`（`--json` 的键按列顺序；规范 JSON 仍显式排序）。
 - 签名改动（2026-11-05，commands / inspection / machine / probe / ui）：`commands::promote` 返回 `Promoted`（Python 的 dict），`request` 收 `Call { args, kwargs, path }`、返回 `(待办, 是否新建)`，另有 `scope_dir`、`call_text`、`todo_text`、`python_exe`、`Scope::{as_str, label, parse}`、`Described::{summary, signature}`；`guide()` 返回 `String`。`inspection::validate_answer`（待办给成 id、kind、payload，向量用）、`check_path` 收 JSON 值、`deliver` 返回存下的 JSON、`Code.worktree`、`State::{stale, result}`、`status_line`、`open_inspect_task`、`short`、`todo_text`；`guide()` 返回 `String`。`machine::propose` 的 `existing` 是 JSON（`toml_to_json`），另有 `parse_kv`、`walltime_text`、`default_paths`、`ssh_setup_problems`、`probe`、`machine_init_with` / `doctor_with`（可传 runner 和时钟；时间戳用 UTC，Python 用本地时间）。`probe::enable` 收 `&human::Confirmed`（不是 `Provenance`），写入在 `records::insert_probe_decision`（probe.rs 碰不到 decisions，`guards.rs` 守着）；另有 `probes_dir`、`read_file`、`header_of`、`describe_for_enable`、`run_once_with`、`result_text`。`canonical::python_repr`（消息里的 `repr()`）。
 - probe 宿主是 `python -I`（`commands::python_exe`），不是 ADR 0003 写的 `uv run --project`：第 1 期只许标准库，用 arb 已经在用的解释器。宿主拿到的是核心算过哈希的那份字节（不再读文件），`run` 只在磁盘上的字节等于启用的哈希时运行。
-- `arb-rs` 的输出逐字照 Python CLI：`crates/arb/tests/cli_parity.rs` 在两个新仓库和种子园里各跑同样六十来步（init、status、idea、种子、lesson、todo、install-claude、export、close、plant…），比 stdout、退出码和 `error:` 行（路径、项目 id、日期、提交哈希先归一）；需要 `.venv/bin/arb`，没有就跳过。故意的不同：多一条 `arb probe enable` deny 规则；`arb idea new` 不说 notebook（Rust 不写 notebook）。
+- `arb-rs` 的输出逐字照 Python CLI：`crates/arb/tests/cli_parity.rs` 在两个新仓库和种子园里各跑同样六十来步（init、status、idea、种子、lesson、todo、install-claude、export、close、plant…），比 stdout、退出码和 `error:` 行（路径、项目 id、日期、提交哈希先归一）；需要 `.venv/bin/arb`，没有就跳过。故意的不同：多一条 `arb probe enable` deny 规则。之后再比两边写出的 notebook 文件。

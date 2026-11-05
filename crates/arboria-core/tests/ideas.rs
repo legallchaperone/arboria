@@ -456,7 +456,14 @@ fn routing_seeds_and_planting() {
     // the home's own repo-like folders still route to seeds, even inside a repo
     let mut hl = Ledger::open(&home.state_dir()).unwrap();
     std::fs::write(home.notebook("low-rank"), "# mine\n").unwrap();
-    let s = ideas::new_seed(&home, &mut hl, &n("low-rank"), seed_fields(" rank-4 adam ")).unwrap();
+    let s = ideas::new_seed(
+        &home,
+        &mut hl,
+        &n("low-rank"),
+        seed_fields(" rank-4 adam "),
+        &mut |_| {},
+    )
+    .unwrap();
     assert!(s.kept_existing_notebook);
     assert_eq!(s.seed_status, SeedState::Thinking);
     assert_eq!(s.idea.gist.as_deref(), Some("rank-4 adam"));
@@ -470,11 +477,19 @@ fn routing_seeds_and_planting() {
             &home,
             &mut hl,
             &n("low-rank"),
-            seed_fields("again")
+            seed_fields("again"),
+            &mut |_| {}
         )),
         "a seed named 'low-rank' already exists (see `arb idea show low-rank` outside any repo)"
     );
-    ideas::new_seed(&home, &mut hl, &n("other"), SeedFields::default()).unwrap();
+    ideas::new_seed(
+        &home,
+        &mut hl,
+        &n("other"),
+        SeedFields::default(),
+        &mut |_| {},
+    )
+    .unwrap();
     assert_eq!(
         msg(ideas::show_seed(&home, &hl, &n("nope"))),
         "no seed named 'nope' (see `arb idea list` outside any repo)"
@@ -622,6 +637,9 @@ fn routing_seeds_and_planting() {
     );
     std::env::remove_var("CLAUDECODE");
 
-    // notebooks are the Python side's
-    assert!(msg(ideas::restyle_seeds(&home)).starts_with("arb idea style 由 Python 版 arb 做"));
+    // notebooks are written by the Python package; without it, style refuses
+    std::env::set_var("ARBORIA_PYTHON", "/nonexistent/python");
+    assert!(msg(ideas::restyle_seeds(&home))
+        .starts_with("arb idea style needs the Python package (the notebooks are marimo files): cannot run /nonexistent/python"));
+    std::env::remove_var("ARBORIA_PYTHON");
 }

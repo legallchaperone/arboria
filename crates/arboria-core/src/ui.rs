@@ -64,7 +64,7 @@ fn run(
     check_port(port)?;
     let exe = crate::commands::python_exe();
     let status = Command::new(&exe)
-        .args(["-c", LAUNCH, what])
+        .args(["-P", "-c", LAUNCH, what])
         .arg(root)
         .arg(toplevel.map_or_else(Default::default, |t| t.as_os_str().to_owned()))
         .arg(idea.unwrap_or_default())

@@ -28,6 +28,7 @@ pub mod lessons;
 pub mod machine;
 pub mod model;
 pub mod monitor;
+pub mod notebooks;
 pub mod paths;
 pub mod probe;
 pub mod records;

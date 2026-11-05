@@ -16,11 +16,10 @@
 //!   blocks (parsed, never executed).
 //! - Closing never loses work: a dropped idea's final state is snapshotted and tagged
 //!   before its worktree and branch are removed; a dirty worktree is refused.
-//! - Notebooks are not the core's (ADR 0002: `notebooks` / `style` stay on the Python
-//!   kernel side until the app's markdown notebooks): ideas and seeds here do the git and
-//!   ledger side only. The `notebook` fields give the path where that side keeps it;
-//!   [`ensure_notebook`], [`restyle`] and [`restyle_seeds`] refuse, and planting does not
-//!   copy the seed notebook's text blocks (`markdown_cells` is 0).
+//! - Notebooks are marimo files the Python package writes ([`crate::notebooks`], until the
+//!   app's markdown notebooks): an interpreter that cannot import `arboria` only costs the
+//!   notebook (a warning, `notebook` null in the `idea_new` event; `arb idea notebook`
+//!   writes it later).
 //! - v8: a seed is an ideas row without a branch (stage `seed`, or `dropped` before
 //!   planting); it is planted iff it has `plantings` rows.
 
@@ -33,15 +32,12 @@ use crate::db::{self, now, Ledger};
 use crate::model::{Confidence, EventKind, Idea, IdeaName, IdeaStage, Planting, Run};
 use crate::paths::{Home, RepoContext};
 use crate::records::{py_repr, require_text, validate_text, TextField};
-use crate::{bail, gitutil, snapshot, Error, Result, Warn};
+use crate::{bail, gitutil, notebooks, snapshot, Error, Result, Warn};
 
 /// `seeds.HUMAN_ONLY`.
 pub const HUMAN_ONLY: &str = "{command} 只由人在自己的终端里做（{what}）；Claude 不能运行它。种子是人的：Claude 可以读（仓库外的 arb idea list / show、seeds/<名字>.py），不写";
 /// `seeds.PLANT_NEEDS`.
 pub const PLANT_NEEDS: &str = "种下需要假设和指标：种子 {name} 还没有{missing}。用 --hypothesis / --metric 给出，或先在仓库外 arb idea set {name} --hypothesis …";
-/// Notebook commands are the Python side's until the app's notebooks (ADR 0002).
-pub const NOTEBOOKS_ELSEWHERE: &str = "{command} 由 Python 版 arb 做：notebook 在 Python kernel 一侧（ADR 0002），app 的 notebook 做好之前 arb-rs 不写 notebook";
-
 /// `idea/<name>`.
 pub fn branch_for(name: &IdeaName) -> String {
     format!("idea/{name}")
@@ -253,6 +249,8 @@ pub struct SeedOrigin<'a> {
     pub seed: &'a Idea,
     /// Its home.
     pub home: &'a Home,
+    /// The seed notebook's markdown cells (copied, folded, into the idea's notebook).
+    pub markdown: &'a [String],
 }
 
 /// What a new idea starts from.
@@ -276,7 +274,6 @@ pub fn new_idea(
     new: NewIdea<'_>,
     warn: Warn<'_>,
 ) -> Result<Idea> {
-    let _ = warn; // the notebook (the Python side's) is what warned
     let hypothesis = require_text(TextField::Hypothesis, new.hypothesis)?;
     let metric = require_text(TextField::Metric, new.metric)?;
     if idea_by_name(ledger.conn(), name.as_str())?.is_some() {
@@ -358,6 +355,38 @@ pub fn new_idea(
                 ts
             ],
         )?;
+        let row = idea_by_name(tx, name.as_str())?
+            .ok_or_else(|| Error::Arb(format!("idea {name} vanished")))?;
+        let seed_note = new.seed.map(|o| notebooks::SeedNote {
+            name: o.seed.name.as_str().to_string(),
+            notebook: o.home.notebook(o.seed.name.as_str()),
+            markdown: o.markdown.to_vec(),
+            home: o.home.root.clone(),
+        });
+        let nb = notebooks::create(
+            &ctx.main,
+            &row,
+            parent_row.as_ref().map(|p| p.name.as_str()),
+            new.from_run,
+            seed_note.as_ref(),
+            true,
+            &mut *warn,
+        )?;
+        let nb = match nb {
+            Ok(p) => Value::String(
+                p.strip_prefix(ctx.state_dir())
+                    .unwrap_or(&p)
+                    .display()
+                    .to_string(),
+            ),
+            Err(why) => {
+                warn(&notebooks::unavailable_warning(
+                    &why,
+                    &format!("run `arb idea notebook {name}`"),
+                ));
+                Value::Null
+            }
+        };
         let mut event = Map::new();
         event.insert("branch".into(), branch.clone().into());
         event.insert("base".into(), base.clone().into());
@@ -369,7 +398,7 @@ pub fn new_idea(
             "from_run".into(),
             json!(new.from_run.map(|r| r.id.as_str())),
         );
-        event.insert("notebook".into(), Value::Null);
+        event.insert("notebook".into(), nb);
         if let Some(origin) = new.seed {
             event.insert("seed".into(), origin.seed.name.as_str().into());
             event.insert(
@@ -387,22 +416,65 @@ pub fn new_idea(
             false,
         );
         let _ = gitutil::run(&["branch", "-D", &branch], &ctx.main, &[], false);
+        let nb = notebook_path(&ctx.state_dir(), name.as_str());
+        if nb.exists() && idea_by_name(ledger.conn(), name.as_str())?.is_none() {
+            let _ = std::fs::remove_file(nb);
+        }
         return Err(e);
     }
     get_idea(ledger, name)
 }
 
-/// `arb idea notebook`: the Python side's (see the module docs).
+/// `arb idea notebook`: create the notebook (and, for an open idea, the worktree link)
+/// of an idea that has none; (idea, notebook path, created). An existing notebook is
+/// never touched (only a missing link is repaired).
 pub fn ensure_notebook(
     ctx: &RepoContext,
     ledger: &mut Ledger,
     name: Option<&IdeaName>,
     warn: Warn<'_>,
 ) -> Result<(Idea, PathBuf, bool)> {
-    let _ = (ctx, ledger, name, warn);
-    Err(Error::Arb(
-        NOTEBOOKS_ELSEWHERE.replace("{command}", "arb idea notebook"),
-    ))
+    let idea = named_or_current(
+        ctx,
+        ledger,
+        name,
+        "not inside an idea worktree; pass the idea NAME",
+    )?;
+    let path = notebook_path(&ctx.state_dir(), idea.name.as_str());
+    let link = idea.stage == IdeaStage::Open
+        && idea
+            .worktree_path
+            .as_deref()
+            .is_some_and(|w| Path::new(w).is_dir());
+    let unavailable = |why: String| {
+        Error::Arb(notebooks::unavailable_warning(
+            &why,
+            "run `arb idea notebook` again",
+        ))
+    };
+    if path.exists() {
+        if link {
+            notebooks::create(&ctx.main, &idea, None, None, None, true, warn)?
+                .map_err(unavailable)?;
+        }
+        return Ok((idea, path, false));
+    }
+    let parent = parent_name(ledger, &idea)?;
+    let rel = path
+        .strip_prefix(ctx.state_dir())
+        .unwrap_or(&path)
+        .display()
+        .to_string();
+    ledger.write(|tx| {
+        notebooks::create(&ctx.main, &idea, parent.as_deref(), None, None, link, warn)?
+            .map_err(unavailable)?;
+        tx.event(
+            EventKind::NotebookNew,
+            idea.name.as_str(),
+            &json!({"notebook": rel}),
+        )
+    })?;
+    Ok((idea, path, true))
 }
 
 /// What `arb idea style` did to one notebook.
@@ -415,16 +487,25 @@ pub enum Restyled {
     Unknown,
 }
 
-/// `arb idea style`: the Python side's (marimo notebooks; see the module docs).
+/// `arb idea style` in a repo: refresh `.arboria/notebooks/arboria.css`, link it into
+/// each open idea's worktree, add `css_file="arboria.css"` where it is missing (only that
+/// line changes). Idempotent.
 pub fn restyle(
     ctx: &RepoContext,
     ledger: &Ledger,
     warn: Warn<'_>,
 ) -> Result<Vec<(PathBuf, Restyled)>> {
-    let _ = (ctx, ledger, warn);
-    Err(Error::Arb(
-        NOTEBOOKS_ELSEWHERE.replace("{command}", "arb idea style"),
-    ))
+    let dir = ctx.state_dir().join("notebooks");
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    let worktrees: Vec<String> = ledger
+        .conn()
+        .prepare("SELECT worktree_path FROM ideas WHERE stage = 'open' ORDER BY id")?
+        .query_map([], |r| r.get::<_, Option<String>>(0))?
+        .filter_map(|r| r.transpose())
+        .collect::<rusqlite::Result<_>>()?;
+    notebooks::restyle(&dir, Some(&ctx.main), &worktrees, warn)
 }
 
 /// `arb idea list`.
@@ -805,13 +886,14 @@ fn check_fields(f: SeedFields<'_>) -> Result<Fields> {
     })
 }
 
-/// `arb idea new NAME "gist"` outside a repo (human only). The notebook is the Python
-/// side's (see the module docs); an existing one is reported, never touched.
+/// `arb idea new NAME "gist"` outside a repo (human only): the seed and its notebook
+/// (an existing one is reported, never touched).
 pub fn new_seed(
     home: &Home,
     ledger: &mut Ledger,
     name: &IdeaName,
     fields: SeedFields<'_>,
+    warn: Warn<'_>,
 ) -> Result<SeedView> {
     let values = check_fields(fields)?;
     if idea_by_name(ledger.conn(), name.as_str())?.is_some() {
@@ -834,6 +916,14 @@ pub fn new_seed(
              updated_at) VALUES (?1, ?2, ?3, ?4, 'seed', 'open', ?5, ?5)",
             rusqlite::params![name, values.gist, values.hypothesis, values.metric, ts],
         )?;
+        let row = idea_by_name(tx, name.as_str())?
+            .ok_or_else(|| Error::Arb(format!("seed {name} vanished")))?;
+        if let Err(why) = notebooks::seed_new(home, &row, &mut *warn)? {
+            warn(&notebooks::unavailable_warning(
+                &why,
+                &format!("`marimo edit {}`", path.display()),
+            ));
+        }
         tx.event(
             EventKind::SeedNew,
             name.as_str(),
@@ -1027,6 +1117,13 @@ pub fn plant(
         ));
     }
     let idea_name = opts.idea_name.unwrap_or(name).clone();
+    let markdown = match notebooks::seed_markdown(&home.notebook(name.as_str()), name.as_str())? {
+        Ok(m) => m,
+        Err(why) => {
+            warn(&format!("the seed notebook's text is not copied: {why}"));
+            Vec::new()
+        }
+    };
     let project_id = crate::config::project_config(target)?.project_id;
     let mut ledger = Ledger::open(&target.state_dir())?;
     let idea = new_idea(
@@ -1038,7 +1135,11 @@ pub fn plant(
             metric: &met,
             parent: None,
             from_run: None,
-            seed: Some(SeedOrigin { seed: &seed, home }),
+            seed: Some(SeedOrigin {
+                seed: &seed,
+                home,
+                markdown: &markdown,
+            }),
         },
         &mut *warn,
     )?;
@@ -1058,7 +1159,7 @@ pub fn plant(
             EventKind::SeedPlant,
             name.as_str(),
             &json!({"repo": repo, "project": project_id, "idea": idea_name.as_str(),
-                    "markdown_cells": 0}),
+                    "markdown_cells": markdown.len()}),
         )
     });
     if let Err(e) = recorded {
@@ -1070,10 +1171,11 @@ pub fn plant(
     Ok(idea)
 }
 
-/// `arb idea style` outside a repo: the Python side's (see the module docs).
+/// `arb idea style` outside a repo: every seed notebook (see [`restyle`]).
 pub fn restyle_seeds(home: &Home) -> Result<Vec<(PathBuf, Restyled)>> {
-    let _ = home;
-    Err(Error::Arb(
-        NOTEBOOKS_ELSEWHERE.replace("{command}", "arb idea style"),
-    ))
+    let dir = home.seeds_dir();
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+    notebooks::restyle(&dir, None, &[], &mut |_| {})
 }

@@ -119,6 +119,40 @@ function Sign(props: { root: string; run: string; platform: Platform; now: () =>
   );
 }
 
+/** The run's Slurm log (`arb logs`, the last 200 lines), on demand. */
+function Logs(props: { root: string; run: string }) {
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setText(null);
+    setError(null);
+  }, [props.run]);
+  const load = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      setText((await api.act(props.root, { kind: "logs", run: props.run })).output || "（日志是空的）");
+    } catch (e) {
+      setError(message(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="section">
+      <div className="app-row">
+        <span className="small muted">日志</span>
+        <button type="button" className="link small" disabled={busy} onClick={() => void load()}>
+          {busy ? "读取中…" : text === null ? "看最后 200 行" : "刷新"}
+        </button>
+      </div>
+      {error && <div className="err-box app-pre">{error}</div>}
+      {text !== null && <pre className="code app-log">{text}</pre>}
+    </div>
+  );
+}
+
 export function Inspector(props: {
   what: Inspect;
   boards: Record<string, Board>;
@@ -224,6 +258,7 @@ export function Inspector(props: {
               </div>
             </div>
           )}
+          {r.jobs.some((j) => j.job_id) && <Logs root={w.root} run={r.id} />}
           {r.wandb_url && (
             <a className="link small" href={r.wandb_url} target="_blank" rel="noreferrer">
               W&B

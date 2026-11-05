@@ -290,6 +290,7 @@ export type Action =
   | { kind: "note"; idea: string; text: string; run: string | null }
   | { kind: "reject"; run: string; reason: string | null }
   | { kind: "cancel"; run: string }
+  | { kind: "logs"; run: string }
   | { kind: "todo_drop"; task: string }
   | { kind: "seed_new"; name: string; gist: string; hypothesis: string | null; metric: string | null }
   | { kind: "seed_drop"; name: string }

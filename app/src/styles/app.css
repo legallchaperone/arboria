@@ -170,3 +170,4 @@ button.app-choice:hover { background: var(--fill); }
 .note-new textarea { resize: vertical; font: inherit; color: var(--ink); min-height: 4.5em; }
 .head-actions { display: flex; gap: var(--space-1); align-items: center; margin-left: auto; }
 .row.has-menu { grid-template-columns: 20px minmax(0, 1fr) auto auto; }
+.app-log { max-height: 24em; overflow: auto; white-space: pre; font-size: 11px; line-height: 1.45; padding: var(--space-2) var(--col-1); background: var(--bg-subtle); border-radius: var(--radius-sm); margin: var(--space-1) 0 0; }

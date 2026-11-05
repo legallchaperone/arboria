@@ -34,6 +34,8 @@ pub enum Action {
     Reject { run: String, reason: Option<String> },
     /// `arb cancel R`.
     Cancel { run: String },
+    /// `arb logs R -n 200` (reads only).
+    Logs { run: String },
     /// `arb todo drop T`.
     TodoDrop { task: String },
     /// `arb idea new NAME GIST [--hypothesis H] [--metric M]` in the seed home.
@@ -156,6 +158,10 @@ pub fn argv(
             id('r', "run id", run)?;
             vec![s("cancel"), s("--"), run.clone()]
         }
+        Action::Logs { run } => {
+            id('r', "run id", run)?;
+            vec![s("logs"), s("-n"), s("200"), s("--"), run.clone()]
+        }
         Action::TodoDrop { task } => {
             id('t', "待办 id", task)?;
             vec![s("todo"), s("drop"), s("--"), task.clone()]
@@ -272,6 +278,7 @@ mod tests {
                 reason: Some("wrong lr".into()),
             },
             Action::Cancel { run: "r002".into() },
+            Action::Logs { run: "r002".into() },
             Action::TodoDrop {
                 task: "t003".into(),
             },
@@ -334,7 +341,7 @@ mod tests {
                 "lr-sweep"
             ]
         );
-        let (cwd, args) = of(&all()[6]).unwrap();
+        let (cwd, args) = of(&all()[7]).unwrap();
         assert_eq!(cwd, PathBuf::from("/home"));
         assert_eq!(args, ["idea", "new", "--", "moe", "try experts"]);
     }

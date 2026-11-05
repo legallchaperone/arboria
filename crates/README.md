@@ -1,7 +1,7 @@
 # Rust crates
 
-The Rust core of Arboria (ADR 0001) — phase 1: the public API is settled, most function
-bodies are `todo!()`. Contract, module map, schema v8 and porting rules:
+The Rust core of Arboria (ADR 0001) — phase 1: every module is ported; `arb-rs` prints
+what the Python `arb` prints (`crates/arb/tests/cli_parity.rs`). Contract, module map, schema v8 and porting rules:
 [`docs/adr/0002-rust-contract.md`](../docs/adr/0002-rust-contract.md).
 
 - `arboria-core/` — the library (ledger, ideas, runs, approvals, machines, probes). One
@@ -13,7 +13,7 @@ bodies are `todo!()`. Contract, module map, schema v8 and porting rules:
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace            # 51 vector tests are #[ignore]d until ported
+cargo test --workspace            # all 60 vector files; Python comparisons skip without python3
 ```
 
 Snapshots generated from the Python side (regenerate when it changes; CI checks):

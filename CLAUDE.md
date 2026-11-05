@@ -73,6 +73,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
   - 又移植了 backend（FakeSlurm、SshSlurm，进程经 `Runner` trait）、human（输入确认、`Confirmed`）、submission、monitor；`submission.rs` 的单元测试在 FakeSlurm 上跑完整流程。
   - 又移植了 state（`arb init`）、claudemd、lessons、report（status / export）、hook、install；`arb-rs` 的输出逐字照 Python CLI（`crates/arb/tests/cli_parity.rs` 拿 `.venv/bin/arb` 跑同样的步骤比对，没装就跳过），`--json` 是 `json.dumps(indent=2)`、键按列顺序。
   - Python 版能只读打开 v8 账本（`db.READ_ONLY_VERSIONS`：`query_only`，写入和备份报错，让人用 arb-rs）；看板读 v7 和 v8（`tests/test_v8_read_only.py`）。
-  - 下一步：commands / inspection / machine（8 个向量文件还没接）、ui、probe 的发现和运行；之后 `arb-rs` 才能整个替换 `arb`。
+  - 又移植了 commands（`describe` 用 `python -I` 跑 `ast`）、inspection、machine（和 CPython 跑同样的 DeltaAI 场景逐行比）、probe 的发现 / 启用 / 宿主 / 运行 / 内置 balance；`arb-rs ui` 跑 Python 的看板。核心里不再有 `todo!()`，60 个向量文件全部接上。
+  - 下一步：在用户本机上让 `arb-rs` 替换 `arb`（先并行用一阵）；app（ADR 0001）。
   - 已修：Python 的校验正则原来用 `re.match(r"^…$")`，`$` 放过结尾换行（远程路径里的换行会进 sbatch 脚本）；现在一律 `fullmatch`，Rust 整串匹配，新的校验正则也要这样。
   - 省 token 的规矩（用户定的）：任务需要的并行 subagent 少于 5 个就不开 subagent，自己做。

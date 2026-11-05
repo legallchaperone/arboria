@@ -28,12 +28,13 @@
 | `backend` | `backends/`（base、fake、ssh） | **已实现** FakeSlurm、SshSlurm（进程只经 `Runner` trait 起，测试可替换）；本机、ssh 工作站、RunPod、Modal 和 `prepare_env` 返回错误 |
 | `monitor` | `monitor` | **已实现**；`watch_with` / `cancel_with` 可传后端（测试） |
 | `tasks` | `tasks` + v8 agent 队列 | **已实现**；队列最多 `MAX_ATTEMPTS` = 3 次（首次、`--resume` 一次、换大模型一次），之后 needs_human |
-| `commands` | `commands`（文件一侧） | 命令只在人的 kernel 里运行 |
-| `inspection` | `inspection`（账本、git、校验一侧） | 渲染归 app |
+| `commands` | `commands`（文件一侧） | **已实现**；命令只在人的 kernel 里运行。`describe` 用 `python -I` 跑 `ast`（解释器 `commands::python_exe`：`$ARBORIA_PYTHON`，默认 `python3`），绝不 import；`LAB_NAMES` 是 lab 的命名空间（`tests/commands.rs` 和 Python 包比），guide 逐字照抄 |
+| `inspection` | `inspection`（账本、git、校验一侧） | **已实现**；渲染归 app，`to_text` 与 CPython 逐字相同；`validate_result` 的向量在测试里按向量的文件重建 git 树，树 id 必须等于向量里的 code_ref |
 | `report` / `hook` | 同名 | **已实现**；hook 不再记录会话 socket（ADR 0001），出错和 panic 写进 `hook.log`（panic hook 静音）。`tests/report.rs` 先让 CPython 报告一个 Python 写的 v7 账本，再让核心迁到 v8 后报告，status（完整 / brief）、export、hook 的 JSON 行逐字相同 |
-| `probe` | 新（ADR 0003） | **已实现**：文件头解析、结果校验、`set_probe_result`、`enabled_hash`；发现、启用、运行、宿主未实现 |
+| `probe` | 新（ADR 0003） | **已实现**：文件头解析、结果校验、`set_probe_result`、`enabled_hash`、发现（项目遮住全局）、状态、启用（要 `human::Confirmed`）、`check` / `run`（短命 `python -I` 宿主，进程组 10 秒后杀掉）、内置 `balance`、guide；`arb status` 列出待重新启用的 |
 | `lessons` / `claudemd` / `install` / `state` | 同名 | **已实现**；`install` 的规则是 Python 的加上 `arb probe enable`，写出的 settings 与 CPython 逐字节相同 |
-| `machine` / `ui` | 同名 | `ui` 以后由 app 取代 |
+| `machine` | 同名 | **已实现**；`tests/machine.rs` 在 CPython 和 Rust 里跑同样的场景（真实的 DeltaAI 探测输出），profile 文本、警告、doctor 每一行都相同 |
+| `ui` | `ui.launch` | 在 `$ARBORIA_PYTHON` 里跑 Python 的看板（它只读地读 v8 账本），以后由 app 取代 |
 
 不移植：`lab`、`notebooks`、`analysis`、`style`（留在 Python kernel 一侧或被 app 取代）、`sessions`（ADR 0001 删掉推送）。
 
@@ -51,7 +52,7 @@ Python 版读 v8 账本（2026-11-04 已做）：`db.READ_ONLY_VERSIONS = (8,)`�
 
 ## 测试
 - `crates/arboria-core/tests/schema.rs`：v1–v7 与 `tests/fixtures/migrations_v1_v7.sql`（由 `gen_fixtures.py` 从 Python 生成）逐字节一致；v7 的 `sqlite_master` 与 Python 账本一致；Python 生成的 v7 账本迁移到 v8 不丢行；v8 的 CHECK；锁、回滚、`BEGIN IMMEDIATE`、`data_version`；probe 的写入和启用哈希。
-- `tests/vectors.rs`：读 `tests/vectors/<name>.json`。已接上 canonical_json、validate_text、validate_name、check_project、wandb_id、next_id、check_job_ids、constants，以及 slurm / cards / config / clusters 的 33 个文件；其余每个文件一个 `#[ignore]` 测试，`every_vector_file_is_known` 保证新文件不会被漏掉。`quirk-*` 用例照做。
+- `tests/vectors.rs`：读 `tests/vectors/<name>.json`，60 个文件全部接上（2026-11-05），`every_vector_file_is_known` 保证新文件不会被漏掉（新文件先进 `PENDING`）。`quirk-*` 用例照做。
 - `tests/records.rs`（快照契约、runs / notes / decisions、备份：只在备份事件后提交，`ledger.sql` 和 CPython 3.13 的 `iterdump` 逐字节比）、`tests/tasks.rs`（待办和队列）、`tests/ideas.rs`（new / close merge·drop / fork、路由、种子和种下，用真 git 仓库）、`tests/repo_config.rs`、`tests/cards.rs`。
 - `submission.rs` 的单元测试：FakeSlurm 上的 submit → approve → poll → watch → cancel → reject 全流程（照 `test_submit.py`），在 crate 内部用测试专用的 `Confirmed`。
 - `tests/guards.rs`：源码扫描（只有 submission 调 `.submit(`、`probe_results` 只有一个写入点、probe 碰不到 decisions / submit、核心不联网不异步）。
@@ -87,4 +88,6 @@ Python 版读 v8 账本（2026-11-04 已做）：`db.READ_ONLY_VERSIONS = (8,)`�
 - `watch` 里 sqlite / 文件 / JSON 错误直接返回，其余错误照 Python 打成 `warning: …` 继续；NeedLogin 暂停那台机器。
 - `Error::is_arb`：Python 会当 `ArbError`（及其子类）接住的那些；sqlite / 文件 / JSON 错误不算（`init` 同步 CLAUDE.md 失败、lesson 之后的同步失败只警告，用的就是它）。
 - 签名改动（2026-11-04，state / claudemd / lessons / report / hook / install）：`claudemd::find_block` / `apply_block` 收发字节（区块外不是 UTF-8 也原样保留），`render_block` 返回 `Result`（行数上限），另有 `accepted_lessons`、`lesson_line`、`autocommit_enabled`、`commit_claudemd`、`render_home_block`、`SyncResult::{changed, messages}`；`lessons::propose` 返回 `(Lesson, DecisionId)`，`accept` 内部走 `accept_confirmed`（要 `human::Confirmed`，和 approve 一样），另有 `proposed_count`；`report` 另有 `status_parts`、`todo_lines`、`lesson_lines`、`jobs_line`、`clip`、`display_path`、`HOME_FOOTER`、`VIEW_LABELS`（`StatusData` 仍是 JSON：键和 Python 的行一样）；`hook::session_start` 不自己判断 TTY（CLI 在 stdin 是终端时传空 reader）；`install` 另有 `add_directories`、`remove_directories`、`default_add_dirs`、`LOCAL_EXCLUDE`、`LOCAL_COMMENT`；`canonical::python_pretty`（`json.dumps(indent=2)`）、`python_dumps`（不排序键）。serde_json 开了 `preserve_order`（`--json` 的键按列顺序；规范 JSON 仍显式排序）。
+- 签名改动（2026-11-05，commands / inspection / machine / probe / ui）：`commands::promote` 返回 `Promoted`（Python 的 dict），`request` 收 `Call { args, kwargs, path }`、返回 `(待办, 是否新建)`，另有 `scope_dir`、`call_text`、`todo_text`、`python_exe`、`Scope::{as_str, label, parse}`、`Described::{summary, signature}`；`guide()` 返回 `String`。`inspection::validate_answer`（待办给成 id、kind、payload，向量用）、`check_path` 收 JSON 值、`deliver` 返回存下的 JSON、`Code.worktree`、`State::{stale, result}`、`status_line`、`open_inspect_task`、`short`、`todo_text`；`guide()` 返回 `String`。`machine::propose` 的 `existing` 是 JSON（`toml_to_json`），另有 `parse_kv`、`walltime_text`、`default_paths`、`ssh_setup_problems`、`probe`、`machine_init_with` / `doctor_with`（可传 runner 和时钟；时间戳用 UTC，Python 用本地时间）。`probe::enable` 收 `&human::Confirmed`（不是 `Provenance`），写入在 `records::insert_probe_decision`（probe.rs 碰不到 decisions，`guards.rs` 守着）；另有 `probes_dir`、`read_file`、`header_of`、`describe_for_enable`、`run_once_with`、`result_text`。`canonical::python_repr`（消息里的 `repr()`）。
+- probe 宿主是 `python -I`（`commands::python_exe`），不是 ADR 0003 写的 `uv run --project`：第 1 期只许标准库，用 arb 已经在用的解释器。宿主拿到的是核心算过哈希的那份字节（不再读文件），`run` 只在磁盘上的字节等于启用的哈希时运行。
 - `arb-rs` 的输出逐字照 Python CLI：`crates/arb/tests/cli_parity.rs` 在两个新仓库和种子园里各跑同样六十来步（init、status、idea、种子、lesson、todo、install-claude、export、close、plant…），比 stdout、退出码和 `error:` 行（路径、项目 id、日期、提交哈希先归一）；需要 `.venv/bin/arb`，没有就跳过。故意的不同：多一条 `arb probe enable` deny 规则；`arb idea new` 不说 notebook（Rust 不写 notebook）。

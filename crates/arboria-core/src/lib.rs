@@ -2,14 +2,8 @@
 //! link (ADR 0001). Synchronous, no daemon; the SQLite ledger is the single arbiter.
 //!
 //! Each module ports one Python module of `src/arboria/` and says so in its doc comment,
-//! together with the invariants it must keep. Phase 1 (ADR 0002) settles the public API;
-//! the rest is `todo!("port of arboria.<module>.<fn>")`. Real so far: [`canonical`],
-//! [`model`], [`schema`], [`db`] (with the backup repo), [`records`], [`snapshot`],
-//! [`gitutil`], [`tasks`], [`ideas`] (git and ledger side), [`slurm`], [`cards`],
-//! [`config`], [`clusters`], [`paths`], [`backend`], [`human`], [`submission`],
-//! [`monitor`], [`state`], [`claudemd`], [`lessons`], [`report`], [`hook`], [`install`],
-//! and in [`probe`] the header / result validation and its ledger write. Not yet:
-//! [`commands`], [`inspection`], [`machine`], [`ui`], the rest of [`probe`].
+//! together with the invariants it must keep. Phase 1 (ADR 0002) settled the public API;
+//! every module is now ported (`ui` runs the Python dashboard until the app replaces it).
 //! `tests/vectors.rs` runs the Python test vectors against the real parts.
 //!
 //! Rules for porting a module: one module per agent; do not change another module's

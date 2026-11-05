@@ -35,6 +35,8 @@ def deltaai_credits(text: str) -> dict:
 - **显示**：全局页每台机器一张卡，列出所有 probe 结果、时间、“需登录”；`arb status` 一行。
 - **守住**：源码扫描 + spy 证明 probe 宿主只经固定函数写账本（`set_probe_result`、`add_todo`、`notify`），触达不了 `decisions` / `submit`；哈希不等于已启用哈希就不运行。
 
+实现备注（2026-11-05，Rust 核心）：宿主暂时是 `python -I`（`$ARBORIA_PYTHON`），等需要 PEP 723 依赖时再换成 `uv run`；`arb probe enable` 先把机器、命令、间隔和哈希给人看，再要人输入名字，启用的是那一刻磁盘上的字节（看的时候文件变了就拒绝）。
+
 ## 和命令的关系
 并存，共享文件约定，不共享运行时：命令是人在 kernel 里调、返回富显示；probe 是 helper 定时跑、返回校验过的结构。共享：一个 `.py` 文件、`ast` 读头部、`describe`、promote 到全局、待办交给 agent。
 

@@ -8,9 +8,8 @@
 //! - the hidden `arb probe enable|run|check|guide` of ADR 0003.
 //!
 //! Every subcommand dispatches to one core function and prints what the Python CLI prints
-//! (`tests/cli_parity.rs` runs both on the same steps); commands whose core module is not
-//! ported yet (the rest of `arb probe`) still reach `todo!()`; `arb ui` runs the Python
-//! dashboard until the app replaces it.
+//! (`tests/cli_parity.rs` runs both on the same steps); `arb ui` runs the Python dashboard
+//! until the app replaces it.
 //! Exit status: 0, or 1 with `error: <message>` on stderr (Python `handle_errors`);
 //! `arb hook session-start` always exits 0 silently.
 

@@ -871,7 +871,11 @@ mod tests {
         String::from_utf8(o.stdout).unwrap().trim_end().to_string()
     }
 
+    /// `world()` sets the process-wide `ARBORIA_CONFIG_DIR`: one world at a time.
+    static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     struct World {
+        _serial: std::sync::MutexGuard<'static, ()>,
         _tmp: Tmp,
         ctx: RepoContext,
         ledger: Ledger,
@@ -883,6 +887,7 @@ mod tests {
     const PROJECT: &str = "wavefront-3f2a";
 
     fn world(tag: &str) -> World {
+        let serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let root =
             std::env::temp_dir().join(format!("arboria-submit-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
@@ -937,6 +942,7 @@ mod tests {
         let profile = clusters::load_profile("fake", None).unwrap();
         let fake = FakeSlurm::new(profile, ProjectId::parse(PROJECT).unwrap()).unwrap();
         World {
+            _serial: serial,
             _tmp: tmp,
             ctx,
             ledger,

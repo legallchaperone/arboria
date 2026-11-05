@@ -15,6 +15,11 @@ fn main() {
         "pty_write",
         "pty_resize",
         "pty_close",
+        "pick_project",
+        "clusters_read",
+        "clusters_check",
+        "clusters_save",
+        "open_in_editor",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

@@ -1,7 +1,7 @@
 //! Tell the window when a ledger changed (ADR 0004): every second, `PRAGMA data_version`
 //! of each listed project's ledger (a connection kept open read-only) and the size of its
 //! `notifications.log`; a change emits `ledger-changed` with the root. A change of the
-//! project list emits `projects-changed`.
+//! project list emits `projects-changed`; a change of clusters.toml, `clusters-changed`.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -35,6 +35,12 @@ pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         let mut seen: HashMap<PathBuf, Seen> = HashMap::new();
         let mut listed: Vec<PathBuf> = Vec::new();
+        let mtime = || {
+            std::fs::metadata(arboria_core::clusters::config_path())
+                .and_then(|m| m.modified())
+                .ok()
+        };
+        let mut clusters_seen = mtime();
         loop {
             let now = roots();
             if now != listed {
@@ -70,6 +76,11 @@ pub fn start(app: AppHandle) {
                 if changed {
                     let _ = app.emit("ledger-changed", root.display().to_string());
                 }
+            }
+            let now_m = mtime();
+            if now_m != clusters_seen {
+                clusters_seen = now_m;
+                let _ = app.emit("clusters-changed", ());
             }
             std::thread::sleep(Duration::from_secs(1));
         }

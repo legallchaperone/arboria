@@ -11,7 +11,8 @@ export function Inbox(props: {
   projects: ProjectSummary[];
   now: number;
   onOpen: (e: Entry) => void;
-  onAddProject: (path: string) => void;
+  /** No path: the system's “choose a folder” dialog. */
+  onAddProject: (path?: string) => void;
   recent: { root: string; idea: string }[];
   onIdea: (root: string, idea: string) => void;
 }) {
@@ -90,13 +91,17 @@ export function Inbox(props: {
             className="app-add small"
             onSubmit={(e) => {
               e.preventDefault();
-              if (path.trim()) props.onAddProject(path.trim());
+              props.onAddProject(path.trim() || undefined);
             }}
           >
-            <span className="ab-muted">还没有项目。在仓库里运行 arb init，或者在这里添加：</span>
+            <span className="ab-muted">还没有项目。在仓库里运行 arb init（会自动添加），或者选一个 arb init 过的仓库：</span>
+            <button className="ab-btn ab-btn-primary small" type="button" onClick={() => props.onAddProject()}>
+              选择文件夹…
+            </button>
+            <span className="ab-muted">或粘贴路径</span>
             <input className="app-input code" placeholder="/Users/you/lm" value={path} onChange={(e) => setPath(e.target.value)} />
-            <button className="ab-btn small" type="submit">
-              添加项目
+            <button className="ab-btn small" type="submit" disabled={!path.trim()}>
+              添加
             </button>
           </form>
         )}

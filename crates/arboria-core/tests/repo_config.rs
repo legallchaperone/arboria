@@ -137,9 +137,13 @@ fn resolve_is_non_strict() {
     assert_eq!(paths::resolve(&root), root);
 }
 
+/// `env_overrides` and `the_apps_clusters_editor` set process-wide variables.
+static ENV: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn env_overrides() {
-    // the only test in this binary that reads or sets these variables
+    // with the_apps_clusters_editor, the only tests here that read or set these variables
+    let _env = ENV.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new("env");
     let root = tmp.path().canonicalize().unwrap();
     std::env::set_var(paths::HOME_ENV, root.join("h"));
@@ -251,5 +255,54 @@ fn load_profile_from_file() {
     assert!(
         msg.starts_with("machine 'deltaai' has no partition 'gpuA100'; known: "),
         "{msg}"
+    );
+}
+
+#[test]
+fn the_apps_clusters_editor() {
+    use arboria_core::clusters;
+    let _env = ENV.lock().unwrap_or_else(|e| e.into_inner());
+    let root = common::TempDir::new("clusters-edit");
+    std::env::set_var(clusters::CONFIG_DIR_ENV, root.path().join("cfg2"));
+    // no file yet: the editor starts from the example, which `arb` refuses (placeholders)
+    let start = clusters::read_checked().unwrap();
+    assert!(!start.exists);
+    assert_eq!(start.text, clusters::TEMPLATE);
+    assert!(!start.profiles.is_empty());
+    let bad = clusters::check_text("[x\n");
+    assert!(bad.syntax_error.is_some() && !bad.ok());
+    let fake = |r: &str| {
+        format!(
+            "[fake]\nkind = \"fake\"\nroot = \"{r}/state\"\naccount = \"a\"\ngpus_per_node = 4\n\
+             cpus_per_gpu = 16\nmem_per_gpu_gb = 100\ndefault_partition = \"ghx4\"\nmax_segments = 2\n\
+             env_activate = []\n[fake.partitions.ghx4]\nmax_walltime = \"48h\"\n[fake.paths]\n\
+             runs = \"{r}/runs\"\ndata = \"{r}/data\"\ncache = \"{r}/cache\"\nckpt = \"{r}/ckpt\"\nout = \"{r}/out\"\n"
+        )
+    };
+    let good = fake("/tmp/f");
+    let c = clusters::check_text(&good);
+    assert!(c.ok(), "{c:?}");
+    assert_eq!(c.profiles[0].kind.as_deref(), Some("fake"));
+    // a wrong value: refused, nothing written
+    let wrong = good.replace("gpus_per_node = 4", "gpus_per_node = \"four\"");
+    let e = clusters::save_text(&wrong).unwrap_err().to_string();
+    assert!(
+        e.contains("[fake]") && e.ends_with("nothing was saved"),
+        "{e}"
+    );
+    assert!(!clusters::config_path().exists());
+    let saved = clusters::save_text(&good).unwrap();
+    assert!(saved.exists && saved.ok());
+    assert_eq!(
+        std::fs::read_to_string(clusters::config_path()).unwrap(),
+        good
+    );
+    assert_eq!(clusters::load_profile("fake", None).unwrap().name, "fake");
+    clusters::save_text(&fake("/tmp/g")).unwrap();
+    let bak = clusters::config_path().with_file_name("clusters.toml.bak");
+    assert_eq!(
+        std::fs::read_to_string(bak).unwrap(),
+        good,
+        "the previous file is kept"
     );
 }

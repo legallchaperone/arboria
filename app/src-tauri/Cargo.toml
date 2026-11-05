@@ -30,6 +30,8 @@ rusqlite = { version = "=0.40.2", features = ["bundled"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = { version = "=1.0.154", features = ["float_roundtrip", "preserve_order"] }
 tauri = { version = "=2.12.5", features = [] }
+# the native “choose a folder” dialog (used from Rust only: no JS permission)
+tauri-plugin-dialog = "=2.8.3"
 
 [profile.release]
 codegen-units = 1

@@ -456,3 +456,112 @@ pub fn load_profile(name: &str, path: Option<&Path>) -> Result<Profile> {
     };
     parse_profile(name, table, &path.display().to_string())
 }
+
+// ---------------------------------------------------------------- editing (the app, ADR 0004)
+
+/// The text the app's editor starts from when there is no clusters.toml yet.
+pub const TEMPLATE: &str = include_str!("../../../examples/clusters.toml");
+
+/// One `[machine]` table as the editor shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct ProfileCheck {
+    pub name: String,
+    pub kind: Option<String>,
+    pub host: Option<String>,
+    /// Why `arb` would refuse this profile (None: it is valid).
+    pub error: Option<String>,
+}
+
+/// A clusters.toml text checked the way `arb` reads it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FileCheck {
+    pub path: PathBuf,
+    /// The file exists (else the text is [`TEMPLATE`]).
+    pub exists: bool,
+    pub text: String,
+    /// The text is not TOML: why.
+    pub syntax_error: Option<String>,
+    pub profiles: Vec<ProfileCheck>,
+}
+
+impl FileCheck {
+    /// Valid TOML and every profile valid.
+    pub fn ok(&self) -> bool {
+        self.syntax_error.is_none() && self.profiles.iter().all(|p| p.error.is_none())
+    }
+}
+
+/// Check `text` as `<config dir>/clusters.toml`: TOML syntax, then each table with
+/// [`parse_profile`] (what `arb` will say about it). Reads nothing.
+pub fn check_text(text: &str) -> FileCheck {
+    let path = config_path();
+    let mut out = FileCheck {
+        exists: path.is_file(),
+        path,
+        text: text.to_string(),
+        syntax_error: None,
+        profiles: Vec::new(),
+    };
+    let table = match text.parse::<toml::Table>() {
+        Ok(t) => t,
+        Err(e) => {
+            out.syntax_error = Some(e.message().to_string());
+            return out;
+        }
+    };
+    for (name, raw) in &table {
+        let get = |k: &str| raw.get(k).and_then(|v| v.as_str()).map(str::to_string);
+        let error = if raw.is_table() {
+            parse_profile(name, raw, FILENAME)
+                .err()
+                .map(|e| e.to_string())
+        } else {
+            Some(format!(
+                "{FILENAME}: {name} is not a [{name}] table (each machine is one table)"
+            ))
+        };
+        out.profiles.push(ProfileCheck {
+            name: name.clone(),
+            kind: get("kind"),
+            host: get("host"),
+            error,
+        });
+    }
+    out
+}
+
+/// The current file checked, or the template when there is none.
+pub fn read_checked() -> Result<FileCheck> {
+    let path = config_path();
+    let text = if path.is_file() {
+        std::fs::read_to_string(&path)?
+    } else {
+        TEMPLATE.to_string()
+    };
+    Ok(check_text(&text))
+}
+
+/// Save `text` as clusters.toml when [`check_text`] finds nothing wrong (else nothing is
+/// written); the previous file is kept as `clusters.toml.bak`; the write is atomic.
+pub fn save_text(text: &str) -> Result<FileCheck> {
+    let checked = check_text(text);
+    if let Some(e) = &checked.syntax_error {
+        bail!("{FILENAME} is not valid TOML ({e}); nothing was saved");
+    }
+    if let Some(p) = checked.profiles.iter().find(|p| p.error.is_some()) {
+        bail!(
+            "{}; nothing was saved",
+            p.error.as_deref().unwrap_or_default()
+        );
+    }
+    let path = checked.path.clone();
+    let dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
+    std::fs::create_dir_all(&dir)?;
+    if path.is_file() {
+        std::fs::copy(&path, dir.join(format!("{FILENAME}.bak")))?;
+    }
+    let tmp = dir.join(format!(".{FILENAME}.{}", std::process::id()));
+    std::fs::write(&tmp, text)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(check_text(text))
+}

@@ -25,7 +25,9 @@ npm run tauri build      # 生成 src-tauri/target/release/bundle/macos/Arboria.
 
 要 Node 22 和 Rust。app 还没签名和公证：第一次打开时在 Finder 里右键 → 打开。开发时用 `npm run tauri dev`。
 
-app 看的是**登记过的项目**：`arb init` 会自动登记；已有的仓库运行一次 `arb projects add`（或者在空的收件箱里填路径）。种子园总在列表里。
+app 看的是**登记过的项目**：`arb init` 会自动登记；已有的仓库运行一次 `arb projects add`，或者在 app 里 ⌘K →「添加项目…」（空的收件箱里是「选择文件夹…」按钮），在系统的文件夹对话框里选那个仓库。种子园总在列表里。
+
+窗口：标题栏上除按钮以外的地方都可以按住拖动，双击放大。
 
 ```bash
 arb projects add ~/code/lm
@@ -78,11 +80,22 @@ arb projects remove ~/code/old
 
 ## 终端
 
-⌘\` 打开底部的终端：在项目主 worktree 里开你的登录 shell。“Claude Code”开一个运行 `claude` 的标签，和在自己的终端里一样（用你自己登录的 `claude`）。`arb approve` 在这里照样只在人敲的时候才行：Claude Code 运行的命令会被 `arb` 拒绝。
+⌘\` 打开终端：在项目主 worktree 里开你的登录 shell。“Claude Code”开一个运行 `claude` 的标签，和在自己的终端里一样（用你自己登录的 `claude`）。`arb approve` 在这里照样只在人敲的时候才行：Claude Code 运行的命令会被 `arb` 拒绝。
+
+- 位置：标签栏右边的「左 / 下 / 右」切换，放在底部或左右两侧；拖动终端和页面之间的边调大小。位置和大小会记住。
+- 收起（⌘\` 或 ⌄）只是藏起来：标签、正在跑的程序和输出都还在，再按 ⌘\` 原样回来。关掉一个标签（×）才结束它的进程。
+
+## 机器配置（clusters.toml）
+
+⌘K →「机器配置」，或者在「全局」的「机器」旁边点「编辑机器配置」。左边是 `~/.config/arboria/clusters.toml` 的全文，右边按 `arb` 读它的方式逐台检查（✓，或者 arb 会拒绝的原因，比如 `<占位符>` 没填、分区写错）。只有全部通过才能保存（⌘S），旧文件留成 `clusters.toml.bak`。还没有这个文件时，编辑器里是示例。
+
+- 「用编辑器打开」用你的默认文本编辑器打开同一个文件；在外面改了，没在 app 里改动时 app 自动跟着刷新。
+- 新集群最省事：在终端里 `arb machine init 名字 --host 登录节点 --write`，它登录上去测好再写进来。
+- 项目自己的设置（默认机器、预算、wandb）在仓库的 `arboria.toml`：「全局」里有「用编辑器打开这个项目的 arboria.toml」。
 
 ## 后台小助手
 
-app 关了也要有人盯作业。小助手是 `arb helper run`，登录时由 LaunchAgent 启动：
+**它是什么：** 一个在后台常驻的小程序，替你盯着集群。app 只有开着的时候才看得到变化；小助手在你登录 Mac 时自动启动（macOS 的 LaunchAgent），app 关着、终端关着也在跑，有事就弹系统通知。它就是 `arb helper run`：
 
 ```bash
 arb helper install     # 或者 全局 › 安装小助手

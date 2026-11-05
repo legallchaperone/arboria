@@ -8,6 +8,7 @@
   "permissions": [
     "core:default",
     "allow-platform",
+    "core:window:allow-toggle-maximize",
     "allow-projects",
     "allow-board",
     "allow-add-project",
@@ -19,6 +20,12 @@
     "allow-pty-open",
     "allow-pty-write",
     "allow-pty-resize",
-    "allow-pty-close"
+    "allow-pty-close",
+    "core:window:allow-start-dragging",
+    "allow-pick-project",
+    "allow-clusters-read",
+    "allow-clusters-check",
+    "allow-clusters-save",
+    "allow-open-in-editor"
   ]
 }

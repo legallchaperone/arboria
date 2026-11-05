@@ -8,13 +8,35 @@ import type { Board, HelperStatus, Platform, ProjectSummary } from "./types";
 import { TitleBar, type Crumb } from "./components/TitleBar";
 import { ApprovalSheet } from "./components/ApprovalSheet";
 import { Palette, type Choice } from "./components/Palette";
-import { TerminalPanel, type TabSpec } from "./components/Terminal";
+import { TerminalPanel, type Dock, type TabSpec } from "./components/Terminal";
 import { Inbox } from "./screens/Inbox";
 import { Overview } from "./screens/Overview";
 import { Idea } from "./screens/Idea";
+import { Machines } from "./screens/Machines";
 import type { Entry } from "./lib/inbox";
 
-type View = { k: "inbox" } | { k: "overview"; root: string } | { k: "idea"; root: string; idea: string };
+type View =
+  | { k: "inbox" }
+  | { k: "overview"; root: string }
+  | { k: "idea"; root: string; idea: string }
+  | { k: "machines" };
+
+/** Per-viewer conveniences (the terminal's place and size); never state that matters. */
+function remembered<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : (JSON.parse(v) as T);
+  } catch {
+    return fallback;
+  }
+}
+function remember(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode */
+  }
+}
 
 /** The clock (the screenshots pin it to the fixture's time). */
 export const clock = { now: () => Date.now() };
@@ -35,6 +57,10 @@ export function App() {
   const [sheet, setSheet] = useState<{ root: string; run: string } | null>(null);
   const [palette, setPalette] = useState<"commands" | "ideas" | null>(null);
   const [termOpen, setTermOpen] = useState(false);
+  const [dock, setDock] = useState<Dock>(() => remembered<Dock>("arboria.term.dock", "bottom"));
+  const [termSize, setTermSize] = useState<Record<Dock, number>>(() =>
+    remembered("arboria.term.size", { bottom: 320, left: 560, right: 560 }),
+  );
   const [tabs, setTabs] = useState<TabSpec[]>([]);
   const [activeTab, setActiveTab] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -86,7 +112,7 @@ export function App() {
   }, [loadAll, loadBoard]);
 
   const firstProject = projects.find((p) => p.kind === "project" && !p.error) ?? projects[0];
-  const currentRoot = view.k === "inbox" ? firstProject?.root : view.root;
+  const currentRoot = view.k === "inbox" || view.k === "machines" ? firstProject?.root : view.root;
   const waiting = projects.reduce((n, p) => n + p.inbox.length, 0);
 
   const openTab = useCallback(
@@ -100,6 +126,17 @@ export function App() {
     },
     [currentRoot],
   );
+
+  const addProject = async (path?: string) => {
+    try {
+      const entry = path ? await api.addProject(path) : await api.pickProject();
+      if (!entry) return; // cancelled
+      setToast(`已添加 ${entry.path}`);
+      await loadAll();
+    } catch (e) {
+      setToast(message(e));
+    }
+  };
 
   const openEntry = (e: Entry) => {
     if (e.kind === "approve" && e.run) setSheet({ root: e.root, run: e.run });
@@ -152,6 +189,8 @@ export function App() {
     ...(firstProject ? [{ key: "overview", name: "全局", desc: "idea 树、花费、机器", run: () => setView({ k: "overview", root: currentRoot ?? firstProject.root }) }] : []),
     { key: "term", name: "新终端", desc: "在项目主 worktree 里", run: () => openTab(null) },
     { key: "claude", name: "Claude Code", desc: "在终端里和 Claude 讨论", run: () => openTab("claude") },
+    { key: "add", name: "添加项目…", desc: "选一个 arb init 过的仓库", run: () => void addProject() },
+    { key: "machines", name: "机器配置", desc: "编辑 clusters.toml（集群、账户、分区、路径）", run: () => setView({ k: "machines" }) },
     { key: "reload", name: "重新读取", desc: "所有项目的账本", run: () => void loadAll() },
     { key: "helper", name: "安装后台小助手", desc: "登录时启动，盯作业、发通知", run: () => void installHelper() },
   ];
@@ -175,9 +214,10 @@ export function App() {
     }
   }
 
-  const board = view.k !== "inbox" ? boards[view.root] ?? null : null;
+  const board = view.k === "overview" || view.k === "idea" ? boards[view.root] ?? null : null;
   const crumbs: Crumb[] = [];
   if (view.k === "inbox") crumbs.push({ label: "待你处理" });
+  else if (view.k === "machines") crumbs.push({ label: "机器配置" });
   else {
     const name = board?.project.name ?? view.root;
     crumbs.push({ label: name, onClick: () => setView({ k: "overview", root: view.root }) });
@@ -198,6 +238,7 @@ export function App() {
         onCommands={() => setPalette("commands")}
         onTerminal={() => (tabs.length === 0 ? openTab(null) : setTermOpen((o) => !o))}
       />
+      <div className={`app-work is-${dock}`}>
       <div className="app-body">
         {view.k === "inbox" && (
           <Inbox
@@ -206,12 +247,7 @@ export function App() {
             onOpen={openEntry}
             recent={recent}
             onIdea={(root, idea) => setView({ k: "idea", root, idea })}
-            onAddProject={(p) =>
-              api.addProject(p).then(
-                () => void loadAll(),
-                (e) => setToast(message(e)),
-              )
-            }
+            onAddProject={(p) => void addProject(p)}
           />
         )}
         {view.k === "overview" && (
@@ -225,6 +261,8 @@ export function App() {
             onProject={(root) => setView({ k: "overview", root })}
             onInstallHelper={() => void installHelper()}
             onLogin={(m) => openTab(null, loginCommand(helper?.needs_login[m] ?? "") ?? `ssh ${m}`)}
+            onMachines={() => setView({ k: "machines" })}
+            onEditConfig={(path) => api.openInEditor(path).catch((e) => setToast(message(e)))}
           />
         )}
         {view.k === "idea" && board && idea && (
@@ -243,24 +281,41 @@ export function App() {
             }}
           />
         )}
+        {view.k === "machines" && <Machines onToast={setToast} onTerminal={(cmd) => openTab(null, cmd)} />}
         {view.k === "idea" && (!board || !idea) && (
           <main className="app-main">
             <p className="small ab-muted">{errors[view.root] ?? `读取 ${view.idea}…`}</p>
           </main>
         )}
       </div>
-      {termOpen && (
-        <TerminalPanel
-          tabs={tabs}
-          active={activeTab}
-          onSelect={setActiveTab}
-          onNew={(p) => openTab(p)}
-          onClose={(k) => {
-            setTabs((t) => t.filter((x) => x.key !== k));
-            if (activeTab === k) setActiveTab(tabs.find((x) => x.key !== k)?.key ?? null);
-          }}
-        />
-      )}
+      <TerminalPanel
+        tabs={tabs}
+        active={activeTab}
+        visible={termOpen}
+        dock={dock}
+        size={termSize[dock]}
+        onSelect={setActiveTab}
+        onNew={(p) => openTab(p)}
+        onClose={(k) => {
+          const rest = tabs.filter((x) => x.key !== k);
+          setTabs(rest);
+          if (activeTab === k) setActiveTab(rest.at(-1)?.key ?? null);
+          if (rest.length === 0) setTermOpen(false);
+        }}
+        onDock={(d) => {
+          setDock(d);
+          remember("arboria.term.dock", d);
+        }}
+        onSize={(px) =>
+          setTermSize((m) => {
+            const next = { ...m, [dock]: px };
+            remember("arboria.term.size", next);
+            return next;
+          })
+        }
+        onHide={() => setTermOpen(false)}
+      />
+      </div>
       {sheet && platform && (
         <ApprovalSheet
           root={sheet.root}

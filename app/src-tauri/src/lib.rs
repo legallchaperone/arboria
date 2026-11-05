@@ -22,7 +22,7 @@ use std::time::Instant;
 
 use arboria_core::db::Ledger;
 use arboria_core::model::RunId;
-use arboria_core::{helper, human, paths, registry, submission, view};
+use arboria_core::{clusters, helper, human, paths, registry, submission, view};
 use serde::Serialize;
 
 /// Every command the main window may call (`build.rs` makes an `allow-…` permission for
@@ -41,6 +41,11 @@ pub const COMMANDS: &[&str] = &[
     "pty_write",
     "pty_resize",
     "pty_close",
+    "pick_project",
+    "clusters_read",
+    "clusters_check",
+    "clusters_save",
+    "open_in_editor",
 ];
 
 type Res<T> = Result<T, String>;
@@ -223,6 +228,78 @@ async fn open_notebook(
     notebook::open(&app, &state.notebooks, &root, &idea).await
 }
 
+/// The native “choose a folder” dialog, then [`registry::add`]. None: cancelled.
+#[tauri::command]
+async fn pick_project(app: tauri::AppHandle) -> Res<Option<registry::Entry>> {
+    use tauri_plugin_dialog::DialogExt;
+    tauri::async_runtime::spawn_blocking(move || -> Res<Option<registry::Entry>> {
+        let Some(picked) = app
+            .dialog()
+            .file()
+            .set_title("选择一个 arb init 过的仓库")
+            .blocking_pick_folder()
+        else {
+            return Ok(None);
+        };
+        let dir = picked.into_path().map_err(err)?;
+        registry::add(&dir).map(|(e, _)| Some(e)).map_err(err)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// clusters.toml as it is now (the example when there is none), checked.
+#[tauri::command]
+fn clusters_read() -> Res<clusters::FileCheck> {
+    clusters::read_checked().map_err(err)
+}
+
+/// What `arb` would say about this text (nothing is written).
+#[tauri::command]
+fn clusters_check(text: String) -> clusters::FileCheck {
+    clusters::check_text(&text)
+}
+
+/// Save the text when it is valid (the old file becomes clusters.toml.bak).
+#[tauri::command]
+fn clusters_save(text: String) -> Res<clusters::FileCheck> {
+    clusters::save_text(&text).map_err(err)
+}
+
+/// Open clusters.toml, or a listed project's arboria.toml, in the default text editor.
+#[tauri::command]
+fn open_in_editor(path: String) -> Res<()> {
+    let p = PathBuf::from(&path);
+    let allowed = p == clusters::config_path()
+        || registry::list()
+            .map_err(err)?
+            .iter()
+            .any(|e| e.path.join(paths::CONFIG_NAME) == p);
+    if !allowed {
+        return Err(format!(
+            "{path} is not clusters.toml or a project's arboria.toml"
+        ));
+    }
+    if !p.exists() {
+        if p == clusters::config_path() {
+            if let Some(dir) = p.parent() {
+                std::fs::create_dir_all(dir).map_err(err)?;
+            }
+            std::fs::write(&p, clusters::TEMPLATE).map_err(err)?;
+        } else {
+            return Err(format!("{path} does not exist"));
+        }
+    }
+    let mut cmd = if cfg!(target_os = "macos") {
+        let mut c = std::process::Command::new("open");
+        c.arg("-t");
+        c
+    } else {
+        std::process::Command::new("xdg-open")
+    };
+    cmd.arg(&p).spawn().map(|_| ()).map_err(err)
+}
+
 #[tauri::command]
 fn pty_open(
     state: tauri::State<'_, AppState>,
@@ -282,6 +359,7 @@ fn adopt_login_path() {
 pub fn run() {
     adopt_login_path();
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .setup(|app| {
             watch::start(app.handle().clone());
@@ -301,6 +379,11 @@ pub fn run() {
             pty_write,
             pty_resize,
             pty_close,
+            pick_project,
+            clusters_read,
+            clusters_check,
+            clusters_save,
+            open_in_editor,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Arboria");

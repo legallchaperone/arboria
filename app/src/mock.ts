@@ -8,6 +8,24 @@ import type { Board } from "./types";
 import { clock } from "./App";
 
 const now = Date.parse(fixture.now);
+const CLUSTERS = `[deltaai]
+kind = "slurm"
+host = "dtai-login.delta.ncsa.illinois.edu"
+account = "bjki-dtai-gh"
+gpus_per_node = 4
+cpus_per_gpu = 72
+mem_per_gpu_gb = 110.898
+default_partition = "ghx4"
+billing_per_su = 1000
+
+[deltaai.partitions.ghx4]
+max_walltime = "48h"
+
+[lab-box]
+kind = "slurm"
+host = "lab-box"
+account = "<your account>"
+`;
 const started = Date.now();
 clock.now = () => now + (Date.now() - started);
 
@@ -41,6 +59,22 @@ mockIPC(
         setTimeout(() => internals().runCallback(ch.id, { index: 0, message: Array.from(new TextEncoder().encode(text)) }), 50);
         return 1;
       }
+      case "clusters_read":
+      case "clusters_check": {
+        const text = (a.text as string | undefined) ?? CLUSTERS;
+        const bad = /<[a-z]/.test(text);
+        return {
+          path: "/Users/you/.config/arboria/clusters.toml",
+          exists: true,
+          text,
+          syntax_error: null,
+          profiles: [
+            { name: "deltaai", kind: "slurm", host: "dtai-login.delta.ncsa.illinois.edu", error: null },
+            { name: "lab-box", kind: "slurm", host: "lab-box", error: bad ? "clusters.toml: [lab-box]: account is a <placeholder>; fill it in" : null },
+          ],
+        };
+      }
+      case "pick_project":
       case "pty_write":
       case "pty_resize":
       case "pty_close":
@@ -70,4 +104,16 @@ setTimeout(() => {
   if (screen === "palette") press("k", true);
   if (screen === "ideas") press("p", true);
   if (screen === "terminal") press("`", true);
+  if (screen === "terminal-right") {
+    press("`", true);
+    setTimeout(() => click("右"), 300);
+  }
+  if (screen === "machines") {
+    press("k", true);
+    setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>(".ab-palette input");
+      input?.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+      [...document.querySelectorAll<HTMLElement>(".ab-palette [role=option]")].find((e) => e.textContent?.includes("机器配置"))?.click();
+    }, 200);
+  }
 }, 300);

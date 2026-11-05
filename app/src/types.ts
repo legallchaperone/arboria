@@ -191,3 +191,19 @@ export interface Approved {
   decision: string | null;
   jobs: string[];
 }
+
+export interface ProfileCheck {
+  name: string;
+  kind: string | null;
+  host: string | null;
+  error: string | null;
+}
+
+/** clusters::FileCheck */
+export interface ClustersCheck {
+  path: string;
+  exists: boolean;
+  text: string;
+  syntax_error: string | null;
+  profiles: ProfileCheck[];
+}

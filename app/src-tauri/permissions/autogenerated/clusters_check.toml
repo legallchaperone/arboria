@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clusters-check"
+description = "Enables the clusters_check command without any pre-configured scope."
+commands.allow = ["clusters_check"]
+
+[[permission]]
+identifier = "deny-clusters-check"
+description = "Denies the clusters_check command without any pre-configured scope."
+commands.deny = ["clusters_check"]

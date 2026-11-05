@@ -5,6 +5,7 @@ import { Channel, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
   Approved,
+  ClustersCheck,
   Board,
   CardView,
   HelperStatus,
@@ -23,6 +24,11 @@ export const api = {
   helperStatus: () => invoke<HelperStatus>("helper_status"),
   helperInstall: () => invoke<string>("helper_install"),
   openNotebook: (root: string, idea: string) => invoke<void>("open_notebook", { root, idea }),
+  pickProject: () => invoke<{ path: string; added_at: string } | null>("pick_project"),
+  clustersRead: () => invoke<ClustersCheck>("clusters_read"),
+  clustersCheck: (text: string) => invoke<ClustersCheck>("clusters_check", { text }),
+  clustersSave: (text: string) => invoke<ClustersCheck>("clusters_save", { text }),
+  openInEditor: (path: string) => invoke<void>("open_in_editor", { path }),
   ptyOpen: (
     cwd: string,
     program: string | null,
@@ -48,6 +54,11 @@ export function onChange(f: (root: string | null) => void): Promise<UnlistenFn[]
     listen<string>("ledger-changed", (e) => f(e.payload)),
     listen("projects-changed", () => f(null)),
   ]);
+}
+
+/** `clusters-changed`: clusters.toml was written (by the app, an editor, arb machine init). */
+export function onClustersChange(f: () => void): Promise<UnlistenFn> {
+  return listen("clusters-changed", () => f());
 }
 
 /** A message for an error thrown by `invoke` (the Rust side returns strings). */

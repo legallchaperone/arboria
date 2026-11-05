@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clusters-save"
+description = "Enables the clusters_save command without any pre-configured scope."
+commands.allow = ["clusters_save"]
+
+[[permission]]
+identifier = "deny-clusters-save"
+description = "Denies the clusters_save command without any pre-configured scope."
+commands.deny = ["clusters_save"]

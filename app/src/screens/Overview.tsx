@@ -109,6 +109,8 @@ export function Overview(props: {
   onProject: (root: string) => void;
   onInstallHelper: () => void;
   onLogin: (machine: string) => void;
+  onMachines: () => void;
+  onEditConfig: (path: string) => void;
 }) {
   const b = props.board;
   const homeSeeds = props.projects.find((p) => p.kind === "home")?.seeds ?? 0;
@@ -187,11 +189,25 @@ export function Overview(props: {
         )}
 
         <section aria-labelledby="m-h" className="app-section">
-          <h2 className="heading" id="m-h">机器</h2>
+          <div className="app-head">
+            <h2 className="heading" id="m-h">机器</h2>
+            <button type="button" className="app-link small ab-accent" onClick={props.onMachines}>
+              编辑机器配置（clusters.toml）
+            </button>
+            {b && b.project.kind === "project" && (
+              <button type="button" className="app-link small ab-accent" onClick={() => props.onEditConfig(`${b.project.root}/arboria.toml`)}>
+                用编辑器打开这个项目的 arboria.toml
+              </button>
+            )}
+          </div>
           {b && b.probes.length === 0 && <p className="small ab-muted">还没有 probe 结果（小助手每 30 分钟查一次余额）。</p>}
           <div className="app-cards">{b?.probes.map((p) => <ProbeCard key={p.machine + p.probe} p={p} now={props.now} />)}</div>
           <div className="ab-panel app-helper">
             <div className="small ab-muted">后台小助手</div>
+            <p className="small ab-muted app-pad0">
+              一个在后台常驻的小程序（arb helper run，登录 Mac 时自动启动）：app 关着也每 2 分钟查一次作业状态，
+              run 跑完、失败、等你签字、集群要重新登录时弹系统通知。它从不批准任何东西。
+            </p>
             {props.helper ? (
               <>
                 <div>

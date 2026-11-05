@@ -348,11 +348,11 @@ CREATE INDEX inspections_key ON inspections(idea_id, question, view, target);
 MIGRATIONS: list[str] = [SCHEMA_V1, MIGRATION_V2, MIGRATION_V3, MIGRATION_V4, MIGRATION_V5,
                          MIGRATION_V6, MIGRATION_V7]
 SCHEMA_VERSION = len(MIGRATIONS)
-# Versions the Rust arb (arb-rs, docs/adr/0002-rust-contract.md) writes. This arb opens
+# Versions the Rust arb (crates/arb, docs/adr/0002-rust-contract.md) writes. This arb opens
 # them read-only (`PRAGMA query_only`, `Ledger.write` refuses) and never migrates them.
 READ_ONLY_VERSIONS = (8,)
-READ_ONLY_MESSAGE = ("{path} is a schema v{version} ledger, written by the Rust arb (arb-rs); "
-                     "this arb only reads it: make changes with arb-rs")
+READ_ONLY_MESSAGE = ("{path} is a schema v{version} ledger, written by the Rust arb; "
+                     "the Python arb (arb-py) only reads it: make changes with arb")
 
 
 def now() -> str:

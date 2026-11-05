@@ -319,11 +319,30 @@ out = {"description": doc, "problem": problem,
 sys.stdout.write(json.dumps(out))
 "#;
 
+/// The Python interpreter for the kernel side (`describe`, the probe host, notebooks,
+/// the dashboard): `$ARBORIA_PYTHON`; else the one the Python CLI `arb-py` runs in (its
+/// `#!` line: `uv tool install` puts the arboria package and marimo there); else
+/// `python3`.
 pub fn python_exe() -> String {
-    std::env::var(PYTHON_ENV)
-        .ok()
-        .filter(|p| !p.is_empty())
-        .unwrap_or_else(|| "python3".into())
+    if let Some(p) = std::env::var(PYTHON_ENV).ok().filter(|p| !p.is_empty()) {
+        return p;
+    }
+    arb_py_interpreter().unwrap_or_else(|| "python3".into())
+}
+
+/// The absolute interpreter path on the `#!` line of `arb-py` on PATH (a plain shebang
+/// only: no `env`, no arguments).
+fn arb_py_interpreter() -> Option<String> {
+    let path = std::env::var_os("PATH")?;
+    let script = std::env::split_paths(&path)
+        .map(|d| d.join("arb-py"))
+        .find(|p| p.is_file())?;
+    let mut head = [0u8; 512];
+    let n = std::io::Read::read(&mut std::fs::File::open(script).ok()?, &mut head).ok()?;
+    let line = std::str::from_utf8(&head[..n]).ok()?.lines().next()?;
+    let exe = line.strip_prefix("#!")?.trim();
+    (exe.starts_with('/') && !exe.contains(' ') && std::path::Path::new(exe).is_file())
+        .then(|| exe.to_string())
 }
 
 /// Read a command's signature and docstring from its source with Python's `ast` (see the

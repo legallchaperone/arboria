@@ -83,7 +83,7 @@ def notebook_mtime(h: Home, name: str) -> str | None:
     return datetime.fromtimestamp(st.st_mtime, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-# The seeds as v7 rows in a schema v8 ledger (arb-rs, read-only here): a seed is an ideas
+# The seeds as v7 rows in a schema v8 ledger (the Rust arb, read-only here): a seed is an ideas
 # row without a branch, `seeds` is frozen, plantings point at `seed_idea_id`, planted is
 # derived. The same query as ui/data.py's (which may not import this module).
 SEEDS_V8 = (

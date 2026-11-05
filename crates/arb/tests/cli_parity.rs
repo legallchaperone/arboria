@@ -1,4 +1,4 @@
-//! `arb-rs` against the Python `arb` (`.venv/bin/arb`, skipped when it is not installed):
+//! The Rust `arb` against the Python one (`.venv/bin/arb-py`, skipped when it is not installed):
 //! the same commands in two identical fresh repos must print the same thing and exit the
 //! same way. Paths, project ids, dates and commit hashes are normalized; stderr is
 //! compared only for errors (`error: …`).
@@ -138,14 +138,14 @@ enum At {
 
 #[test]
 fn same_output_as_python() {
-    let py = repo_root().join(".venv/bin/arb");
+    let py = repo_root().join(".venv/bin/arb-py");
     if !py.exists() {
         eprintln!("no {} (uv sync), parity not checked", py.display());
         return;
     }
     let tmp = std::env::temp_dir().join(format!("arb-parity-{}", std::process::id()));
     let _guard = Tmp(tmp.clone());
-    let rs = Side::new(&tmp, "rs", PathBuf::from(env!("CARGO_BIN_EXE_arb-rs")));
+    let rs = Side::new(&tmp, "rs", PathBuf::from(env!("CARGO_BIN_EXE_arb")));
     let pyside = Side::new(&tmp, "py", py);
     let dir = |s: &Side, at: At| match at {
         At::Main => s.main.clone(),

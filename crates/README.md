@@ -1,14 +1,14 @@
 # Rust crates
 
-The Rust core of Arboria (ADR 0001) — phase 1: every module is ported; `arb-rs` prints
-what the Python `arb` prints (`crates/arb/tests/cli_parity.rs`). Contract, module map, schema v8 and porting rules:
+The Rust core of Arboria (ADR 0001) — phase 1: every module is ported; `arb` prints
+what the Python CLI (now `arb-py`) prints (`crates/arb/tests/cli_parity.rs`). Contract, module map, schema v8 and porting rules:
 [`docs/adr/0002-rust-contract.md`](../docs/adr/0002-rust-contract.md).
 
 - `arboria-core/` — the library (ledger, ideas, runs, approvals, machines, probes). One
   file per module; each file's header names the Python module it ports and the
   invariants it keeps.
-- `arb/` — the command line, built as `arb-rs` until it replaces the Python `arb`. Its
-  clap tree mirrors `src/arboria/cli.py`.
+- `arb/` — the command line `arb` (`cargo install --locked --path crates/arb`). Its clap
+  tree mirrors `src/arboria/cli.py`; `arb lab` (hidden) takes the notebook kernel's writes.
 
 ```sh
 cargo fmt --all --check
@@ -24,4 +24,6 @@ uv run python crates/arboria-core/tests/fixtures/gen_fixtures.py   # schema v1�
 uv run python scripts/export_vectors.py                            # tests/vectors/
 ```
 
-The Python package (`src/arboria/`) stays the working `arb` until the Rust one catches up.
+The Python package (`src/arboria/`) is still needed: the notebook kernel (`lab`), the
+marimo notebooks and the dashboard run there, in the interpreter of `arb-py` (or
+`$ARBORIA_PYTHON`). It reads the v8 ledger the Rust `arb` writes, and never writes it.

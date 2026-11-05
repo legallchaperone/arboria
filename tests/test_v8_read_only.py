@@ -18,7 +18,7 @@ V8 = (Path(__file__).parent / "fixtures" / "migration_v8.sql").read_text(encodin
 
 
 def to_v8(state_dir: Path) -> None:
-    """Migrate a Python v7 ledger to v8 the way arb-rs does (one transaction, FKs off)."""
+    """Migrate a Python v7 ledger to v8 the way the Rust arb does (one transaction, FKs off)."""
     conn = sqlite3.connect(state_dir / "ledger.db", isolation_level=None)
     assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
     conn.execute("PRAGMA foreign_keys = OFF")
@@ -74,7 +74,7 @@ def test_v8_opens_read_only(v8: tuple[Path, Path], arb) -> None:
         assert ledger.conn.execute("PRAGMA user_version").fetchone()[0] == 8
     # a command that writes is refused, nothing changes
     res = arb(root, "lesson", "propose", "pin the seed", ok=False)
-    assert res.exit_code == 1 and "written by the Rust arb (arb-rs)" in res.stderr
+    assert res.exit_code == 1 and "written by the Rust arb; the Python arb (arb-py)" in res.stderr
     with db.Ledger(state) as ledger:
         assert ledger.one("SELECT COUNT(*) AS n FROM lessons")["n"] == 0
     # newer than v8 is still "upgrade arb"

@@ -168,7 +168,7 @@ def test_busy_timeout_and_migration(initialized: Path) -> None:
         assert ledger.conn.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
         assert db.migrate(ledger.conn) == db.SCHEMA_VERSION  # no-op when current
         ledger.conn.execute("PRAGMA user_version = 8")
-        assert db.migrate(ledger.conn) == 8  # arb-rs's v8: left as is, read-only
+        assert db.migrate(ledger.conn) == 8  # the Rust arb's v8: left as is, read-only
         ledger.conn.execute(f"PRAGMA user_version = {max(db.READ_ONLY_VERSIONS) + 1}")
         with pytest.raises(ArbError, match="newer"):
             db.migrate(ledger.conn)

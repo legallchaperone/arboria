@@ -4,7 +4,7 @@
 //! side: its template, the stylesheet with the embedded fonts (`arboria.style`, the font
 //! files ship in the Python package) and the `ast` reading of seed notebooks are
 //! `arboria.notebooks`. The core runs them in the interpreter [`crate::commands::python_exe`]
-//! with `-P` (the current directory is not importable), one JSON request on stdin, one
+//! (`$ARBORIA_PYTHON`, else the interpreter of `arb-py`) with `-P` (the current directory is not importable), one JSON request on stdin, one
 //! JSON reply on stdout, the same way `arb ui` runs the dashboard.
 //!
 //! Invariants:
@@ -126,7 +126,7 @@ fn call(req: &Value, warn: Warn<'_>) -> Result<Bridge> {
 /// The warning when there is no notebook (`then` says how to get it later).
 pub fn unavailable_warning(why: &str, then: &str) -> String {
     format!(
-        "no notebook written: {why}; install arboria for that interpreter or set ARBORIA_PYTHON, then {then}"
+        "no notebook written: {why}; install the Python package (`uv tool install '.[ui]'` in the arboria checkout puts arb-py on PATH) or set ARBORIA_PYTHON, then {then}"
     )
 }
 
@@ -217,7 +217,7 @@ pub fn restyle(
                 .collect())
         }
         Bridge::Unavailable(why) => Err(Error::Arb(format!(
-            "arb idea style needs the Python package (the notebooks are marimo files): {why}; install arboria for that interpreter or set ARBORIA_PYTHON"
+            "arb idea style needs the Python package (the notebooks are marimo files): {why}; install it (`uv tool install '.[ui]'` in the arboria checkout puts arb-py on PATH) or set ARBORIA_PYTHON"
         ))),
     }
 }

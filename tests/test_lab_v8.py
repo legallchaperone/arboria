@@ -1,6 +1,6 @@
 """`lab` on a schema v8 ledger (written by the Rust arb, opened read-only here): every write
 goes to `arb lab` (crates/arboria-core/src/kernel.rs) with the same checks and is read back.
-Needs the Rust binary: $ARBORIA_ARB, else target/debug/arb-rs (`cargo build`); skipped
+Needs the Rust binary: $ARBORIA_ARB, else target/debug/arb (`cargo build`); skipped
 without it."""
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _rust_arb() -> str | None:
-    exe = os.environ.get("ARBORIA_ARB") or str(ROOT / "target" / "debug" / "arb-rs")
+    exe = os.environ.get("ARBORIA_ARB") or str(ROOT / "target" / "debug" / "arb")
     return exe if Path(exe).is_file() else None
 
 

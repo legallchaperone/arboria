@@ -1,4 +1,4 @@
-//! `arb-rs`: parse, dispatch, print `error: <message>` and exit 1 on failure.
+//! `arb`: parse, dispatch, print `error: <message>` and exit 1 on failure.
 
 use std::process::ExitCode;
 

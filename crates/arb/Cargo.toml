@@ -1,6 +1,6 @@
 [package]
 name = "arb"
-description = "The arb command line (Rust port; installed as arb-rs until it replaces the Python arb)."
+description = "The arb command line on the Rust core (the Python CLI is arb-py)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [[bin]]
-name = "arb-rs"
+name = "arb"
 path = "src/main.rs"
 
 [lib]

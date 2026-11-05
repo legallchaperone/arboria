@@ -19,7 +19,7 @@ SELECT = ("SELECT t.*, i.name AS idea, s.name AS seed FROM tasks t"
           " LEFT JOIN ideas i ON i.id = t.idea_id LEFT JOIN seeds s ON s.id = t.seed_id")
 # The todo's idea is open, or its seed is not dropped.
 LIVE = "(i.status = 'open' OR s.status IN ('thinking', 'planted'))"
-# A schema v8 ledger (arb-rs, read-only here): every todo has an `idea_id`, a seed is an
+# A schema v8 ledger (the Rust arb, read-only here): every todo has an `idea_id`, a seed is an
 # ideas row without a branch. The same columns as SELECT, `seed_id` included.
 SELECT_V8 = ("SELECT t.*, CASE WHEN i.branch IS NOT NULL THEN i.name END AS idea,"
              " CASE WHEN i.branch IS NULL THEN i.name END AS seed,"

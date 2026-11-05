@@ -20,7 +20,7 @@ arb ui --home             # 种子园（在任何仓库之外，这是默认）
 
 ## 怎么运行
 
-- 需要 marimo，而且要装在 arb 自己的环境里：`uv tool install --force '.[ui]'`。没装时 `arb ui` 会告诉你怎么装。
+- 需要 marimo，而且要装在 arb-py 的环境里：`uv tool install --force '.[ui]'`（`arb ui` 用 `arb-py` 的解释器跑看板，或 `ARBORIA_PYTHON`）。没装时 `arb ui` 会告诉你怎么装。
 - `arb ui` 在 `127.0.0.1` 上运行包里自带的 marimo app（`marimo run`，带 marimo 的会话 token）。Ctrl-C 结束。
 - 每 30 秒重读一次账本（右上角可改间隔）；顶部的“更新于 HH:MM:SS”是最后一次读账本的时间。
 

@@ -24,7 +24,7 @@ from ..paths import CONFIG_NAME, DB_NAME, STATE_DIR_NAME, Home, RepoContext, hom
 # Copies of db constants (importing db would import the ledger's write path);
 # tests/test_ui.py checks they match.
 SCHEMA_VERSION = 7
-READ_ONLY_VERSIONS = (8,)  # written by arb-rs; read here like v7 (see _seed_queries)
+READ_ONLY_VERSIONS = (8,)  # written by the Rust arb; read here like v7 (see _seed_queries)
 READABLE = (SCHEMA_VERSION, *READ_ONLY_VERSIONS)
 RUN_FINAL = ("succeeded", "failed", "cancelled")
 RUN_ACTIVE = ("approved", "queued", "running")
@@ -340,7 +340,7 @@ def _check_version(ledger: ReadOnlyLedger) -> int:
     return version
 
 
-# The seeds as v7 rows. In v8 (arb-rs) a seed is an ideas row without a branch: `seeds` is
+# The seeds as v7 rows. In v8 (the Rust arb) a seed is an ideas row without a branch: `seeds` is
 # frozen, plantings point at `seed_idea_id`, todos at `idea_id`, and planted is derived.
 _SEEDS_V8 = (
     "SELECT i.id, i.name, i.gist, i.hypothesis, i.metric,"

@@ -2,10 +2,10 @@
 //! needs it; ADR 0001 replaces the marimo dashboard with the Mac app's views, which read
 //! the ledger with [`crate::db::open_read_only`].
 //!
-//! Until the app's views land, `arb-rs ui` runs the Python dashboard: the interpreter
+//! Until the app's views land, `arb ui` runs the Python dashboard: the interpreter
 //! [`crate::commands::python_exe`] (`$ARBORIA_PYTHON`, default `python3`) must import
 //! `arboria` with its `ui` extra (marimo). The Python dashboard reads schema v8 ledgers
-//! read-only (`ui/data.py`), so it serves ledgers arb-rs writes.
+//! read-only (`ui/data.py`), so it serves ledgers the Rust arb writes.
 //!
 //! Invariants:
 //! - Read-only: the ledger is opened read-only; no control acts (approve, accept, cancel

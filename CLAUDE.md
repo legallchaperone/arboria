@@ -18,7 +18,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 `src/arboria/`：cli（typer）、paths、gitutil、db、state（init）、snapshot、ideas、records、report（status/export）、hook、install、claudemd、clusters、config、slurm、backends/、submission、monitor、machine（machine init / doctor）、human（只在人的终端里批准）、notebooks、tasks（待办）、lab（notebook API）、commands（notebook 命令库、命令待办、给 Claude 的 guide）、inspection（`lab.inspect`：读代码待办、答案校验、从 git 取源码、渲染、guide）、analysis（内置分析 plot/diff/spend，只读）、seeds（种子园：种子的增改、种下）、sessions（会话 socket 的记录与推送）、style（字体：生成嵌入 Noto Sans SC 和 Maple Mono CN 的样式表）、cards（审核单，纯读；submission 再导出）、`ui/`（看板：data 只读加载账本、views 出 HTML/内联 SVG、dashboard.py 是包里自带的 marimo app、garden.py 是种子园的 marimo app，launch 起 `marimo run`）。`tests/` 使用临时 git 仓库；`tests/test_marimo.py` 用真的 marimo（dev 依赖）跑 `marimo check --strict`、`marimo export html` 和真 kernel 里的自动重跑（`tests/marimo_session.py`，用了 marimo 私有接口，接口变了就 skip）。
 
 ## 开发
-- `uv run pytest` 必须保持全绿。用 `uv tool install .` 装好后试 `arb`。
+- `uv run pytest` 必须保持全绿。`arb` 是 Rust 版（`cargo install --locked --path crates/arb`）；Python 版命令行叫 `arb-py`（`uv tool install '.[ui]'`），`arb` 用它的解释器跑 notebook、看板和 `describe`。
 - CI：`.github/workflows/tests.yml` 在 Python 3.11 和 3.13 上跑 `uv sync --all-extras --dev` + `uv run pytest`（包括真的 marimo）。
 - 用户文档：`README.md` 只放概览和快速开始，完整说明在文档网站 https://arboria.cwx.world（Astro + Starlight，源码在 `docs/`：页面在 `docs/src/content/docs/`，入门 / 指南 / 参考 / 项目）；改了命令或行为要同步对应页面。CLI 参考页 `reference/cli.md` 由 `uv run python docs/scripts/gen_cli.py` 生成，`tests/test_docs_cli.py` 和 docs CI 检查它是最新的；新命令要在脚本的 `SECTIONS` 里归类。本地预览 `cd docs && npm ci && npm run dev`；部署见 `docs/DEPLOY.md`。
 - 跨语言测试向量（`tests/vectors/`，Rust 版要逐字节一致）：改了被覆盖的 Python 行为后运行 `uv run python scripts/export_vectors.py` 重新生成并提交，`tests/test_vectors.py` 会检查它们是最新的。`quirk-` 开头的用例记录的是现在的 Python 行为（可能是 bug），Rust 先照抄。
@@ -67,13 +67,14 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 4. checkpoint 存到 `ARBORIA_CKPT_DIR`，并且可以续训。
 
 - **Rust 重写（进行中，2026-11-04 起）**。决定在 `docs/adr/`：0001（Mac app + Rust 核心）、0002（第 1 期契约：crate / 模块对照、schema v8、哪些已实现）、0003（扩展：第 1 期只有 probe）。第 0 期的试验和结论在 `spikes/`（编辑器 markdown 往返、Rust 驱动 kernel、本地意图模型 Qwen3.5-4B + KV 缓存）。设计：Arboria 设计系统 https://claude.ai/artifact/LeSPASKLSUE39HtVTiiGfk 、主界面画布 https://claude.ai/artifact/DGQD3R9dMC8s8ErYq5Rqd6 、编辑器原型 https://claude.ai/artifact/KNTafPRmEDfoQJZBQMwcWn 、方案 https://claude.ai/artifact/AbJrewmFfKDfNtoPotL2zm 。
-  - 已合并：跨语言测试向量（`tests/vectors/`，59 个文件 1215 个用例）、Rust 工作区骨架（`crates/arboria-core`、`crates/arb` → `arb-rs`），真实实现的有 canonical、model、schema v8 + 迁移、db、records、human、probe 头部解析与结果校验；其余 `todo!()`，51 个向量测试 `#[ignore]` 等着接。
+  - 已合并：跨语言测试向量（`tests/vectors/`，59 个文件 1215 个用例）、Rust 工作区骨架（`crates/arboria-core`、`crates/arb`，当时叫 `arb-rs`），真实实现的有 canonical、model、schema v8 + 迁移、db、records、human、probe 头部解析与结果校验；其余 `todo!()`，51 个向量测试 `#[ignore]` 等着接。
   - 已移植（分支 `rust-slurm-cards`）：slurm、cards（sha2 0.11.1）、config（`fail_patterns` 用 regex 1.13.1，编译不了的报错）、clusters（toml `preserve_order`）、paths、gitutil 的 git 调用；向量又接上 33 个文件，`tests/cards.rs` 拿审核单全文和 CPython 的输出逐字比，`tests/repo_config.rs` 测文件和真 git 仓库那一侧。
   - 又移植了（同一分支）：db 的备份仓库和 `dump`（照 CPython 3.13 `iterdump`）、snapshot、records、tasks（含 v8 agent 队列）、ideas（git 和账本一侧；notebook 留在 Python 一侧，见 ADR 0002）；`tests/records.rs`、`tasks.rs`、`ideas.rs` 用真 git 仓库。
   - 又移植了 backend（FakeSlurm、SshSlurm，进程经 `Runner` trait）、human（输入确认、`Confirmed`）、submission、monitor；`submission.rs` 的单元测试在 FakeSlurm 上跑完整流程。
-  - 又移植了 state（`arb init`）、claudemd、lessons、report（status / export）、hook、install；`arb-rs` 的输出逐字照 Python CLI（`crates/arb/tests/cli_parity.rs` 拿 `.venv/bin/arb` 跑同样的步骤比对，没装就跳过），`--json` 是 `json.dumps(indent=2)`、键按列顺序。
-  - Python 版能只读打开 v8 账本（`db.READ_ONLY_VERSIONS`：`query_only`，写入和备份报错，让人用 arb-rs）；看板读 v7 和 v8（`tests/test_v8_read_only.py`）。
-  - 又移植了 commands（`describe` 用 `python -I` 跑 `ast`）、inspection、machine（和 CPython 跑同样的 DeltaAI 场景逐行比）、probe 的发现 / 启用 / 宿主 / 运行 / 内置 balance；`arb-rs ui` 跑 Python 的看板。核心里不再有 `todo!()`，60 个向量文件全部接上。
-  - 下一步：在用户本机上让 `arb-rs` 替换 `arb`（先并行用一阵）；app（ADR 0001）。
+  - 又移植了 state（`arb init`）、claudemd、lessons、report（status / export）、hook、install；`arb` 的输出逐字照 Python CLI（`crates/arb/tests/cli_parity.rs` 拿 `.venv/bin/arb-py` 跑同样的步骤比对，没装就跳过），`--json` 是 `json.dumps(indent=2)`、键按列顺序。
+  - Python 版能只读打开 v8 账本（`db.READ_ONLY_VERSIONS`：`query_only`，写入和备份报错，让人用 arb）；看板读 v7 和 v8（`tests/test_v8_read_only.py`）。
+  - 又移植了 commands（`describe` 用 `python -I` 跑 `ast`）、inspection、machine（和 CPython 跑同样的 DeltaAI 场景逐行比）、probe 的发现 / 启用 / 宿主 / 运行 / 内置 balance；`arb ui` 跑 Python 的看板。核心里不再有 `todo!()`，60 个向量文件全部接上。
+  - 已替换（2026-11-05）：Rust 二进制就叫 `arb`，Python 的 console script 改名 `arb-py`。替换前补上的两块：notebook 文件由核心的 `notebooks` 交给 Python 包写（`arb idea new/notebook/style`、种子、种下，`cli_parity.rs` 比两边写出的 notebook）；notebook kernel 里 `lab` 的写入在 v8 账本上经隐藏的 `arb lab`（核心 `kernel`，同样的只由人检查），Python 读 v8 的 tasks / seeds 换 SQL（`tests/test_lab_v8.py`）。Python 找 Rust 版：`ARBORIA_ARB`，否则 PATH 上的 `arb`；Rust 找 Python：`ARBORIA_PYTHON`，否则 `arb-py` 的 `#!` 解释器，否则 `python3`。
+  - 下一步：app（ADR 0001 第 2 期：看板、idea 树、Touch ID 批准、嵌入终端、后台小助手和通知）。
   - 已修：Python 的校验正则原来用 `re.match(r"^…$")`，`$` 放过结尾换行（远程路径里的换行会进 sbatch 脚本）；现在一律 `fullmatch`，Rust 整串匹配，新的校验正则也要这样。
   - 省 token 的规矩（用户定的）：任务需要的并行 subagent 少于 5 个就不开 subagent，自己做。

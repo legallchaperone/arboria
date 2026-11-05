@@ -49,12 +49,13 @@ flowchart LR
 
 ## 快速开始
 
-需要 Python ≥ 3.11、git ≥ 2.31 和 [uv](https://docs.astral.sh/uv/)。
+需要 Python ≥ 3.11、git ≥ 2.31、[uv](https://docs.astral.sh/uv/) 和 [Rust](https://rustup.rs/)（rustup；版本由仓库里的 `rust-toolchain.toml` 定）。
 
 ```bash
-# 安装（带 marimo：notebook 和看板都要）
+# 安装：Python 包（notebook 里的 lab、marimo、看板）和 arb 命令（Rust）
 git clone https://github.com/legallchaperone/arboria.git && cd arboria
-uv tool install --force '.[ui]'
+uv tool install --force '.[ui]'             # arb-py：Python 版命令行，arb 用它的解释器
+cargo install --locked --path crates/arb    # arb
 
 # 在你的实验代码仓库里
 cd ~/code/myproj

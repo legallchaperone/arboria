@@ -152,13 +152,19 @@ pub fn set_default_parent(dir: &Path) -> Result<PathBuf, String> {
     if !dir.is_dir() {
         return Err(format!("{} 不是一个文件夹", dir.display()));
     }
+    set_setting("clone_dir", dir.display().to_string().into())?;
+    Ok(dir.to_path_buf())
+}
+
+/// Set one key of `<config>/app.json` (written atomically, other keys kept).
+pub fn set_setting(key: &str, val: serde_json::Value) -> Result<(), String> {
     let path = settings_path();
     let mut v: serde_json::Value = std::fs::read_to_string(&path)
         .ok()
         .and_then(|t| serde_json::from_str(&t).ok())
         .filter(|v: &serde_json::Value| v.is_object())
         .unwrap_or_else(|| serde_json::json!({}));
-    v["clone_dir"] = dir.display().to_string().into();
+    v[key] = val;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -168,8 +174,7 @@ pub fn set_default_parent(dir: &Path) -> Result<PathBuf, String> {
         serde_json::to_string_pretty(&v).map_err(|e| e.to_string())? + "\n",
     )
     .map_err(|e| e.to_string())?;
-    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
-    Ok(dir.to_path_buf())
+    std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

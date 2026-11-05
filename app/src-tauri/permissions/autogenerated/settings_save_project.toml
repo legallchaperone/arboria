@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-settings-save-project"
+description = "Enables the settings_save_project command without any pre-configured scope."
+commands.allow = ["settings_save_project"]
+
+[[permission]]
+identifier = "deny-settings-save-project"
+description = "Denies the settings_save_project command without any pre-configured scope."
+commands.deny = ["settings_save_project"]

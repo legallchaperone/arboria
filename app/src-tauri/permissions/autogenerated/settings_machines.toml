@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-settings-machines"
+description = "Enables the settings_machines command without any pre-configured scope."
+commands.allow = ["settings_machines"]
+
+[[permission]]
+identifier = "deny-settings-machines"
+description = "Denies the settings_machines command without any pre-configured scope."
+commands.deny = ["settings_machines"]

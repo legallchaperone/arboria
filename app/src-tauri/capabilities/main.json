@@ -30,6 +30,15 @@
     "allow-terminal-launchers",
     "allow-pick-folder",
     "allow-clone-project",
-    "allow-clone-dir"
+    "allow-clone-dir",
+    "allow-settings-machines",
+    "allow-settings-save-machine",
+    "allow-settings-remove-machine",
+    "allow-settings-blank-machine",
+    "allow-settings-project",
+    "allow-settings-save-project",
+    "allow-app-settings",
+    "allow-set-notifications",
+    "allow-helper-uninstall"
   ]
 }

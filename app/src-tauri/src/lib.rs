@@ -23,7 +23,9 @@ use std::time::Instant;
 
 use arboria_core::db::Ledger;
 use arboria_core::model::RunId;
-use arboria_core::{clusters, helper, human, paths, registry, submission, view};
+use arboria_core::{
+    clusters, helper, human, notifier, paths, registry, settings, submission, view,
+};
 use serde::Serialize;
 
 /// Every command the main window may call (`build.rs` makes an `allow-…` permission for
@@ -51,6 +53,15 @@ pub const COMMANDS: &[&str] = &[
     "pick_folder",
     "clone_project",
     "clone_dir",
+    "settings_machines",
+    "settings_save_machine",
+    "settings_remove_machine",
+    "settings_blank_machine",
+    "settings_project",
+    "settings_save_project",
+    "app_settings",
+    "set_notifications",
+    "helper_uninstall",
 ];
 
 type Res<T> = Result<T, String>;
@@ -356,6 +367,81 @@ async fn clone_project(url: String, parent: Option<String>) -> Res<clone::Cloned
     .map_err(err)?
 }
 
+// ---------------------------------------------------------------- settings pages
+
+#[tauri::command]
+fn settings_machines() -> Res<settings::Machines> {
+    settings::machines().map_err(err)
+}
+
+#[tauri::command]
+fn settings_blank_machine(name: String) -> settings::MachineForm {
+    settings::blank_machine(&name)
+}
+
+#[tauri::command]
+fn settings_save_machine(
+    original: Option<String>,
+    form: settings::MachineForm,
+) -> Res<settings::Machines> {
+    settings::save_machine(original.as_deref(), &form).map_err(err)
+}
+
+#[tauri::command]
+fn settings_remove_machine(name: String) -> Res<settings::Machines> {
+    settings::remove_machine(&name).map_err(err)
+}
+
+#[tauri::command]
+fn settings_project(root: String) -> Res<settings::ProjectSettings> {
+    settings::project(Path::new(&root)).map_err(err)
+}
+
+#[tauri::command]
+fn settings_save_project(
+    root: String,
+    form: settings::ProjectForm,
+) -> Res<settings::ProjectSettings> {
+    settings::save_project(Path::new(&root), &form).map_err(err)
+}
+
+#[derive(Debug, Serialize)]
+struct AppSettings {
+    notifications: bool,
+    clone_dir: String,
+    helper: helper::Status,
+}
+
+#[tauri::command]
+fn app_settings() -> Res<AppSettings> {
+    Ok(AppSettings {
+        notifications: notifier::setting_on(),
+        clone_dir: clone::default_parent().display().to_string(),
+        helper: helper::status(&user_home()?).map_err(err)?,
+    })
+}
+
+/// Turn system notifications on or off (`<config>/app.json`; the helper reads it).
+#[tauri::command]
+fn set_notifications(on: bool) -> Res<bool> {
+    clone::set_setting("notifications", serde_json::Value::Bool(on))?;
+    Ok(notifier::setting_on())
+}
+
+#[tauri::command]
+async fn helper_uninstall() -> Res<()> {
+    tauri::async_runtime::spawn_blocking(|| -> Res<()> {
+        let path = helper::service_path(&user_home()?);
+        if path.is_file() {
+            helper::run_commands(&helper::load_commands(&path, false)).map_err(err)?;
+            std::fs::remove_file(&path).map_err(err)?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(err)?
+}
+
 /// What the terminal's "+" menu offers.
 #[tauri::command]
 fn terminal_launchers() -> Vec<pty::Launcher> {
@@ -450,6 +536,15 @@ pub fn run() {
             pick_folder,
             clone_project,
             clone_dir,
+            settings_machines,
+            settings_save_machine,
+            settings_remove_machine,
+            settings_blank_machine,
+            settings_project,
+            settings_save_project,
+            app_settings,
+            set_notifications,
+            helper_uninstall,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Arboria");

@@ -37,6 +37,8 @@ thiserror = "=2.0.21"
 # preserve_order: tables iterate in file order, like Python dicts from tomllib (the first
 # bad partition is the one reported)
 toml = { version = "=1.1.8", features = ["preserve_order"] }
+# the app's settings pages edit clusters.toml / arboria.toml in place, comments kept
+toml_edit = "=0.25.17"
 tracing = "=0.1.44"
 
 [workspace.lints.rust]

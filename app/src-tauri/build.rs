@@ -24,6 +24,15 @@ fn main() {
         "pick_folder",
         "clone_project",
         "clone_dir",
+        "settings_machines",
+        "settings_save_machine",
+        "settings_remove_machine",
+        "settings_blank_machine",
+        "settings_project",
+        "settings_save_project",
+        "app_settings",
+        "set_notifications",
+        "helper_uninstall",
     ];
     tauri_build::try_build(
         tauri_build::Attributes::new()

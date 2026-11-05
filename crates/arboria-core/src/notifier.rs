@@ -7,7 +7,8 @@
 //!   control characters removed.
 //! - macOS: `osascript` with the text passed as arguments (`on run argv`), never spliced
 //!   into the script. Linux: `notify-send` when installed. Anything that fails is
-//!   silently skipped; `ARBORIA_NOTIFY=0` turns it off.
+//!   silently skipped; `ARBORIA_NOTIFY=0`, or the app's setting (`<config>/app.json`
+//!   `"notifications": false`), turns it off.
 
 use std::process::{Command, Stdio};
 
@@ -59,9 +60,23 @@ pub fn command(title: &str, body: &str) -> Option<(String, Vec<String>)> {
     }
 }
 
-/// Whether [`send`] does anything (`ARBORIA_NOTIFY` is not `0`).
+/// The app's settings file (`{"notifications": false}` turns notifications off).
+pub fn settings_path() -> std::path::PathBuf {
+    crate::clusters::config_dir().join("app.json")
+}
+
+/// Whether notifications are on in the app's settings (default: on).
+pub fn setting_on() -> bool {
+    std::fs::read_to_string(settings_path())
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v["notifications"].as_bool())
+        .unwrap_or(true)
+}
+
+/// Whether [`send`] does anything: `ARBORIA_NOTIFY` is not `0` and the app's setting is on.
 pub fn enabled() -> bool {
-    std::env::var(ENV).map_or(true, |v| v.trim() != "0")
+    std::env::var(ENV).map_or(true, |v| v.trim() != "0") && setting_on()
 }
 
 /// Show a notification; every failure is ignored.

@@ -38,6 +38,7 @@ pub mod records;
 pub mod registry;
 pub mod report;
 pub mod schema;
+pub mod settings;
 pub mod slurm;
 pub mod snapshot;
 pub mod state;

@@ -241,7 +241,7 @@ impl State {
     /// See [`InspectStatus`].
     pub fn status(&self) -> InspectStatus {
         match self.todo.as_ref().map(|t| t.task.status) {
-            Some(TaskStatus::Open) => InspectStatus::Pending,
+            Some(s) if s.is_pending() => InspectStatus::Pending,
             Some(TaskStatus::Dropped) => InspectStatus::Dropped,
             _ if self.stale() => InspectStatus::Stale,
             _ => InspectStatus::Fresh,
@@ -343,7 +343,7 @@ pub fn ask(
     if state.answer.is_some() && !state.stale() {
         return Ok(state);
     }
-    if let Some(t) = todo.as_ref().filter(|t| t.task.status == TaskStatus::Open) {
+    if let Some(t) = todo.as_ref().filter(|t| t.task.status.is_pending()) {
         state.todo = Some(t.clone());
         return Ok(state);
     }

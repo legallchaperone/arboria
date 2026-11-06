@@ -248,6 +248,10 @@ fn command_and_inspect_todos() {
     );
     let only_new = tasks::open_command_tasks(&f.ledger, "svd", Some(TaskKind::CommandNew)).unwrap();
     assert_eq!(only_new.len(), 1);
+    // a todo in the agent queue is still waiting: re-running the block reuses it
+    tasks::enqueue(&mut f.ledger, &found[0].task.id).unwrap();
+    let queued = tasks::open_command_tasks(&f.ledger, "svd", Some(TaskKind::CommandNew)).unwrap();
+    assert_eq!(queued[0].task.id, found[0].task.id);
     assert_eq!(
         found[0].task.payload_json.as_deref(),
         Some("{\"args\": [\"r\"], \"name\": \"svd\"}")
@@ -291,6 +295,9 @@ fn queue_retries_then_needs_human() {
         "todo t001 is queued, not open"
     );
     assert_eq!(last_event(&f.ledger).0, "todo_queue");
+    // a re-run block reuses the queued todo instead of adding another
+    let again = tasks::open_plain_task(&f.ledger, f.idea.id, "a").unwrap();
+    assert_eq!(again.unwrap().task.id, a.task.id);
 
     let usage = Usage {
         input_tokens: 100,

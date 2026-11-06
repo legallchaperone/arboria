@@ -113,6 +113,25 @@ fn ask_deliver_stale_refresh_drop() {
         inspection::ask(&mut ledger, &idea, q, InspectView::Code, None, false, true).unwrap();
     assert!(!again.created);
     assert_eq!(again.todo.unwrap().task.id, todo.task.id);
+    // ... also once the agent queue has it (queued, running, needs_human): asking again
+    // on every status change made a new todo each time
+    tasks::enqueue(&mut ledger, &todo.task.id).unwrap();
+    for status in ["queued", "running", "check_failed", "needs_human", "open"] {
+        ledger
+            .write(|tx| {
+                tx.execute(
+                    "UPDATE tasks SET status = ?1 WHERE id = ?2",
+                    [status, todo.task.id.as_str()],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        let again =
+            inspection::ask(&mut ledger, &idea, q, InspectView::Code, None, false, true).unwrap();
+        assert!(!again.created, "{status}");
+        assert_eq!(again.status(), InspectStatus::Pending, "{status}");
+        assert_eq!(again.todo.unwrap().task.id, todo.task.id, "{status}");
+    }
 
     // the files at code_ref include the uncommitted one
     let files = inspection::source_text(&ledger, &main, &todo.task.id, None).unwrap();

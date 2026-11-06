@@ -42,6 +42,9 @@ const SELECT: &str = "SELECT t.*, CASE WHEN i.branch IS NULL THEN NULL ELSE i.na
      FROM tasks t LEFT JOIN ideas i ON i.id = t.idea_id";
 /// The todo's owner is an open idea or a live seed.
 const LIVE: &str = "i.stage IN ('open', 'seed')";
+/// A todo still waiting for an answer ([`TaskStatus::is_pending`]): open or anywhere in
+/// the agent queue.
+const PENDING: &str = "t.status NOT IN ('done', 'dropped')";
 
 /// A todo with its owner's name (`tasks.SELECT`: `idea` / `seed`).
 #[derive(Debug, Clone, Serialize)]
@@ -150,20 +153,20 @@ pub fn add(
     get_task(ledger, &task_id)
 }
 
-/// The oldest open plain todo of a live owner with exactly this text (re-running a block
+/// The oldest pending plain todo of a live owner with exactly this text (re-running a block
 /// does not duplicate it).
 pub fn open_plain_task(ledger: &Ledger, owner: IdeaId, text: &str) -> Result<Option<TaskView>> {
     db::one(
         ledger.conn(),
         &format!(
-            "{SELECT} WHERE t.idea_id = ?1 AND {LIVE} AND t.status = 'open' \
+            "{SELECT} WHERE t.idea_id = ?1 AND {LIVE} AND {PENDING} \
              AND t.kind = 'plain' AND t.text = ?2 ORDER BY t.id LIMIT 1"
         ),
         rusqlite::params![owner.0, crate::records::py_strip(text)],
     )
 }
 
-/// Open command todos about command `name`, oldest first.
+/// Pending command todos about command `name`, oldest first.
 pub fn open_command_tasks(
     ledger: &Ledger,
     name: &str,
@@ -179,9 +182,7 @@ pub fn open_command_tasks(
     let marks = vec!["?"; kinds.len()].join(", ");
     let rows: Vec<TaskView> = db::all(
         ledger.conn(),
-        &format!(
-            "{SELECT} WHERE t.status = 'open' AND {LIVE} AND t.kind IN ({marks}) ORDER BY t.id"
-        ),
+        &format!("{SELECT} WHERE {PENDING} AND {LIVE} AND t.kind IN ({marks}) ORDER BY t.id"),
         rusqlite::params_from_iter(kinds),
     )?;
     let mut out = Vec::new();

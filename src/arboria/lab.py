@@ -1366,6 +1366,11 @@ def _task_status(state_dir: Path, task_id: str) -> str | None:
         con.close()
 
 
+def _pending_or(status: str | None) -> str | None:
+    """"pending" for a todo that is still waiting (not done or dropped), else its status."""
+    return "pending" if status is not None and status not in ("done", "dropped") else status
+
+
 class Inspection:
     """What `lab.inspect` returns: the agent's answer (code excerpts with notes, pseudocode,
     simplified code or a diagram), or where the request stands. `.refresh()` asks again
@@ -1498,7 +1503,10 @@ def inspect(question: str, *, view: str = "code", run: str | Run | None = None,
     pushed = watching = False
     if state.status == "pending":
         task_id = state.todo["id"]
-        watching = _watch_probe(lambda: _task_status(t.state_dir, task_id), "open")
+        # wait while the todo is open or in the agent queue (queued, running, …): a
+        # re-run on every status change would ask again and again
+        watching = _watch_probe(lambda: _pending_or(_task_status(t.state_dir, task_id)),
+                                "pending")
         if state.created:
             pushed = _push(t, idea, state.todo, _insp.push_text)
     return Inspection(state, run_id, pushed=pushed, watching=watching)

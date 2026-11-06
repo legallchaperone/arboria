@@ -47,6 +47,9 @@ MAX_LINE_NOTES = 40
 MAX_NODES = 30
 MAX_FILE_BYTES = 2 * 1024 * 1024
 SHORT = 7
+# a todo is waiting for an answer unless closed (v8 adds queued / running / check_failed /
+# needs_human: the agent queue)
+CLOSED = ("done", "dropped")
 KEYS = {
     "code": {"title", "summary", "spans"},
     "pseudo": {"title", "summary", "spans", "text"},
@@ -166,7 +169,7 @@ class State:
 
     @property
     def status(self) -> str:
-        if self.todo is not None and self.todo["status"] == "open":
+        if self.todo is not None and self.todo["status"] not in CLOSED:
             return "pending"
         if self.todo is not None and self.todo["status"] == "dropped":
             return "dropped"
@@ -201,7 +204,7 @@ def ask(ledger: Ledger, idea: dict[str, Any], question: str, view: str = "code",
     state = State(question, view, code, answer)
     if answer is not None and not state.stale:
         return state
-    if todo is not None and todo["status"] == "open":
+    if todo is not None and todo["status"] not in CLOSED:  # open, or in the agent queue
         state.todo = todo
         return state
     newer_drop = (todo is not None and todo["status"] == "dropped"

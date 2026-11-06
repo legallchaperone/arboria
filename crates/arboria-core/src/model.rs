@@ -189,6 +189,15 @@ str_enum!(
     }
 );
 
+impl TaskStatus {
+    /// Still waiting for an answer: open, or somewhere in the agent queue (queued,
+    /// running, check_failed, needs_human). Re-running a block reuses such a todo
+    /// instead of adding another one.
+    pub fn is_pending(self) -> bool {
+        !matches!(self, TaskStatus::Done | TaskStatus::Dropped)
+    }
+}
+
 str_enum!(
     /// `tasks.kind` (Python `db.TASK_KINDS`, plus v8's probe todos of ADR 0003). Set by
     /// code, never by an LLM.

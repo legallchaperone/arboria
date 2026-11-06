@@ -1,6 +1,6 @@
 # ADR 0002：Rust 核心第 1 期契约
 
-状态：已定（2026-11-04）。前提见 ADR 0001（app 与 Rust 核心）、ADR 0003（probe）。本期只定公开 API：能编译的 Cargo workspace，大部分函数体是 `todo!("port of arboria.<module>.<fn>")`，之后按模块分给 agent 实现。
+状态：**已被 ADR 0004 取代**（2026-11-06，从 marimo 开始、Swift 薄壳、Python 核心；Rust 冻结）。原状态：已定（2026-11-04）。前提见 ADR 0001（app 与 Rust 核心）、ADR 0003（probe）。本期只定公开 API：能编译的 Cargo workspace，大部分函数体是 `todo!("port of arboria.<module>.<fn>")`，之后按模块分给 agent 实现。
 
 ## Workspace
 - 根 `Cargo.toml`：resolver 2，edition 2021，`rust-toolchain.toml` 固定 1.97.0（带 rustfmt、clippy），`unsafe_code = "forbid"`。`Cargo.lock` 提交。

@@ -1,6 +1,6 @@
 # ADR 0001：Mac app 与 Rust 核心
 
-状态：已定（2026-11-04）。方案全文：https://claude.ai/artifact/AbJrewmFfKDfNtoPotL2zm 。实现时以本文为准；有冲突先问人。
+状态：**已被 ADR 0004 取代**（2026-11-06，从 marimo 开始、Swift 薄壳、Python 核心；Rust 冻结）。原状态：已定（2026-11-04）。方案全文：https://claude.ai/artifact/AbJrewmFfKDfNtoPotL2zm 。实现时以本文为准；有冲突先问人。
 
 ## 产品
 - 定位：**Research, fast and slow.** 快的（改代码、跑实验）交给 agent，慢的（看数据、想 idea）留给人。

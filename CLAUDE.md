@@ -22,7 +22,7 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 - CI：`.github/workflows/tests.yml` 在 Python 3.11 和 3.13 上跑 `uv sync --all-extras --dev` + `uv run pytest`（包括真的 marimo）。
 - 用户文档：`README.md` 只放概览和快速开始，完整说明在文档网站 https://arboria.cwx.world（Astro + Starlight，源码在 `docs/`：页面在 `docs/src/content/docs/`，入门 / 指南 / 参考 / 项目）；改了命令或行为要同步对应页面。CLI 参考页 `reference/cli.md` 由 `uv run python docs/scripts/gen_cli.py` 生成，`tests/test_docs_cli.py` 和 docs CI 检查它是最新的；新命令要在脚本的 `SECTIONS` 里归类。本地预览 `cd docs && npm ci && npm run dev`；部署见 `docs/DEPLOY.md`。
 - 跨语言测试向量（`tests/vectors/`，Rust 版要逐字节一致）：改了被覆盖的 Python 行为后运行 `uv run python scripts/export_vectors.py` 重新生成并提交，`tests/test_vectors.py` 会检查它们是最新的。`quirk-` 开头的用例记录的是现在的 Python 行为（可能是 bug），Rust 先照抄。
-- Rust 核心（`crates/`，契约见 `docs/adr/0002-rust-contract.md`）：`cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace` 必须全绿（CI：`.github/workflows/rust.yml`）。改了 Python CLI 或 `db.py` 的 schema 要重新生成 `crates/arb/tests/python_commands.txt`（`gen_python_commands.py`）和 `crates/arboria-core/tests/fixtures/`（`gen_fixtures.py`）。
+- Rust 核心（`crates/`，已冻结，见 ADR 0004；冻结期间 CI 仍要绿）：`cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace` 必须全绿（CI：`.github/workflows/rust.yml`）。改了 Python CLI 或 `db.py` 的 schema 要重新生成 `crates/arb/tests/python_commands.txt`（`gen_python_commands.py`）和 `crates/arboria-core/tests/fixtures/`（`gen_fixtures.py`）。
 - commit 要小、逻辑清楚。
 - 本机（macOS）会给整个 `.venv` 加 `hidden` 标志，Python 3.13 跳过 hidden 的 `.pth`，editable 安装就失效（`No module named 'arboria'`）。所以 pytest 配了 `pythonpath = ["src"]`，起子进程的测试要自己传 `PYTHONPATH`。
 
@@ -66,7 +66,6 @@ Arboria（命令 `arb`）把 ML 研究的状态从 Claude 对话里搬出来：i
 3. 路径只从 `ARBORIA_*` 角色变量读取。
 4. checkpoint 存到 `ARBORIA_CKPT_DIR`，并且可以续训。
 
-- **Rust 重写（进行中，2026-11-04 起）**。决定在 `docs/adr/`：0001（Mac app + Rust 核心）、0002（第 1 期契约：crate / 模块对照、schema v8、哪些已实现）、0003（扩展：第 1 期只有 probe）。第 0 期的试验和结论在 `spikes/`（编辑器 markdown 往返、Rust 驱动 kernel、本地意图模型 Qwen3.5-4B + KV 缓存）。设计：Arboria 设计系统 https://claude.ai/artifact/LeSPASKLSUE39HtVTiiGfk 、主界面画布 https://claude.ai/artifact/DGQD3R9dMC8s8ErYq5Rqd6 、编辑器原型 https://claude.ai/artifact/KNTafPRmEDfoQJZBQMwcWn 、方案 https://claude.ai/artifact/AbJrewmFfKDfNtoPotL2zm 。
-  - 已合并：跨语言测试向量（`tests/vectors/`，59 个文件 1215 个用例）、Rust 工作区骨架（`crates/arboria-core`、`crates/arb` → `arb-rs`），真实实现的有 canonical、model、schema v8 + 迁移、db、records、human、probe 头部解析与结果校验；其余 `todo!()`，51 个向量测试 `#[ignore]` 等着接。
-  - 下一步按顺序移植（每接一个模块就去掉对应向量测试的 `#[ignore]`）：slurm + cards（要 sha2）→ config / clusters / paths → db 上的 records / tasks / ideas → gitutil / snapshot（调 git 命令）→ backend：FakeSlurm、SshSlurm、monitor（sacct 解析、计费）→ submission（唯一提交点）→ CLI 接线和 `--json`。还要选 regex 库（`fail_patterns` 是 Python `re` 语法）。Python 版要小改一处：能只读打开 v8 账本。
+- **重做方向：从 marimo 开始（2026-11-06 定，`docs/adr/0004-marimo-first.md`，取代 0001/0002）**。Swift 薄壳（Touch ID/Secure Enclave 签名、pty、菜单），所有可见界面在一个 WKWebView 里用同一套 `arboria.css`（原生控件不上屏），marimo 以 iframe 嵌入做 idea notebook；核心仍是 Python（`arbd` JSON API + `arb`）。三层 project → idea（draft/open/merged/dropped，种子 = draft）→ experiment（新增人写的 `verdict` ≤120、AI 的 `ai_oneline` ≤120）。notebook 里代码就是声明（`lab.xxx(...)`），实现只在命令库、notebook 里不展示。AI 只走用户自己的 `claude`（交互终端 + 后台 `claude -p`），`arb mcp` 没有批准工具；SessionStart 给整棵研究树（代码生成，超预算时折叠已结束子树）。下一步 P0：在 Mac 上验证 WKWebView 嵌 marimo + CSS、iframe 焦点、自定义 scheme 字体、xterm.js + pty 跑 `claude`、Secure Enclave 签名 + Python 验签。
+  - **冻结**（不再开发，不删）：Rust（`crates/`、`tests/vectors/`、`.github/workflows/rust.yml` 仍要保持绿）、`spikes/`、`ui/` 的 marimo 看板、会话 socket 推送。以下是冻结时的状态，仅供参考：跨语言向量 59 个文件 1215 个用例；Rust 已实现 canonical、model、schema v8 + 迁移、db、records、human、probe，其余 `todo!()`。
   - 省 token 的规矩（用户定的）：任务需要的并行 subagent 少于 5 个就不开 subagent，自己做。

@@ -87,7 +87,7 @@ export function App() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const loadBoard = useCallback(async (root: string) => {
+  const loadBoard = useCallback(async (root: string): Promise<Board | null> => {
     try {
       const b = await api.board(root);
       setBoards((m) => ({ ...m, [root]: b }));
@@ -95,8 +95,10 @@ export function App() {
         const { [root]: _, ...rest } = m;
         return rest;
       });
+      return b;
     } catch (e) {
       setErrors((m) => ({ ...m, [root]: message(e) }));
+      return null;
     }
   }, []);
   const loadAll = useCallback(async () => {
@@ -171,13 +173,21 @@ export function App() {
     ask: setDialog,
     act: async (root: string, action: Action, done?: string) => {
       const out = await api.act(root, action);
-      setToast(done ?? (out.output || "好了"));
-      await loadBoard(root);
+      const fresh = await loadBoard(root);
       if (home && root !== home.root && action.kind === "seed_plant") await loadBoard(home.root);
       if (action.kind === "seed_new" && !home) await loadAll();
       else api.projects().then(setProjects, () => undefined);
       if (action.kind === "idea_new") go({ k: "idea", root, idea: action.name });
-      if (action.kind === "seed_plant") go({ k: "idea", root, idea: action.as_name ?? action.name });
+      if (action.kind === "seed_plant") {
+        // only where the idea really is: arb said it planted, the ledger must agree
+        const planted = action.as_name || action.name;
+        if (fresh?.ideas.some((i) => i.name === planted)) go({ k: "idea", root, idea: planted });
+        else {
+          setToast(`arb 说种好了，但 ${fresh?.project.name ?? root} 里没有 ${planted}：${out.output || "（arb 没有输出）"}`);
+          return;
+        }
+      }
+      setToast(done ?? (out.output || "好了"));
       if (action.kind === "idea_close" && route.k === "idea" && route.idea === action.name) go({ k: "project", root });
     },
     terminalAt: (cwd: string) => openTab(null, undefined, cwd),
@@ -325,6 +335,16 @@ export function App() {
           onRun={(run) => setInspect({ k: "run", root: route.root, run })}
           onTask={(task) => setInspect({ k: "todo", root: route.root, task })}
         />
+      ) : board ? (
+        // the project was read and has no such idea: say so instead of 读取中… forever
+        <div className="empty">
+          {board.project.name} 里没有 {route.idea}
+          <p>
+            <button type="button" className="ab-btn" onClick={() => go(board.project.kind === "home" ? { k: "seeds" } : { k: "project", root: route.root })}>
+              回到{board.project.kind === "home" ? "种子园" : board.project.name}
+            </button>
+          </p>
+        </div>
       ) : (
         <div className="empty">{errors[route.root] ?? "读取中…"}</div>
       );

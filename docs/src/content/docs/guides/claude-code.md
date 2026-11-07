@@ -26,13 +26,26 @@ arb tree --depth 1 --json
 
 每个 run 一行：parent、改了什么（`change_reason`）、结果、结论和它的来源。结果是这个 idea 的指标在 `metrics.jsonl` 里的最后一个值（键从指标文字里找，或用 `arboria.toml` 的 `[project] metric` 指定，见[配置](/reference/arboria-toml/)）；结论先用你对这个 run 写的笔记（`arb note --run rNNN "..."`，标“人”），没有就用 run 摘要的第一句（标“AI 摘要”）。树按 id 排序，同样的账本每次输出一样。超过 `--budget`（默认 16000 字符）时，不在你这条路上的已结束 idea 折成一行（最好的结果 + 经验），再不够就每个进行中的 idea 只留最好的和最近几个 run。
 
-hook 绝不让会话失败：任何错误都只写进 `.arboria/hook.log`，以退出码 0 结束、不输出内容。在不是 arboria 的仓库里它什么都不输出，所以 `--user` 全局安装是安全的。
+## UserPromptSubmit hook
+
+会话进行中，你每发一条消息，`arb hook prompt-submit` 看一眼账本：自这个会话上一条消息（或开始）以来有 run 结束、你批准或退回了 run、有新待办、新确认的经验或路线图的改动，就注入**一行**，例如：
+
+```text
+[arboria] 自上一条消息：run 结束：r031 succeeded（val/loss 2.29）；新待办 t004（`arb todo list`）。
+```
+
+没有变化就什么都不加。arb 不往会话里推消息，只在你说话时顺带告诉 Claude。每个会话看到哪里记在 `.arboria/seen/<会话 id 的哈希>.json`（权限 0600，不进账本、不进备份，两周没动的会被清掉）；SessionStart 记下起点，所以第一条消息只报会话开始之后的事。
+
+两个 hook 都绝不让会话失败：任何错误都只写进 `.arboria/hook.log`，以退出码 0 结束、不输出内容。在不是 arboria 的仓库里它们什么都不输出，所以 `--user` 全局安装是安全的。
 
 ## 权限规则
 
 ```json
 {
-  "hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "arb hook session-start"}]}]},
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "arb hook session-start"}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "arb hook prompt-submit"}]}]
+  },
   "permissions": {
     "deny": ["Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
              "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)",

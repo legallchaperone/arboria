@@ -54,7 +54,7 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
     ("看板", "", ["ui"]),
     ("机器", "机器配置在 `~/.config/arboria/clusters.toml`。", ["machine init", "doctor"]),
     ("Claude Code 与经验", "", [
-        "install-claude", "hook session-start", "claudemd sync",
+        "install-claude", "hook session-start", "hook prompt-submit", "claudemd sync",
         "lesson propose", "lesson list", "lesson accept", "lesson reject", "lesson retire",
     ]),
 ]

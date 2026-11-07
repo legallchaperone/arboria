@@ -71,6 +71,7 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb doctor`](#arb-doctor) | Read-only checks of a machine profile, the ssh setup and the cluster side. |
 | [`arb install-claude`](#arb-install-claude) | Add the SessionStart hook and permission rules to .claude/settings.json (the machine-specific global commands dir goes into .claude/settings.local.json). |
 | [`arb hook session-start`](#arb-hook-session-start) | SessionStart hook: reads hook JSON on stdin, prints additionalContext JSON. |
+| [`arb hook prompt-submit`](#arb-hook-prompt-submit) | UserPromptSubmit hook: one line of context when the ledger changed since the last prompt. |
 | [`arb claudemd sync`](#arb-claudemd-sync) | Write the arboria block (rules + accepted lessons) into the main worktree's CLAUDE.md. |
 | [`arb lesson propose`](#arb-lesson-propose) | Propose a lesson; it only goes into CLAUDE.md after the human accepts it. |
 | [`arb lesson list`](#arb-lesson-list) | List lessons (default: proposed + accepted), newest first. |
@@ -845,6 +846,14 @@ SessionStart hook: reads hook JSON on stdin, prints additionalContext JSON.
 
 ```text
 arb hook session-start [OPTIONS]
+```
+
+### arb hook prompt-submit
+
+UserPromptSubmit hook: one line of context when the ledger changed since the last prompt.
+
+```text
+arb hook prompt-submit [OPTIONS]
 ```
 
 ### arb claudemd sync

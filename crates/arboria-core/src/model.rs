@@ -252,6 +252,8 @@ str_enum!(
         CommandCall = "command_call",
         CommandPromote = "command_promote",
         InspectDone = "inspect_done",
+        /// A change to one of the human's milestones (the roadmap is their replay).
+        Milestone = "milestone",
         // v8 (Rust core): the agent queue and probes.
         /// A todo was handed to the background agent (open → queued).
         TodoQueue = "todo_queue",
@@ -300,6 +302,7 @@ impl EventKind {
         EventKind::SeedPlant,
         EventKind::CommandPromote,
         EventKind::InspectDone,
+        EventKind::Milestone,
         // v8
         EventKind::TodoQueue,
         EventKind::TodoNeedsHuman,
@@ -868,8 +871,9 @@ mod tests {
         assert!(EventKind::InspectDone.triggers_backup());
         assert!(!EventKind::JobState.triggers_backup());
         assert!(!EventKind::RunSummary.triggers_backup());
-        // Python's 29 plus v8's four
-        assert_eq!(EventKind::BACKUP.len(), 33);
+        // Python's 30 plus v8's four
+        assert_eq!(EventKind::BACKUP.len(), 34);
+        assert!(EventKind::Milestone.triggers_backup());
         assert!(!EventKind::TodoAttempt.triggers_backup());
         assert_eq!("probe_new".parse::<TaskKind>().unwrap(), TaskKind::ProbeNew);
         assert_eq!(SubjectType::Probe.as_str(), "probe");

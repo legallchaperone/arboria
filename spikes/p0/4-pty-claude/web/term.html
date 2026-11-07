@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8">
+<link rel="stylesheet" href="xterm.css">
+<style>
+@font-face { font-family: "Maple Mono CN"; src: url("arboria://fonts/MapleMono-CN-Regular.woff2") format("woff2"); }
+html,body{margin:0;height:100%;background:#1f1d1a} #t{height:100%;padding:8px;box-sizing:border-box}
+</style>
+<div id="t"></div>
+<script src="xterm.js"></script>
+<script>
+document.fonts.load('14px "Maple Mono CN"').finally(() => {
+  window.term = new Terminal({cols: 110, rows: 34, fontFamily: '"Maple Mono CN", monospace', fontSize: 14,
+    theme: {background: '#1f1d1a', foreground: '#ece6dc'}});
+  term.open(document.getElementById('t'));
+  term.onData(d => webkit.messageHandlers.pty.postMessage(d));
+  window.w = b64 => term.write(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+  window.screenText = () => { const b = term.buffer.active, out = [];
+    for (let i = 0; i < b.length; i++) { const l = b.getLine(i)?.translateToString(true); if (l && l.trim()) out.push(l); } return out.join('\n'); };
+  webkit.messageHandlers.ready.postMessage(1);
+});
+</script>

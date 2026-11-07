@@ -9,6 +9,8 @@ description: 项目配置：默认机器、项目 id、预算、wandb、训练�
 | --- | --- | --- |
 | `default_machine` | `""` | 没有 `--machine` 时用的 `clusters.toml` profile |
 | `[project] id` | `arb init` 生成 | 进作业名、远程目录、`ARBORIA_WANDB_ID` 和审核单哈希；有 run 在集群上时不要改 |
+| `[project] metric` | `""` | 研究树（`arb tree`）里“结果”取 `metrics.jsonl` 的哪个键；空 = 从每个 idea 的指标文字里找 |
+| `[project] goal` | `""` | `"min"` 或 `"max"`；空 = 从指标文字推断（`↓`、`lower`、`越低` → min；`↑`、`higher`、`越高` → max；都没有时 acc / f1 / reward 一类的键算 max，其余 min） |
 | `[budget] total_su` | `0` | 项目总预算（SU）；0 = 没设，审核单上会提醒 |
 | `[claudemd] autocommit` | `true` | 更新 CLAUDE.md 区块后，是否只提交这一个文件 |
 | `[watch] observation_minutes` | `10` | 观察期长度（分钟） |

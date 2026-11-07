@@ -34,7 +34,7 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
         "idea plant", "idea notebook", "idea style", "idea close",
     ]),
     ("项目、run 与笔记", "在实验代码仓库里：初始化、run 的结果、笔记和概览。", [
-        "init", "run summary", "note", "status", "export",
+        "init", "run summary", "note", "status", "tree", "export",
     ]),
     ("提交、批准与集群", "`submit` 只在本地生成审核单；只有 `approve` 会把作业交给 Slurm。", [
         "submit", "card", "approve", "reject", "cancel", "poll", "watch", "logs", "remote ls",

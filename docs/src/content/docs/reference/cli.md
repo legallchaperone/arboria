@@ -33,6 +33,7 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb run summary`](#arb-run-summary) | Set a run's result summary (run must belong to the current idea). |
 | [`arb note`](#arb-note) | (Human only) add a note to the current idea (--confidence also updates the idea). |
 | [`arb status`](#arb-status) | Where things stand: the current idea, the open ideas, or the seeds. |
+| [`arb tree`](#arb-tree) | The research tree: ideas and their runs, one line each (parent, change, result, conclusion and who wrote it). |
 | [`arb export`](#arb-export) | Markdown of all ideas, notes and runs (newest first). |
 | [`arb submit`](#arb-submit) | Ask the human to approve a cluster run (local only: snapshot + approval card). |
 | [`arb card`](#arb-card) | Show a submitted run's approval card, recomputed now (local only). |
@@ -290,6 +291,23 @@ arb status [OPTIONS]
 | --- | --- | --- |
 | `--json` | Print machine-readable JSON. |  |
 | `--brief` | Compact text (as used by the hook). |  |
+
+### arb tree
+
+The research tree: ideas and their runs, one line each (parent, change, result, conclusion and who wrote it).
+
+Built from the ledger and the fetched metrics.jsonl only; the order is stable. Over the budget, finished ideas off your path fold to one line.
+
+```text
+arb tree [OPTIONS]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `--idea <str>` | Only this idea and what grew from it. |  |
+| `--depth <int range>` | Levels of ideas to show. |  |
+| `--budget <int range>` | Characters before finished subtrees fold. | `16000` |
+| `--json` | Print machine-readable JSON. |  |
 
 ### arb export
 

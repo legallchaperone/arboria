@@ -14,7 +14,17 @@ arb install-claude --home   # 种子园：~/arboria/.claude/settings.json 和 ~/
 
 ## SessionStart hook
 
-新会话开始时，`arb hook session-start` 注入当前 idea 的简短状态：假设、指标、置信度、run、未完成的待办、待你决定的事，以及最新的已确认经验。上限约 4000 字符，不进 CLAUDE.md，所以 CLAUDE.md 不会被当前状态撑大。
+新会话开始时，`arb hook session-start` 注入研究树的**索引**：你在树上的位置（“你在这里”）、当前 idea 的假设、指标和最近几个 run、上一层和同一层的 idea、全项目最好的几个结果；然后是未完成的待办、待你决定的事和最新的已确认经验。上限约 4000 字符，不进 CLAUDE.md，所以 CLAUDE.md 不会被当前状态撑大。在主 worktree 里（不在某个 idea 里）索引列出进行中的 idea。
+
+其余的历史 Claude 按需取：
+
+```bash
+arb tree                 # 整棵树
+arb tree --idea exp2     # exp2 和从它分出来的
+arb tree --depth 1 --json
+```
+
+每个 run 一行：parent、改了什么（`change_reason`）、结果、结论和它的来源。结果是这个 idea 的指标在 `metrics.jsonl` 里的最后一个值（键从指标文字里找，或用 `arboria.toml` 的 `[project] metric` 指定，见[配置](/reference/arboria-toml/)）；结论先用你对这个 run 写的笔记（`arb note --run rNNN "..."`，标“人”），没有就用 run 摘要的第一句（标“AI 摘要”）。树按 id 排序，同样的账本每次输出一样。超过 `--budget`（默认 16000 字符）时，不在你这条路上的已结束 idea 折成一行（最好的结果 + 经验），再不够就每个进行中的 idea 只留最好的和最近几个 run。
 
 hook 绝不让会话失败：任何错误都只写进 `.arboria/hook.log`，以退出码 0 结束、不输出内容。在不是 arboria 的仓库里它什么都不输出，所以 `--user` 全局安装是安全的。
 

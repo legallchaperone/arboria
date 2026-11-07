@@ -71,7 +71,9 @@ final class Probe {
     func run() {
         after(4) {
             self.eval(self.shell.chrome, "return document.body.innerText.replace(/\\n+/g, ' | ')", "home") {
-                self.shot("1-home") { self.openIdea() }
+                self.shot("1-home") {
+                    if ProcessInfo.processInfo.environment["ARB_PROBE"] == "pages" { self.pages() } else { self.openIdea() }
+                }
             }
         }
     }
@@ -130,6 +132,32 @@ final class Probe {
         eval(t.web, js, "agent-dom") {
             self.eval(t.web, "return screenText().split('\\n').slice(-12).join('\\n')", "agent") {
                 self.shot("5-agent") { self.after(4) { self.shot("6-agent-later") { self.finish() } } }
+            }
+        }
+    }
+
+    /// ARB_PROBE=pages: the compute page, then each run of the project (newest first, at most 3).
+    private func pages() {
+        say("key \(shell.approver?.fingerprint ?? "none") trusted \(shell.keyTrusted)")
+        shell.chrome.evaluateJavaScript("arb.open({kind: 'compute', idea: null})")
+        after(2) {
+            self.eval(self.shell.chrome, "return document.getElementById('page-body').innerText.replace(/\\n+/g, ' | ').slice(0, 400)", "compute") {
+                self.shot("7-compute") {
+                    self.shell.arbd.call("runs") { r in
+                        guard case .success(let v) = r, let runs = (v as? [String: Any])?["runs"] as? [[String: Any]] else { self.finish(); return }
+                        self.runPages(runs.compactMap { $0["id"] as? String }.prefix(3).map { $0 })
+                    }
+                }
+            }
+        }
+    }
+
+    private func runPages(_ ids: [String]) {
+        guard let id = ids.first else { finish(); return }
+        shell.chrome.evaluateJavaScript("arb.open({kind: 'run', id: '\(id)'})")
+        after(2) {
+            self.eval(self.shell.chrome, "return document.getElementById('page-body').innerText.replace(/\\n+/g, ' | ').slice(0, 300)", id) {
+                self.shot("8-\(id)") { self.runPages(Array(ids.dropFirst())) }
             }
         }
     }

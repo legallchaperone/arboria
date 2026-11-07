@@ -101,6 +101,10 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
     var current: String?
     var worktrees: [String: String] = [:]
     var overlayOpen = false
+    var pageOpen = false  // the experiment / compute page covers the notebook
+    var approver: Approver?
+    var keyTrusted = false
+    var signing = false
     var panelOpen = false
     var notebookOrigin: String?
     let scheme = BundleScheme()
@@ -118,6 +122,7 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
             alert("无法启动 arbd", "\(error)\n\n需要能在终端里运行的 arb（或设置 ARBORIA_ARBD_CMD）。")
             NSApp.terminate(nil); return
         }
+        do { approver = try Approver() } catch { log("approval key: \(error)") }
         buildWindow()
         refresh()
         Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in self?.refresh() }
@@ -237,7 +242,7 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
     // MARK: state → page
 
     private func layoutChrome() {
-        root.expanded = current == nil || overlayOpen
+        root.expanded = current == nil || overlayOpen || pageOpen
         root.panelOpen = panelOpen && current != nil
         notebook.isHidden = current == nil
     }
@@ -254,6 +259,11 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
             case .failure(let e): self.render(["error": e.description])
             }
         }
+        arbd.call("keys") { [weak self] r in
+            guard let self, case .success(let v) = r, let t = (v as? [String: Any])?["trusted"] as? [String] else { return }
+            self.keyTrusted = self.approver.map { t.contains($0.fingerprint) } ?? false
+            self.render([:])
+        }
         arbd.call("inbox") { [weak self] r in
             switch r {
             case .success(let v): self?.render(["inbox": v])
@@ -266,6 +276,7 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
         var o = obj
         o["current"] = current ?? NSNull()
         o["panel"] = panelOpen
+        o["key"] = approver.map { ["fingerprint": $0.fingerprint, "trusted": keyTrusted] as [String: Any] } ?? NSNull()
         guard let d = try? JSONSerialization.data(withJSONObject: o) else { return }
         chrome.evaluateJavaScript("window.arb && arb.render(\(String(decoding: d, as: UTF8.self)))")
     }
@@ -281,14 +292,85 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
         case "focusNotebook": if current != nil { win.makeFirstResponder(notebook) }
         case "drag": if let e = chrome.lastMouseDown { win.performDrag(with: e) }
         case "zoom": win.zoom(nil)
+        case "page": pageOpen = msg["open"] as? Bool ?? false; layoutChrome()
+            if !pageOpen, current != nil { win.makeFirstResponder(notebook) }
+        case "call": call(msg)
+        case "approve": if let run = msg["run"] as? String { approve(run) }
         default: break
         }
+    }
+
+    // MARK: what the page may ask arbd: reading only. Approving is `approve` below, where
+    // the signature comes from the Secure Enclave after Touch ID, never from the page.
+
+    static let readMethods: Set<String> = ["runs", "run", "compute", "card"]
+
+    private func call(_ msg: [String: Any]) {
+        guard let rid = msg["rid"] as? Int, let method = msg["method"] as? String,
+              Shell.readMethods.contains(method) else { return }
+        arbd.call(method, msg["params"] as? [String: Any] ?? [:]) { [weak self] r in
+            switch r {
+            case .success(let v): self?.reply(rid, ["result": v])
+            case .failure(let e): self?.reply(rid, ["error": e.description])
+            }
+        }
+    }
+
+    private func reply(_ rid: Int, _ obj: [String: Any]) {
+        guard let d = try? JSONSerialization.data(withJSONObject: obj) else { return }
+        chrome.evaluateJavaScript("arb.reply(\(rid), \(String(decoding: d, as: UTF8.self)))")
+    }
+
+    /// The card is fetched here (not taken from the page), the system Touch ID prompt names
+    /// its run, estimate and hash, and arbd recomputes and verifies before it records anything.
+    func approve(_ run: String) {
+        guard !signing else { return }
+        guard let approver else { approved(run, ["error": "这台 Mac 上没有签字密钥（Secure Enclave 不可用）"]); return }
+        guard keyTrusted else {
+            approved(run, ["error": "签字密钥 \(approver.fingerprint) 还没被信任。在你自己的终端里：arb key trust"]); return
+        }
+        signing = true
+        arbd.call("card", ["run": run]) { [weak self] r in
+            guard let self else { return }
+            guard case .success(let v) = r, let card = v as? [String: Any], let hash = card["card_hash"] as? String,
+                  let project = card["project"] as? String else {
+                self.signing = false
+                if case .failure(let e) = r { self.approved(run, ["error": e.description]) }
+                return
+            }
+            guard card["matches"] as? Bool == true else {
+                self.signing = false
+                self.approved(run, ["error": "审核单和提交时的不一致，要重新 arb submit"]); return
+            }
+            approver.sign(project: project, run: run, cardHash: hash, estSU: card["est_su"] as? Double) { res in
+                switch res {
+                case .failure(let e):
+                    self.signing = false
+                    self.approved(run, ["error": "没有签字：\(e.localizedDescription)", "cancelled": true])
+                case .success(let sig):
+                    self.arbd.call("approve.signed", ["run": run, "card_hash": hash, "signature": sig]) { r in
+                        self.signing = false
+                        switch r {
+                        case .success(let v): self.approved(run, ["result": v])
+                        case .failure(let e): self.approved(run, ["error": e.description])
+                        }
+                        self.refresh()
+                    }
+                }
+            }
+        }
+    }
+
+    private func approved(_ run: String, _ obj: [String: Any]) {
+        guard let d = try? JSONSerialization.data(withJSONObject: obj) else { return }
+        chrome.evaluateJavaScript("arb.approved(\(jsString(run)), \(String(decoding: d, as: UTF8.self)))")
     }
 
     // MARK: actions
 
     @objc func goHome() {
-        current = nil; overlayOpen = false
+        current = nil; overlayOpen = false; pageOpen = false
+        chrome.evaluateJavaScript("window.arb && arb.closePage()")
         layoutChrome(); render([:]); refresh()
         win.makeFirstResponder(chrome)
     }

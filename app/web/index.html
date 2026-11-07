@@ -7,10 +7,12 @@
 <body class="body">
 <header id="bar" class="ab-titlebar" role="toolbar" aria-label="标题栏" data-drag>
   <button id="crumb" class="ab-crumb ab-btn body" title="换 idea ⌘P">
-    <span class="up" id="crumb-project"></span><span class="sep" id="crumb-sep" hidden>›</span><span class="strong" id="crumb-idea"></span>
+    <span class="up" id="crumb-project"></span><span class="sep" id="crumb-sep" hidden>›</span><span class="strong" id="crumb-idea"></span><span class="sep" id="crumb-sep2" hidden>›</span><span class="strong" id="crumb-page"></span>
     <svg class="ab-glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5L8 10l3.5-3.5"/></svg>
   </button>
   <span class="ab-spacer" data-drag></span>
+  <button id="runs" class="tool body" hidden title="这个 idea 的 run">run</button>
+  <button id="compute" class="tool body" title="算力与预算">算力</button>
   <button id="needs" class="tool body" hidden title="待你处理 ⌘0">待你处理 <span class="n" id="needs-n"></span></button>
   <button id="agent" class="tool body" title="agent ⌘J"><span class="small">⌘J</span> <span class="lbl">agent</span></button>
 </header>
@@ -30,6 +32,8 @@
   </section>
 </div></main>
 
+<main id="page" hidden><div class="page" id="page-body"></div></main>
+
 <div id="overlay" hidden>
   <div class="ab-palette" role="dialog" aria-label="换 idea">
     <div class="ab-palette-input body">
@@ -41,5 +45,7 @@
     <div class="ab-palette-foot small"><span>↑↓ 选择</span><span>⏎ 打开</span><span>esc 关闭</span></div>
   </div>
 </div>
+<div id="toasts" class="ab-toasts"></div>
+<script src="pages.js"></script>
 <script src="app.js"></script>
 </body></html>

@@ -30,3 +30,37 @@ button { font: inherit; border: 0; background: none; padding: 0; cursor: default
 #q { flex: 1; border: 0; outline: 0; background: none; padding: 0; color: var(--ink); }
 #q::placeholder { color: var(--ink-muted); }
 .ab-palette-list { max-height: 60vh; overflow-y: auto; }
+
+/* the experiment and compute pages (pages.js), over the notebook when an idea is open */
+#page { position: absolute; inset: var(--size-titlebar) 0 0 0; overflow-y: auto; background: var(--bg); user-select: text; -webkit-user-select: text; }
+#page[hidden] { display: none; }
+.page { max-width: calc(var(--size-measure) + var(--col-4)); margin: 0 auto; padding: var(--space-5) var(--col-4); }
+.page section + section { margin-top: var(--space-5); }
+.page h1, .page h2 { margin: 0 0 var(--space-3); }
+.page p { margin: 0 0 var(--space-2); }
+.page .page-head { gap: var(--col-2); }
+.page .page-head h1 { margin: 0; }
+.page .fig { margin: 0 0 var(--space-4); }
+.page .fig figcaption { margin-bottom: var(--space-1); }
+.page pre { margin: var(--space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.page pre.card { margin: 0 0 var(--space-3); }
+.page .stat { color: var(--ink-muted); }
+.page .empty { color: var(--ink-muted); padding: 0 var(--col-2); }
+.page .ab-table td .ab-status { vertical-align: baseline; }
+.page .ab-slip { max-width: none; }
+.page .ab-slip-foot .ab-note code { color: var(--ink); }
+.ab-link { color: var(--accent-text); }
+.ab-link:hover { text-decoration: underline; }
+.ab-item.is-link:hover, .page .ab-line:hover { background: var(--fill); }
+.meter { position: relative; height: 6px; border-radius: 3px; background: var(--fill); overflow: hidden; display: flex; max-width: var(--size-measure); }
+.meter i { display: block; height: 100%; background: var(--series-1); }
+.meter i.await { background: var(--warn); opacity: .5; }
+.gantt .lane { fill: var(--ink); cursor: pointer; }
+.gantt .lane-head { fill: var(--ink-muted); }
+.gantt .bar { fill: var(--ink-faint); }
+.gantt .bar.t-ok { fill: var(--ok); }
+.gantt .bar.t-bad { fill: var(--bad); }
+.gantt .bar.t-run { fill: var(--accent); }
+.gantt .bar.t-warn { fill: var(--warn); }
+#bar .tool.is-on { background: var(--fill-active); }
+#toasts { position: absolute; right: var(--col-4); bottom: var(--space-4); z-index: 4; }

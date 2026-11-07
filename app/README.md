@@ -22,4 +22,12 @@ open app/build/Arboria.app --args /path/to/project   # 或不带参数，弹窗�
 | `ARBORIA_ARBD_CMD` | 代替 `arb`，例如本仓库的开发版 |
 | `ARBORIA_CLAUDE_CMD` | 代替 `exec claude` |
 | `ARB_PROBE=1`、`ARB_PROBE_OUT`、`ARB_PROBE_PROMPT` | 无人值守验证：首页 → 第一个 idea 的 notebook（上、下）→ ⌘P 面板 → agent 面板，每步存整窗截图并打印页面内容，可往 agent 输入一句话，然后退出。窗口被遮住时 WebKit 不画 xterm，agent 截图会是空的 |
+| `ARB_PROBE=pages` | 首页 → 算力页 → 最新的至多 3 个 run 页面，各存一张截图，并打印签字密钥指纹和是否已被信任 |
 | `ARB_APPEARANCE=light\|dark` | 强制外观（截两套图用） |
+
+## Touch ID 批准（P3）
+
+- 第一次启动时 `Approver` 在 Secure Enclave 里建一把 P-256 签字密钥（`.privateKeyUsage` + `.userPresence`），SE 包裹的句柄存成 `~/Library/Application Support/Arboria/approve-key.blob`（0600，离开这台 Mac 的 SE 没用），公钥写到旁边的 `approve-key.pub`。
+- 人在自己的终端里 `arb key trust`（读那个 .pub、显示指纹、要人输入），之后 run 页面的“用 Touch ID 签字”才可用。
+- 签字：网页只发 `{cmd: "approve", run}`；Swift 自己向 arbd 取审核单（`card`），对不上就停；系统 Touch ID 弹窗写 run id、预估 SU、哈希前 8 位；签名交给 arbd `approve.signed`，arbd 重算审核单、验签后才记 Decision 并提交。
+- 网页能经 Swift 调的 arbd 方法只有只读的 `runs` / `run` / `compute` / `card`（`Shell.readMethods`）。

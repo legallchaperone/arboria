@@ -44,6 +44,23 @@ arb tree --depth 1 --json
 
 Skill 只是说明，不给任何权限：拒绝靠代码和权限规则。它和 settings.json 一样应该提交进仓库。重新运行 `install-claude` 会把它更新到当前版本；如果你想自己改它，删掉第一行注释（arboria 的标记），之后 arb 就不再覆盖。
 
+## Sandbox
+
+权限规则里的 `Edit(...)` deny 只管 Claude 的文件工具，管不到 Bash 里的 `sed -i`、`python -c` 或任何子进程。所以 `install-claude` 还打开 Claude Code 的 Bash sandbox（macOS 上是 Seatbelt，Linux / WSL2 上是 bubblewrap），在系统层面不让 Bash 写这些地方：
+
+- 你的 notebook：主 worktree 的 `.arboria/notebooks/`，以及 idea worktree 里的 `notebook.py` 链接本身；
+- 批准密钥：`~/.config/arboria/approve-keys.json` 和 `~/Library/Application Support/Arboria/`；
+- `--home` 时还有种子园的 `seeds/`。
+
+写进哪里：
+
+- `.claude/settings.json`（提交）：`sandbox.enabled = true`、`autoAllowBashIfSandboxed = false`（照旧每条命令问你，sandbox 只是多加限制）、`excludedCommands = ["arb *"]`。`arb` 自己在 sandbox 外运行：它是写账本和新 notebook 的那段代码，“只由人”的命令在 Claude Code 里照样拒绝。
+- `.claude/settings.local.json`（不提交）：`sandbox.filesystem.denyWrite` 和 `allowWrite`（项目的 `.arboria/commands/`，Claude 在那里写 notebook 命令）。路径是这台机器上的绝对路径，因为 notebook 在主 worktree 里，不在 idea 的 worktree 里。
+
+你自己设过的值（例如 `sandbox.enabled: false`）会保留，`install-claude` 只提示一句。`--user` 不动 sandbox：那会影响这台机器上所有的 Claude 会话。
+
+还挡不住的：原生 Windows 上 Claude Code 不开 sandbox；sandbox 起不来时默认照常不加限制地运行（可以自己设 `sandbox.failIfUnavailable: true`）；Claude 被 sandbox 拦下后可以请求在 sandbox 外重试，这一步会问你，别随手同意。兜底：Mac app 的首页会在 notebook 和备份里的不一样、又不是在 app 的 marimo 里改的时候提醒你，并给出 `git -C .arboria diff -- notebooks/NAME.py`。
+
 ## 权限规则
 
 ```json

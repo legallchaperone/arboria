@@ -213,7 +213,8 @@ def test_arbd_approves_only_with_a_signature() -> None:
     start = next(i for i, l in enumerate(lines) if l.startswith("from __future__"))
     code = "\n".join(l for l in lines[start:] if not l.lstrip().startswith("#"))
     for word in ("require_terminal", "_guarded_submit", "sbatch", "Backend", "submission.approve(",
-                 "_record_and_submit", "set_decision"):
+                 "_record_and_submit", "set_decision", "approvekeys.trust", "approvekeys.revoke",
+                 "approvekeys._save"):
         assert word not in code, word
     # approve/accept appear only as command text for the human, or as the signed path
     for m in re.finditer(r"approve|accept", code):
@@ -305,6 +306,20 @@ def test_signed_approval_end_to_end_on_fake_slurm(cluster, idea: Path, initializ
     runs = d.handle({"id": 6, "method": "runs", "params": {"idea": "exp1"}})["result"]["runs"]
     assert [r["id"] for r in runs] == ["r002", "r001"] and runs[0]["parent_run"] == "r001"
     assert d.handle({"id": 7, "method": "keys"})["result"] == {"trusted": [fp]}
+
+
+def test_app_page_reaches_only_read_methods() -> None:
+    """The Mac app forwards only read-only arbd methods to its web page; approve.signed is
+    sent only from Shell.approve, with a signature from the Secure Enclave."""
+    swift = (Path(__file__).parents[1] / "app/Sources/Arboria/Shell.swift").read_text()
+    m = re.search(r"static let readMethods: Set<String> = \[([^\]]*)\]", swift)
+    assert m, "Shell.readMethods not found"
+    allowed = re.findall(r'"([^"]+)"', m.group(1))
+    assert allowed and not [x for x in allowed if re.search(r"approv|sign|notebook|accept|submit", x)]
+    approve_fn = swift[swift.index("func approve("):]
+    approve_fn = approve_fn[:approve_fn.index("\n    }\n")]
+    assert swift.count('"approve.signed"') == 1 and '"approve.signed"' in approve_fn
+    assert "Shell.readMethods.contains(method)" in swift
 
 
 def test_key_trust_is_human_only(monkeypatch, arb, initialized: Path) -> None:

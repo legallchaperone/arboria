@@ -63,6 +63,12 @@ Skill 只是说明，不给任何权限：拒绝靠代码和权限规则。它�
 
 还挡不住的：原生 Windows 上 Claude Code 不开 sandbox；sandbox 起不来时默认照常不加限制地运行（可以自己设 `sandbox.failIfUnavailable: true`）；Claude 被 sandbox 拦下后可以请求在 sandbox 外重试，这一步会问你，别随手同意。兜底：Mac app 的首页会在 notebook 和备份里的不一样、又不是在 app 的 marimo 里改的时候提醒你，并给出 `git -C .arboria diff -- notebooks/NAME.py`。
 
+## Mac app 里的 agent 面板
+
+⌘J 打开的面板有两个标签。“对话”是 agent 抽屉：经 ACP 驱动你自己的 `claude`（app 里带着锁定版本的适配器，不带它自己的 claude），在这个 idea 的 worktree 里工作，所以上面这些 hook、权限规则和 sandbox 一样生效。文字、工具调用、改动的 diff 和权限请求都按 app 的样式画出来；Claude 要用工具时，抽屉里出现一张卡片，你点“允许”或“拒绝”。右上角可以换权限模式（每次问 / 自动改文件 / 只做计划 / agent 判断），**没有**“跳过所有权限”。“终端”标签是完整的 Claude Code（斜杠命令等），两个标签是两个独立的会话。
+
+抽屉里的“允许”只是 Claude Code 的工具权限。提交 run 还是只能写审核单，签字仍然是你在 run 页面用 Touch ID，或在终端里 `arb approve`。需要登录 shell 里能找到 `node` 和 `claude`。
+
 ## 后台 agent
 
 `arb agent run [tNNN]` 把一条待办（普通、读代码或命令待办）交给你自己的 `claude`，用 `claude -p` 在这个 idea 的 worktree 里不经交互地做完，然后记下花了多少。没给 id 就做最早的一条（在 idea worktree 里只看这个 idea 的）。`--dry-run` 只打印提示词和完整的命令行。只能由你启动：在 Claude Code 里会拒绝，Mac app 也不会替你启动它。

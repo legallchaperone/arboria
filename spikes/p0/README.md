@@ -11,7 +11,7 @@
 | ⑤ | Secure Enclave 签名 + Python 验签 | ✅ | CryptoKit + 文件里的 SE blob（钥匙串要开发者证书）；Python 要新增依赖 `cryptography`；Touch ID 弹窗文字待人确认。见 `5-enclave/` |
 | ⑥ | ACP spike | ✅ | `@agentclientprotocol/claude-agent-acp@0.94.0` + `CLAUDE_CODE_EXECUTABLE` 用用户的 `claude`（`--omit=optional` 不装自带的 257 MB 二进制）；消息、工具调用、权限请求都是结构化的。建议抽屉用 ACP、终端保留。见 `6-acp/` |
 | ⑦ | 后台 `claude -p` 用量从哪扣 | ✅ | 和交互共用 five_hour / seven_day 窗口，没看到单独额度。默认加载全部 MCP/skills（回个 ok 用了 17 万 token），后台必须带 `--strict-mcp-config --disable-slash-commands --setting-sources ""`（约 3 千）；`--bare` 订阅下不能用。见 `7-claude-p/` |
-| 并行 | DeltaAI 上第一个真实 run | 人做 | `arb approve` 只在人的终端里，ssh 对 Claude 是 deny |
+| 并行 | 在用户自己的 Slurm 集群上跑第一个真实 run | 人做 | `arb approve` 只在人的终端里，ssh 对 Claude 是 deny |
 
 ## 已并入 ADR 0004 的修改（2026-11-06）
 1. “`WKUserStyleSheet` 注入 marimo”→“`WKUserScript`（document start）插 `<link href="arboria://app/marimo.css">`”。

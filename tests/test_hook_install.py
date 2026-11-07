@@ -121,7 +121,8 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     local = json.loads((idea / ".claude" / "settings.local.json").read_text())
     assert local == {"permissions": {"additionalDirectories": [str(gdir)]}} and gdir.is_dir()
     assert "/.claude/settings.local.json" in (initialized / ".git" / "info" / "exclude").read_text()
-    assert git(idea, "status", "--porcelain", "--untracked-files=all") == "?? .claude/settings.json"
+    assert git(idea, "status", "--porcelain", "--untracked-files=all") == \
+        "?? .claude/settings.json\n?? .claude/skills/arboria/SKILL.md"  # both meant to be committed
     assert not (initialized / ".claude").exists()
 
     res = arb(idea, "install-claude")  # idempotent

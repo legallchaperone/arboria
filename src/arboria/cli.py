@@ -22,6 +22,7 @@ from . import machine as machine_mod
 from . import monitor, records, report, submission
 from . import seeds as seeds_mod
 from . import tasks as tasks_mod
+from . import skill as skill_mod
 from . import tree as tree_mod
 from .config import project_config, require_project_id
 from .db import Ledger
@@ -117,6 +118,14 @@ def _echo_json(obj: Any) -> None:
     typer.echo(json.dumps(obj, indent=2, ensure_ascii=False, default=str))
 
 
+def _done(obj: dict[str, Any], text: str, as_json: bool) -> None:
+    """A write command's confirmation: `text`, or `obj` as JSON with --json."""
+    if as_json:
+        _echo_json(obj)
+    else:
+        typer.echo(text)
+
+
 def _open() -> tuple[RepoContext, Ledger]:
     ctx = locate().require_initialized()
     return ctx, Ledger(ctx.state_dir)
@@ -197,6 +206,7 @@ def idea_new(
     hypothesis: Annotated[Optional[str], typer.Option("--hypothesis", help="What you expect and why (≤300 chars); required in a repo.")] = None,
     metric: Annotated[Optional[str], typer.Option("--metric", help="How success is measured (≤200 chars); required in a repo.")] = None,
     parent: Annotated[Optional[str], typer.Option("--parent", help="Branch off this open idea (in a repo).")] = None,
+    as_json: JsonOpt = False,
 ) -> None:
     """New idea: in a repo, branch idea/NAME and its worktree folder (prints its path).
 
@@ -219,6 +229,10 @@ def idea_new(
         raise ArbError(f"missing {' and '.join(missing)}: an idea in a repo needs both")
     with Ledger(ctx.state_dir) as ledger:
         idea = ideas_mod.new_idea(ctx, ledger, name, hypothesis, metric, parent, warn=_warn)
+    if as_json:
+        _echo_json({"name": idea["name"], "branch": idea["branch"], "parent": parent,
+                    "worktree": idea["worktree_path"], "notebook": str(idea["notebook"])})
+        return
     typer.echo(idea["worktree_path"])
     typer.echo(f"notebook: {idea['notebook']} (linked as notebook.py; open it in VS Code "
                f"with the marimo extension, or `marimo edit notebook.py` in the worktree)",
@@ -620,13 +634,14 @@ def run_new(
 def run_summary(
     run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")],
     text: Annotated[str, typer.Argument(help="Result summary (≤10 lines, ≤1500 chars).")],
+    as_json: JsonOpt = False,
 ) -> None:
     """Set a run's result summary (run must belong to the current idea)."""
     ctx, ledger = _open()
     with ledger:
         idea = ideas_mod.require_current_idea(ctx, ledger)
         records.set_run_summary(ledger, idea, run_id, text)
-    typer.echo(f"summary saved for {run_id}")
+    _done({"run": run_id, "summary": "saved"}, f"summary saved for {run_id}", as_json)
 
 
 # ---------------------------------------------------------------- cluster runs
@@ -811,11 +826,15 @@ def remote_ls(
     run_id: Annotated[str, typer.Argument(help="Run id, e.g. r001.")],
     subpath: Annotated[Optional[str], typer.Argument(help="Relative path inside the run dir.")] = None,
     out: Annotated[bool, typer.Option("--out", help="List ARBORIA_OUT instead of the run dir.")] = False,
+    as_json: JsonOpt = False,
 ) -> None:
     """List a run's directory (or its ARBORIA_OUT) on the cluster."""
     ctx, ledger = _open()
     with ledger:
         base, names = monitor.remote_ls(ctx, ledger, run_id, subpath, out)
+    if as_json:
+        _echo_json({"run": run_id, "dir": base, "entries": names})
+        return
     typer.echo(f"{base}:")
     for name in names:
         typer.echo(f"  {name}")
@@ -844,11 +863,15 @@ def lesson_propose(
     text: Annotated[str, typer.Argument(help="One line, ≤200 chars: a reusable project pitfall.")],
     idea: Annotated[Optional[str], typer.Option("--idea", help="Source idea (default: current idea).")] = None,
     run: Annotated[Optional[str], typer.Option("--run", help="Source run id.")] = None,
+    as_json: JsonOpt = False,
 ) -> None:
     """Propose a lesson; it only goes into CLAUDE.md after the human accepts it."""
     ctx, ledger = _open()
     with ledger:
         lesson = lessons_mod.propose(ctx, ledger, text, idea=idea, run=run)
+    if as_json:
+        _echo_json({"lesson": lesson["id"], "decision": lesson["decision_id"], "status": "proposed"})
+        return
     typer.echo(f"proposed {lesson['id']} (decision {lesson['decision_id']}); "
                f"the human accepts it with `arb lesson accept {lesson['id']}`")
 
@@ -953,12 +976,13 @@ def todo_list(
 def todo_done(
     task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t001.")],
     result: Annotated[str, typer.Option("--result", help="What was done / found (≤600 chars).")],
+    as_json: JsonOpt = False,
 ) -> None:
     """Mark a todo done with a short result for the human."""
     ledger, _ = _todo_ledger()
     with ledger:
         tasks_mod.done(ledger, task_id, result)
-    typer.echo(f"done {task_id}")
+    _done({"todo": task_id, "status": "done"}, f"done {task_id}", as_json)
 
 
 @todo_app.command("drop")
@@ -966,12 +990,13 @@ def todo_done(
 def todo_drop(
     task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t001.")],
     reason: Annotated[Optional[str], typer.Option("--reason", help="Why (≤600 chars).")] = None,
+    as_json: JsonOpt = False,
 ) -> None:
     """Drop a todo that will not be done."""
     ledger, _ = _todo_ledger()
     with ledger:
         tasks_mod.drop(ledger, task_id, reason)
-    typer.echo(f"dropped {task_id}")
+    _done({"todo": task_id, "status": "dropped"}, f"dropped {task_id}", as_json)
 
 
 # ---------------------------------------------------------------- notebook commands
@@ -1081,12 +1106,16 @@ def inspect_source(
 def inspect_check(
     task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t007.")],
     file: FileOpt,
+    as_json: JsonOpt = False,
 ) -> None:
     """Validate an answer and print what the human will see; saves nothing."""
     ctx, ledger = _open()
     with ledger:
         task = inspection.open_inspect_task(ledger, task_id)
     result = inspection.validate_result(ctx.main, task, _answer(file))
+    if as_json:
+        _echo_json({"todo": task_id, "valid": True, "saved": False, "result": result})
+        return
     typer.echo(inspection.to_text(None, result))
     typer.echo(f"\nok: valid for {task_id} (nothing saved; deliver with "
                f"`arb inspect done {task_id} --file …`)")
@@ -1097,12 +1126,17 @@ def inspect_check(
 def inspect_done(
     task_id: Annotated[str, typer.Argument(help="Todo id, e.g. t007.")],
     file: FileOpt,
+    as_json: JsonOpt = False,
 ) -> None:
     """Deliver the answer to a 读代码 todo: arb extracts the code, stores it, closes the todo."""
     ctx, ledger = _open()
     with ledger:
         result = inspection.deliver(ledger, ctx.main, task_id, _answer(file))
     lines = sum(len(s["lines"]) for s in result["spans"])
+    if as_json:
+        _echo_json({"todo": task_id, "status": "done", "title": result["title"],
+                    "spans": len(result["spans"]), "lines": lines, "code_ref": result["code_ref"]})
+        return
     typer.echo(f"done {task_id}: {result['title']} ({len(result['spans'])} spans, {lines} lines "
                f"@ {inspection.short(result['code_ref'])}); the notebook cell re-runs by itself")
 
@@ -1530,8 +1564,9 @@ def install_claude(
     user: Annotated[bool, typer.Option("--user", help="Write into ~/.claude/settings.json instead.")] = False,
     home: Annotated[bool, typer.Option("--home", help="Set up the seed home (~/arboria): its .claude/settings.json and CLAUDE.md.")] = False,
 ) -> None:
-    """Add the SessionStart hook and permission rules to .claude/settings.json (the
-    machine-specific global commands dir goes into .claude/settings.local.json)."""
+    """Add the hooks and permission rules to .claude/settings.json (the machine-specific
+    global commands dir goes into .claude/settings.local.json) and the arboria Skill to
+    .claude/skills/arboria/SKILL.md."""
     if main + user + home > 1:
         raise ArbError("use only one of --main / --user / --home")
     if home:
@@ -1558,6 +1593,9 @@ def install_claude(
         if root is None:
             raise ArbError("not inside a worktree")
     path, changes = install_mod.install(root, local=not user)
+    skill_change = skill_mod.install(root)
+    if skill_change:
+        changes.append(skill_change)
     if not user and ctx is not None:  # the local file is per machine: keep it out of git
         if ensure_excluded(ctx.common_dir, install_mod.LOCAL_EXCLUDE, install_mod.LOCAL_COMMENT):
             changes.append(f"added {install_mod.LOCAL_EXCLUDE} to "

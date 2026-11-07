@@ -9,6 +9,7 @@ from typing import Any
 from .errors import ArbError
 
 HOOK_COMMAND = "arb hook session-start"
+PROMPT_HOOK_COMMAND = "arb hook prompt-submit"  # one line when the ledger changed (updates.py)
 # Approvals happen only in the human's own terminal (`arb approve` / `arb lesson accept`
 # also refuse inside Claude Code); earlier versions put these under "ask".
 APPROVAL_RULES = ["Bash(arb approve:*)", "Bash(arb lesson accept:*)", "Bash(arb key:*)"]
@@ -57,11 +58,11 @@ LOCAL_EXCLUDE = f"/.claude/{LOCAL_NAME}"
 LOCAL_COMMENT = "arboria: Claude Code settings of this machine (install-claude)"
 
 
-def _has_hook(entries: list[Any]) -> bool:
+def _has_hook(entries: list[Any], command: str = HOOK_COMMAND) -> bool:
     for entry in entries:
         if isinstance(entry, dict):
             for hook in entry.get("hooks") or []:
-                if isinstance(hook, dict) and hook.get("command") == HOOK_COMMAND:
+                if isinstance(hook, dict) and hook.get("command") == command:
                     return True
     return False
 
@@ -87,6 +88,10 @@ def merge_settings(settings: dict[str, Any], where: str = "settings.json",
     if not _has_hook(session_start):
         session_start.append({"hooks": [{"type": "command", "command": HOOK_COMMAND}]})
         changes.append(f"hooks.SessionStart += {HOOK_COMMAND}")
+    prompt = _section(hooks, "UserPromptSubmit", list, where)
+    if not _has_hook(prompt, PROMPT_HOOK_COMMAND):
+        prompt.append({"hooks": [{"type": "command", "command": PROMPT_HOOK_COMMAND}]})
+        changes.append(f"hooks.UserPromptSubmit += {PROMPT_HOOK_COMMAND}")
     perms = _section(settings, "permissions", dict, where)
     deny = _section(perms, "deny", list, where)
     for rule in DENY_RULES if deny_rules is None else deny_rules:

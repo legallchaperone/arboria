@@ -12,6 +12,7 @@ commands promote	command	visible	-	name --force
 doctor	command	visible	集群	name?
 export	command	visible	安装与内部	--out=V
 hook	group	visible	安装与内部
+hook prompt-submit	command	visible	-
 hook session-start	command	visible	-
 idea	group	visible	你做的
 idea close	command	visible	-	name? --merge --drop --confidence=V --allow-large

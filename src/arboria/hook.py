@@ -16,15 +16,24 @@ from .report import decision_lines, home_status, status_data, status_parts, todo
 MAX_CONTEXT_CHARS = 4000
 
 
-def _hook_cwd(stdin_text: str) -> Path:
+def _payload(stdin_text: str) -> dict:
     try:
         payload = json.loads(stdin_text) if stdin_text.strip() else {}
-        cwd = payload.get("cwd") if isinstance(payload, dict) else None
-        if isinstance(cwd, str) and cwd and Path(cwd).is_dir():
-            return Path(cwd)
     except ValueError:
-        pass
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _hook_cwd(stdin_text: str) -> Path:
+    cwd = _payload(stdin_text).get("cwd")
+    if isinstance(cwd, str) and cwd and Path(cwd).is_dir():
+        return Path(cwd)
     return Path(os.getcwd())
+
+
+def _session_id(stdin_text: str) -> str | None:
+    sid = _payload(stdin_text).get("session_id")
+    return sid if isinstance(sid, str) and 0 < len(sid) <= 200 else None
 
 
 def cap(text: str, limit: int = MAX_CONTEXT_CHARS) -> str:
@@ -34,9 +43,9 @@ def cap(text: str, limit: int = MAX_CONTEXT_CHARS) -> str:
     return text[: limit - len(marker)] + marker
 
 
-def _json(text: str) -> str:
+def _json(text: str, event: str = "SessionStart") -> str:
     return json.dumps(
-        {"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}},
+        {"hookSpecificOutput": {"hookEventName": event, "additionalContext": text}},
         ensure_ascii=False,
     )
 
@@ -54,7 +63,7 @@ def build_home_output(h: Home) -> str | None:
     return _json(cap(text))
 
 
-def build_output(cwd: Path) -> str | None:
+def build_output(cwd: Path, session_id: str | None = None) -> str | None:
     """The hook's stdout JSON, or None when cwd is neither in an initialized arboria repo
     nor in the seed home."""
     h = home()
@@ -68,6 +77,8 @@ def build_output(cwd: Path) -> str | None:
         return None
     remember_session(ctx)
     with Ledger(ctx.state_dir) as ledger:
+        if session_id:
+            mark_session_start(ctx, ledger, session_id)
         data = status_data(ctx, ledger)
         status_head, tail = status_parts(data, brief=True)
         try:
@@ -102,6 +113,55 @@ def research_index(ctx: RepoContext, ledger: Ledger, data: dict) -> str:
     return "\n".join(lines)
 
 
+def mark_session_start(ctx: RepoContext, ledger: Ledger, session_id: str) -> None:
+    """Start this session's "seen up to" mark at the ledger as it is now (updates.py)."""
+    try:
+        from . import updates
+
+        updates.write_seen(ctx.state_dir, session_id, updates.last_event(ledger))
+    except Exception:
+        _log_error(ctx.cwd, ctx.state_dir)
+
+
+def build_prompt_output(cwd: Path, session_id: str | None) -> str | None:
+    """UserPromptSubmit: one line about what changed since the session's last prompt, or
+    None. Only in an initialized repo, only with a session id."""
+    if not session_id:
+        return None
+    try:
+        ctx = locate(cwd)
+    except Exception:
+        return None
+    if not ctx.initialized:
+        return None
+    from . import updates
+    from .config import project_config
+
+    try:
+        metric = project_config(ctx).metric
+    except Exception:
+        metric = ""
+    with Ledger(ctx.state_dir) as ledger:
+        line = updates.since(ctx.state_dir, ledger, session_id, metric)
+    return _json(line, "UserPromptSubmit") if line else None
+
+
+def prompt_submit(stdin: IO[str], stdout: IO[str]) -> int:
+    """Run the UserPromptSubmit hook. Always returns 0; never raises; silent unless
+    something changed."""
+    cwd: Path | None = None
+    try:
+        text = "" if stdin is None or stdin.isatty() else stdin.read()
+        cwd = _hook_cwd(text)
+        output = build_prompt_output(cwd, _session_id(text))
+        if output:
+            stdout.write(output + "\n")
+            stdout.flush()
+    except Exception:
+        _log_error(cwd)
+    return 0
+
+
 def remember_session(ctx: RepoContext) -> None:
     """Record this session's inbox socket for its worktree (see sessions.py); silent."""
     try:
@@ -130,7 +190,7 @@ def session_start(stdin: IO[str], stdout: IO[str]) -> int:
     try:
         text = "" if stdin is None or stdin.isatty() else stdin.read()
         cwd = _hook_cwd(text)
-        output = build_output(cwd)
+        output = build_output(cwd, _session_id(text))
         if output:
             stdout.write(output + "\n")
             stdout.flush()

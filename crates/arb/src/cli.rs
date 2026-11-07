@@ -779,6 +779,8 @@ pub enum LessonCmd {
 
 #[derive(Debug, Subcommand)]
 pub enum HookCmd {
+    /// UserPromptSubmit hook: one line of context when the ledger changed since the last prompt.
+    PromptSubmit,
     /// SessionStart hook: reads hook JSON on stdin, prints additionalContext JSON.
     SessionStart,
 }
@@ -1305,6 +1307,10 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
                     "updated"
                 }
             );
+        }
+        Cmd::Hook(HookCmd::PromptSubmit) => {
+            // Frozen (ADR 0004): not ported. A hook must never fail, so it stays silent.
+            return Ok(0);
         }
         Cmd::Hook(HookCmd::SessionStart) => {
             // Never fails, never prints anything extra (see main.rs, which also catches panics).

@@ -1516,6 +1516,13 @@ def hook_session_start() -> None:
     raise typer.Exit(code)
 
 
+@hook_app.command("prompt-submit")
+def hook_prompt_submit() -> None:
+    """UserPromptSubmit hook: one line of context when the ledger changed since the last prompt."""
+    code = hook_mod.prompt_submit(sys.stdin, sys.stdout)
+    raise typer.Exit(code)
+
+
 @app.command("install-claude")
 @handle_errors
 def install_claude(

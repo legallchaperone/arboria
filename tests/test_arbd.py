@@ -13,7 +13,10 @@ from pathlib import Path
 
 import pytest
 
+from .test_submit import cluster  # noqa: F401  (fixture)
+
 from arboria import arbd
+from arboria.db import Ledger
 from arboria.errors import ArbError
 
 SRC = Path(arbd.__file__)
@@ -202,25 +205,117 @@ def _imported_modules(path: Path) -> set[str]:
     return mods
 
 
-def test_arbd_has_no_approval_path() -> None:
+def test_arbd_approves_only_with_a_signature() -> None:
     mods = _imported_modules(SRC)
-    for forbidden in ("submission", "human", "lessons", "monitor", "backends", "db"):
+    for forbidden in ("human", "lessons", "monitor", "backends"):
         assert forbidden not in mods, forbidden
     lines = SRC.read_text().splitlines()
     start = next(i for i, l in enumerate(lines) if l.startswith("from __future__"))
     code = "\n".join(l for l in lines[start:] if not l.lstrip().startswith("#"))
-    for word in ("Decision", "sbatch", "_guarded_submit", "require_terminal"):
+    for word in ("require_terminal", "_guarded_submit", "sbatch", "Backend", "submission.approve(",
+                 "_record_and_submit", "set_decision"):
         assert word not in code, word
-    # approving and accepting appear only as command text for the human's terminal
+    # approve/accept appear only as command text for the human, or as the signed path
     for m in re.finditer(r"approve|accept", code):
-        before = code[max(0, m.start() - 12):m.start()]
-        assert before.endswith(("arb ", "arb lesson ")), code[m.start() - 40:m.end() + 20]
-    # and the dispatch table has no such method
+        around = code[max(0, m.start() - 12):m.end() + 7]
+        assert (code[max(0, m.start() - 12):m.start()].endswith(("arb ", "arb lesson "))
+                or "approve_signed" in around or "approve.signed" in around
+                or code[m.start():].startswith("approvekeys")), around  # reads the trusted list
     tree = ast.parse(SRC.read_text())
-    keys = [k.value for node in ast.walk(tree) if isinstance(node, ast.Dict)
-            for k in node.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)]
-    methods = [k for k in keys if "." in k or k in ("hello", "project", "inbox")]
-    assert methods and not [k for k in methods if re.search(r"approv|accept|sign|submit|cancel", k)]
+    table = next(n.value for n in ast.walk(tree) if isinstance(n, ast.AnnAssign)
+                 and isinstance(n.target, ast.Name) and n.target.id == "methods")
+    keys = [k.value for k in table.keys]
+    assert "project" in keys and "notebook.open" in keys
+    risky = [k for k in keys if re.search(r"approv|accept|sign|submit|cancel|reject", k)]
+    assert risky == ["approve.signed"]
+    # ... and its handler goes through submission.approve_signed (which verifies)
+    fn = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "approve_signed")
+    calls = {ast.unparse(c.func) for c in ast.walk(fn) if isinstance(c, ast.Call)}
+    assert "submission.approve_signed" in calls
+
+
+def test_signed_approval_end_to_end_on_fake_slurm(cluster, idea: Path, initialized: Path,
+                                                   arb, monkeypatch) -> None:
+    """P3 acceptance on FakeSlurm: pair a key (human, terminal), the app signs the card
+    arbd hands it, arbd approves, FakeSlurm runs it, poll fetches out/, and the experiment
+    page shows the curves and what changed since the parent."""
+    import base64
+
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    from arboria import approvekeys, human
+    from .test_submit import _submit, jn
+
+    key = ec.generate_private_key(ec.SECP256R1())  # stands in for the Secure Enclave
+    pub = base64.b64encode(key.public_key().public_bytes(
+        serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)).decode()
+    fp = approvekeys.fingerprint(pub)
+    monkeypatch.setattr(human, "read_confirmation", lambda prompt: fp)
+    arb(initialized, "key", "trust", "--public-key", pub, "--label", "test Mac")
+    assert oct(approvekeys.keys_path().stat().st_mode & 0o777) == "0o600"
+    assert fp in arb(initialized, "key", "list").stdout
+
+    metrics = "".join(json.dumps({"step": s, "val/loss": 3 - s / 100}) + "\n" for s in range(0, 50, 10))
+    cluster.script(jn(cluster, "r001", 1), run_s=600, queue_s=0, billed=1.5,
+                   out_files={"metrics.jsonl": metrics})
+    _submit(arb, idea)
+    d = arbd.Daemon(initialized)
+    card = d.handle({"id": 1, "method": "card", "params": {"run": "r001"}})["result"]
+    assert card["matches"] and "r001" in card["text"] and len(card["card_hash"]) == 64
+
+    def sign(run: str, h: str, k=key) -> str:
+        msg = approvekeys.message(card["project"], run, h)
+        return base64.b64encode(k.sign(msg, ec.ECDSA(hashes.SHA256()))).decode()
+
+    call = lambda params: d.handle({"id": 2, "method": "approve.signed", "params": params})
+    # no signature, a wrong key, another hash or another run: nothing is approved
+    stranger = ec.generate_private_key(ec.SECP256R1())
+    for params in ({"run": "r001", "card_hash": card["card_hash"], "signature": ""},
+                   {"run": "r001", "card_hash": card["card_hash"], "signature": sign("r001", card["card_hash"], stranger)},
+                   {"run": "r001", "card_hash": "0" * 64, "signature": sign("r001", "0" * 64)},
+                   {"run": "r001", "card_hash": card["card_hash"], "signature": sign("r002", card["card_hash"])}):
+        assert "error" in call(params), params
+    assert cluster.calls("submit") == []
+    ok = call({"run": "r001", "card_hash": card["card_hash"], "signature": sign("r001", card["card_hash"])})
+    assert ok["result"]["status"] == "queued", ok
+    assert len(cluster.calls("submit")) == 1
+    with Ledger(initialized / ".arboria") as ledger:
+        dec = ledger.one("SELECT * FROM decisions WHERE subject_id = 'r001' AND choice = 'approve'")
+    assert dec["decided_by"] == "human"
+    assert f'"key": "{fp}"' in dec["payload_json"] and "Touch ID" in dec["payload_json"]
+    # replaying the signature does nothing more
+    assert "error" in call({"run": "r001", "card_hash": card["card_hash"],
+                            "signature": sign("r001", card["card_hash"])})
+    assert len(cluster.calls("submit")) == 1
+
+    cluster.advance(700)
+    arb(idea, "poll")
+    page = d.handle({"id": 3, "method": "run", "params": {"run": "r001"}})["result"]
+    assert page["run"]["status"] == "succeeded" and page["run"]["idea_metric"] == "val/loss"
+    assert page["metrics"]["val/loss"][:2] == [[0.0, 3.0], [10.0, 2.9]]
+    compute = d.handle({"id": 4, "method": "compute"})["result"]
+    assert compute["used_su"] == 1.5 and compute["jobs"][0]["state"] == "completed"
+
+    # a second run derived from it: the page diffs against the parent
+    arb(idea, "submit", "--from", "r001", "--set", "lr=1e-3", "--reason", "higher lr")
+    page2 = d.handle({"id": 5, "method": "run", "params": {"run": "r002"}})["result"]
+    assert page2["base"] == "r001" and page2["base_metrics"]["val/loss"]
+    assert any(row[1] == "lr" for row in page2["diff"]["rows"])
+    runs = d.handle({"id": 6, "method": "runs", "params": {"idea": "exp1"}})["result"]["runs"]
+    assert [r["id"] for r in runs] == ["r002", "r001"] and runs[0]["parent_run"] == "r001"
+    assert d.handle({"id": 7, "method": "keys"})["result"] == {"trusted": [fp]}
+
+
+def test_key_trust_is_human_only(monkeypatch, arb, initialized: Path) -> None:
+    from arboria import human
+
+    monkeypatch.setenv("CLAUDECODE", "1")
+    res = arb(initialized, "key", "trust", "--public-key", "AAAA", ok=False)
+    assert res.exit_code != 0
+    monkeypatch.delenv("CLAUDECODE")
+    monkeypatch.setattr(human, "stdin_is_tty", lambda: False)
+    assert arb(initialized, "key", "trust", "--public-key", "AAAA", ok=False).exit_code != 0
 
 
 # ------------------------------------------------------------ real marimo

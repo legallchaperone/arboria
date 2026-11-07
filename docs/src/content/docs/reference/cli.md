@@ -43,6 +43,9 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb watch`](#arb-watch) | Keep polling active runs; cancel a run that crashes or logs a failure early on. |
 | [`arb logs`](#arb-logs) | Tail a run's Slurm log on the cluster (use this instead of ssh). |
 | [`arb remote ls`](#arb-remote-ls) | List a run's directory (or its ARBORIA\_OUT) on the cluster. |
+| [`arb key trust`](#arb-key-trust) | (Human only) Trust the app's Touch ID key; you type the fingerprint the app shows. |
+| [`arb key list`](#arb-key-list) | List trusted Touch ID approval keys. |
+| [`arb key revoke`](#arb-key-revoke) | (Human only) Stop trusting a Touch ID approval key. |
 | [`arb todo list`](#arb-todo-list) | Todos of the current idea (in an idea worktree), of every open idea, or (in the seed home) of the seeds. |
 | [`arb todo done`](#arb-todo-done) | Mark a todo done with a short result for the human. |
 | [`arb todo drop`](#arb-todo-drop) | Drop a todo that will not be done. |
@@ -430,6 +433,51 @@ arb remote ls [OPTIONS] {run_id} [subpath]
 | `run_id` | Run id, e.g. r001. | 必填 |
 | `subpath` | Relative path inside the run dir. |  |
 | `--out` | List ARBORIA\_OUT instead of the run dir. |  |
+
+## Touch ID 签字密钥
+
+Mac app 用 Secure Enclave 里的密钥给审核单签字；只有你在自己的终端里信任过的密钥签的字才算批准。
+
+### arb key trust
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Trust the app's Touch ID key; you type the fingerprint the app shows.
+
+```text
+arb key trust [OPTIONS]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `--public-key <str>` | Base64 X9.63 P-256 public key (default: the one the app saved). |  |
+| `--label <str>` | A name for this device. | `Mac` |
+
+### arb key list
+
+List trusted Touch ID approval keys.
+
+```text
+arb key list [OPTIONS]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `--json` | Print machine-readable JSON. |  |
+
+### arb key revoke
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Stop trusting a Touch ID approval key.
+
+```text
+arb key revoke [OPTIONS] {fingerprint}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `fingerprint` | Fingerprint, as `arb key list` shows it. | 必填 |
 
 ## 待办与 notebook 命令
 

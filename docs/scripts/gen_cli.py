@@ -39,6 +39,8 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
     ("提交、批准与集群", "`submit` 只在本地生成审核单；只有 `approve` 会把作业交给 Slurm。", [
         "submit", "card", "approve", "reject", "cancel", "poll", "watch", "logs", "remote ls",
     ]),
+    ("Touch ID 签字密钥", "Mac app 用 Secure Enclave 里的密钥给审核单签字；只有你在自己的终端里信任过的"
+     "密钥签的字才算批准。", ["key trust", "key list", "key revoke"]),
     ("待办与 notebook 命令", "notebook 里 `lab.todo(...)`、`lab.<名字>(...)` 和 "
      "`lab.inspect(...)` 留下的活。", [
         "todo list", "todo done", "todo drop", "commands list", "commands guide",

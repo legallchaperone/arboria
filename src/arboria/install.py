@@ -11,16 +11,19 @@ from .errors import ArbError
 HOOK_COMMAND = "arb hook session-start"
 # Approvals happen only in the human's own terminal (`arb approve` / `arb lesson accept`
 # also refuse inside Claude Code); earlier versions put these under "ask".
-APPROVAL_RULES = ["Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
+APPROVAL_RULES = ["Bash(arb approve:*)", "Bash(arb lesson accept:*)", "Bash(arb key:*)"]
 # The real guarantee is that only `arb approve` submits (after a human Decision);
 # these deny rules are an extra layer that keeps Claude off the cluster directly.
 CLUSTER_RULES = ["Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)",
                  "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)"]
+# The Touch ID approval keys: the trusted ones (approvekeys) and the app's own key files.
+APPROVAL_KEY_PATHS = ["**/approve-keys.json", "**/Library/Application Support/Arboria/**"]
 # Notebooks are the human's (Claude may read them) and the ledger is written only by
 # `arb`; sessions/ holds the inbox sockets the notebook posts to. Other files under
 # .arboria/ stay writable, notably commands/ (the notebook commands Claude writes).
 PROTECTED_PATHS = ["**/.arboria/notebooks/**", "**/.arboria/ledger.db*", "**/.arboria/backup/**",
-                   "**/.arboria/*.toml", "**/.arboria/sessions/**", "**/notebook.py"]
+                   "**/.arboria/*.toml", "**/.arboria/sessions/**", "**/notebook.py",
+                   *APPROVAL_KEY_PATHS]
 EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"]
 FILE_RULES = [f"{tool}({path})" for path in PROTECTED_PATHS for tool in EDIT_TOOLS]
 # Seeds are the human's: every command that writes one refuses inside Claude Code in
@@ -39,7 +42,7 @@ DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES, *SEED_RULES, *NOTEBO
 # new/drop` act on seeds too (in a repo they are the agent's to use), so they are denied
 # in the home as well.
 HOME_IDEA_RULES = ["Bash(arb idea new:*)", "Bash(arb idea drop:*)"]
-HOME_PROTECTED_PATHS = ["**/seeds/**", "**/.arboria/**"]
+HOME_PROTECTED_PATHS = ["**/seeds/**", "**/.arboria/**", *APPROVAL_KEY_PATHS]
 HOME_DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *SEED_RULES, *NOTEBOOK_RULES,
                    *HOME_IDEA_RULES,
                    *(f"{tool}({path})" for path in HOME_PROTECTED_PATHS for tool in EDIT_TOOLS)]

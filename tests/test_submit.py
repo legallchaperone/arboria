@@ -307,6 +307,26 @@ def test_need_login_during_approve_is_resumable(cluster, idea: Path, initialized
 # ---------------------------------------------------------------- the approval gate
 
 
+def test_every_approval_path_is_the_humans() -> None:
+    """Only two functions reach _record_and_submit (the approval Decision + submit): the
+    terminal one (require_terminal + typed id) and the Touch ID one (verified signature)."""
+    import ast
+
+    tree = ast.parse((SRC / "submission.py").read_text())
+    callers = {}
+    for fn in ast.walk(tree):
+        if isinstance(fn, ast.FunctionDef):
+            calls = {ast.unparse(c.func) for c in ast.walk(fn) if isinstance(c, ast.Call)}
+            if "_record_and_submit" in calls:
+                callers[fn.name] = calls
+    assert set(callers) == {"approve", "approve_signed"}
+    assert {"human.require_terminal", "human.confirm_typed"} <= callers["approve"]
+    assert "approvekeys.verify" in callers["approve_signed"]
+    for path in SRC.rglob("*.py"):  # and nothing else records an approval
+        if path.name != "submission.py":
+            assert "_record_and_submit" not in path.read_text(), path
+
+
 def test_submit_is_called_only_from_the_guard() -> None:
     """By construction: one call site of Backend.submit, inside _guarded_submit."""
     hits = []

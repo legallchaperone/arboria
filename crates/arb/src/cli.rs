@@ -35,7 +35,7 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
     (
         "你做的",
         &[
-            "idea", "submit", "card", "approve", "reject", "note", "status", "ui",
+            "idea", "submit", "card", "approve", "reject", "key", "note", "status", "ui",
         ],
     ),
     (
@@ -108,6 +108,9 @@ pub enum Cmd {
         #[arg(long)]
         reason: Option<String>,
     },
+    /// (Human only) Touch ID approval keys of the Mac app.
+    #[command(subcommand, arg_required_else_help = true)]
+    Key(KeyCmd),
     /// (Human only) add a note to the current idea (--confidence also updates the idea).
     Note {
         /// The note (≤1000 chars).
@@ -246,6 +249,37 @@ pub enum Cmd {
     /// Probes (ADR 0003): small parsers for a machine's query commands, run on a schedule.
     #[command(subcommand, hide = true, arg_required_else_help = true)]
     Probe(ProbeCmd),
+    /// The Mac app's core process: JSON over a Unix socket; exits when stdin closes.
+    #[command(hide = true)]
+    Arbd {
+        /// Unix socket to listen on.
+        #[arg(long)]
+        socket: PathBuf,
+        /// A worktree of the project (default: here).
+        #[arg(long, default_value = ".")]
+        project: PathBuf,
+    },
+}
+
+/// `arb key` (ADR 0004; the Rust core is frozen, so these stay unported).
+#[derive(Debug, Subcommand)]
+pub enum KeyCmd {
+    /// (Human only) Trust the app's Touch ID key; you type the fingerprint the app shows.
+    Trust {
+        /// Base64 X9.63 P-256 public key (default: the one the app saved).
+        #[arg(long)]
+        public_key: Option<String>,
+        /// A name for this device.
+        #[arg(long, default_value = "Mac")]
+        label: String,
+    },
+    /// List trusted Touch ID approval keys.
+    List,
+    /// (Human only) Stop trusting a Touch ID approval key.
+    Revoke {
+        /// Fingerprint, as `arb key list` shows it.
+        fingerprint: String,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -1188,6 +1222,8 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
             }
         }
         Cmd::Probe(cmd) => probe_cmd(cmd, json)?,
+        Cmd::Key(_) => todo!("port of arboria.cli key (frozen: ADR 0004)"),
+        Cmd::Arbd { .. } => todo!("port of arboria.arbd (frozen: ADR 0004)"),
     }
     Ok(0)
 }

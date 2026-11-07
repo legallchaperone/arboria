@@ -59,6 +59,8 @@ app.add_typer(run_app, name="run")
 app.add_typer(hook_app, name="hook")
 app.add_typer(claudemd_app, name="claudemd")
 app.add_typer(lesson_app, name="lesson")
+key_app = typer.Typer(help="(Human only) Touch ID approval keys of the Mac app.", no_args_is_help=True)
+app.add_typer(key_app, name="key")
 remote_app = typer.Typer(help="Read-only views of a run's files on the cluster.",
                          no_args_is_help=True)
 app.add_typer(remote_app, name="remote")
@@ -1197,6 +1199,53 @@ def ui(
     raise typer.Exit(code)
 
 
+@key_app.command("trust")
+@handle_errors
+def key_trust(
+    public_key: Annotated[Optional[str], typer.Option("--public-key", help="Base64 X9.63 P-256 public key (default: the one the app saved).")] = None,
+    label: Annotated[str, typer.Option("--label", help="A name for this device.")] = "Mac",
+) -> None:
+    """(Human only) Trust the app's Touch ID key; you type the fingerprint the app shows."""
+    from . import approvekeys
+
+    pub = public_key
+    if pub is None:
+        path = approvekeys.APP_PUBLIC_KEY.expanduser()
+        if not path.is_file():
+            raise ArbError(f"no key at {path}: open the Arboria app first, or pass --public-key")
+        pub = path.read_text().strip()
+    entry = approvekeys.trust(pub, label)
+    typer.echo(f"trusted {entry['fingerprint']} ({entry['label']})")
+
+
+@key_app.command("list")
+@handle_errors
+def key_list(as_json: JsonOpt = False) -> None:
+    """List trusted Touch ID approval keys."""
+    from . import approvekeys
+
+    keys = approvekeys.load()
+    if as_json:
+        _echo_json([{k: v for k, v in key.items() if k != "public_key"} for key in keys])
+        return
+    if not keys:
+        typer.echo("no trusted approval keys")
+    for key in keys:
+        typer.echo(f"{key['fingerprint']}  {key['label']}  {key['added_at']}")
+
+
+@key_app.command("revoke")
+@handle_errors
+def key_revoke(
+    fingerprint: Annotated[str, typer.Argument(help="Fingerprint, as `arb key list` shows it.")],
+) -> None:
+    """(Human only) Stop trusting a Touch ID approval key."""
+    from . import approvekeys
+
+    hit = approvekeys.revoke(fingerprint)
+    typer.echo(f"revoked {hit['fingerprint']} ({hit['label']})")
+
+
 @app.command("arbd", hidden=True)
 @handle_errors
 def arbd(
@@ -1361,7 +1410,7 @@ def claudemd_sync(
 # Kept in one table so the grouping reads at a glance; tests/test_cli_help.py checks that
 # every visible command is in exactly one panel.
 HELP_PANELS: dict[str, list[str]] = {
-    "你做的": ["idea", "submit", "card", "approve", "reject", "note", "status", "ui"],
+    "你做的": ["idea", "submit", "card", "approve", "reject", "key", "note", "status", "ui"],
     "集群": ["watch", "poll", "cancel", "logs", "remote", "machine", "doctor"],
     "agent 做的": ["todo", "commands", "inspect", "run", "lesson"],
     "安装与内部": ["init", "install-claude", "hook", "claudemd", "export"],

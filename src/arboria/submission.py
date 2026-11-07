@@ -1,8 +1,11 @@
 """`arb submit` / `arb approve` / `arb reject`: the human approval gate in front of Slurm.
 
 - `submit` is purely local: snapshot, request, card, an open Decision. No backend.
-- `approve` is the only path that reaches `Backend.submit`, and `_guarded_submit`
-  re-checks the ledger for a human approval Decision right before every sbatch.
+- Approving is the only path that reaches `Backend.submit`: `approve` (the human's own
+  terminal, typed run id) or `approve_signed` (the Mac app's Touch ID signature, checked
+  against keys the human trusted in their terminal). Both record the human Decision through
+  `_record_and_submit`, and `_guarded_submit` re-checks the ledger for it right before
+  every sbatch.
 - The approval binds to the card hash; a changed request or profile is refused.
 """
 
@@ -16,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from . import backends, clusters, gitutil, human, records, slurm
+from . import approvekeys, backends, clusters, gitutil, human, records, slurm
 from .backends import Backend, BackendError
 from .config import ProjectConfig, project_config, require_project_id
 from .db import RUN_NOT_REUSABLE, Ledger, now, validate_text
@@ -332,50 +335,79 @@ def approve(ctx: RepoContext, ledger: Ledger, run_id: str,
     command = f"arb approve {run_id}"
     human.require_terminal(command)
     with run_lock(ctx, run_id):
-        run = records.get_run(ledger, run_id)
-        if run["status"] not in ("awaiting_approval", "approved"):
-            raise ArbError(f"run {run_id} is {run['status']}; only awaiting_approval runs can be "
-                           "approved")
-        project = check_same_project(ctx, run)
-        profile, plan = replan(run)
-        if slurm.card_hash(run["snapshot_commit"], plan) != run["card_hash"]:
-            raise ArbError(CARD_CHANGED)
+        run, project, profile, plan = _approvable(ctx, ledger, run_id)
         if show is not None and run["status"] == "awaiting_approval":
             idea = ledger.one("SELECT * FROM ideas WHERE id = ?", (run["idea_id"],))
             show(build_card(ctx, ledger, run, idea, profile, plan).text())
         human.confirm_typed(run_id)
-        prov = human.provenance()
-        dec_id = None
-        if run["status"] == "awaiting_approval":
-            with ledger.write() as conn:
-                current = conn.execute("SELECT status FROM runs WHERE id = ?", (run_id,)).fetchone()
-                if current["status"] != "awaiting_approval":
-                    raise ArbError(f"run {run_id} changed to {current['status']} meanwhile")
-                dec = _open_run_decision(ledger, run_id)
-                if dec is None:
-                    raise ArbError(f"run {run_id} has no open approval decision")
-                dec_id = dec["id"]
-                records.set_decision(ledger, dec_id, "approve", "human", prov)
-                conn.execute("UPDATE runs SET status = 'approved', updated_at = ? WHERE id = ?",
-                             (now(), run_id))
-                ledger.event("run_approve", run_id, {"decision": dec_id,
-                                                      "card_hash": run["card_hash"],
-                                                      "author": "human"})
-        elif approval_decision(ledger, run_id) is None:
-            raise ArbError(f"run {run_id} is approved but has no human approval Decision")
-        run = records.get_run(ledger, run_id)
-        try:
-            backend = backends.get_backend(profile, project)
-            submitted = submit_segments(ctx, ledger, run, plan, backend)
-        except BackendError as exc:
-            raise ArbError(f"{exc}\n{run_id} 已批准，但提交没有完成。处理好之后重新运行 "
-                           f"`arb approve {run_id}` 继续（已提交的段不会重复提交）。") from exc
-        job_ids = [j["job_id"] for j in jobs_of(ledger, run_id)]
+        return _record_and_submit(ctx, ledger, run, project, profile, plan, human.provenance())
+
+
+def approve_signed(ctx: RepoContext, ledger: Ledger, run_id: str, card_hash: str,
+                   signature: str) -> ApproveResult:
+    """The Mac app's Touch ID approval: a Secure Enclave signature over exactly this
+    project, run and card hash, by a key the human trusted in their own terminal
+    (`approvekeys`). The card is recomputed here; a signature over any other hash is
+    refused. Then the same record-and-submit as `arb approve`."""
+    with run_lock(ctx, run_id):
+        run, project, profile, plan = _approvable(ctx, ledger, run_id)
+        if card_hash != run["card_hash"]:
+            raise ArbError(CARD_CHANGED)
+        fp = approvekeys.verify(project, run_id, card_hash, signature)
+        prov = {"author": "human", "confirmed_by": "Touch ID (Secure Enclave key)",
+                "key": fp, "signature": signature,
+                "message": approvekeys.message(project, run_id, card_hash).decode()}
+        return _record_and_submit(ctx, ledger, run, project, profile, plan, prov)
+
+
+def _approvable(ctx: RepoContext, ledger: Ledger, run_id: str):
+    run = records.get_run(ledger, run_id)
+    if run["status"] not in ("awaiting_approval", "approved"):
+        raise ArbError(f"run {run_id} is {run['status']}; only awaiting_approval runs can be "
+                       "approved")
+    project = check_same_project(ctx, run)
+    profile, plan = replan(run)
+    if slurm.card_hash(run["snapshot_commit"], plan) != run["card_hash"]:
+        raise ArbError(CARD_CHANGED)
+    return run, project, profile, plan
+
+
+def _record_and_submit(ctx: RepoContext, ledger: Ledger, run: dict[str, Any], project: str,
+                       profile: Any, plan: Plan, prov: dict[str, Any]) -> ApproveResult:
+    """The human approval Decision (provenance says how it was confirmed), then submit."""
+    run_id = run["id"]
+    dec_id = None
+    if run["status"] == "awaiting_approval":
         with ledger.write() as conn:
-            conn.execute("UPDATE runs SET status = 'queued', updated_at = ? WHERE id = ?"
-                         " AND status = 'approved'", (now(), run_id))
-            ledger.event("run_queued", run_id, {"jobs": job_ids})
-        return ApproveResult(records.get_run(ledger, run_id), dec_id, submitted)
+            current = conn.execute("SELECT status FROM runs WHERE id = ?", (run_id,)).fetchone()
+            if current["status"] != "awaiting_approval":
+                raise ArbError(f"run {run_id} changed to {current['status']} meanwhile")
+            dec = _open_run_decision(ledger, run_id)
+            if dec is None:
+                raise ArbError(f"run {run_id} has no open approval decision")
+            dec_id = dec["id"]
+            records.set_decision(ledger, dec_id, "approve", "human", prov)
+            conn.execute("UPDATE runs SET status = 'approved', updated_at = ? WHERE id = ?",
+                         (now(), run_id))
+            ledger.event("run_approve", run_id, {"decision": dec_id,
+                                                  "card_hash": run["card_hash"],
+                                                  "author": "human",
+                                                  "confirmed_by": prov.get("confirmed_by")})
+    elif approval_decision(ledger, run_id) is None:
+        raise ArbError(f"run {run_id} is approved but has no human approval Decision")
+    run = records.get_run(ledger, run_id)
+    try:
+        backend = backends.get_backend(profile, project)
+        submitted = submit_segments(ctx, ledger, run, plan, backend)
+    except BackendError as exc:
+        raise ArbError(f"{exc}\n{run_id} 已批准，但提交没有完成。处理好之后重新运行 "
+                       f"`arb approve {run_id}` 继续（已提交的段不会重复提交）。") from exc
+    job_ids = [j["job_id"] for j in jobs_of(ledger, run_id)]
+    with ledger.write() as conn:
+        conn.execute("UPDATE runs SET status = 'queued', updated_at = ? WHERE id = ?"
+                     " AND status = 'approved'", (now(), run_id))
+        ledger.event("run_queued", run_id, {"jobs": job_ids})
+    return ApproveResult(records.get_run(ledger, run_id), dec_id, submitted)
 
 
 # ---------------------------------------------------------------- reject

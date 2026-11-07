@@ -5,11 +5,14 @@ JSON over that Unix socket: one request `{"id", "method", "params"}` per line, o
 `{"id", "result"}` or `{"id", "error": {"message"}}` per line. arbd exits when its stdin
 closes (the app went away) and then stops every marimo server it started.
 
-Phase 1 (P1) is read-only on the ledger (`ui.data.ReadOnlyLedger`, re-opened per request
-because `arb` in a terminal writes concurrently) plus starting/stopping `marimo edit` for
-an idea's notebook. There is no approval method here, nor anywhere in the app's API:
-approving stays in the human's terminal (`human.require_terminal`) and, later, Touch ID
-signatures verified by arbd; `tests/test_arbd.py` scans this file for that.
+Reads are read-only on the ledger (`ui.data.ReadOnlyLedger`, re-opened per request because
+`arb` in a terminal writes concurrently); arbd also starts/stops `marimo edit` for an
+idea's notebook. Exactly one method writes: `approve.signed`, the Mac app's Touch ID
+approval. It carries a Secure Enclave signature over (project, run, card hash) that
+`submission.approve_signed` verifies against the keys the human trusted in their own
+terminal (`approvekeys`) before recording the Decision; without that signature nothing is
+approved, so a process that merely reaches this socket cannot approve anything.
+`tests/test_arbd.py` scans this file for that.
 """
 
 from __future__ import annotations
@@ -31,7 +34,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from . import analysis, approvekeys, submission
 from .config import project_config
+from .db import Ledger
 from .errors import ArbError
 from .paths import STATE_DIR_NAME, locate
 from .ui import data as board_data
@@ -42,6 +47,8 @@ HOST = "127.0.0.1"
 MAX_NOTEBOOKS = 3  # marimo servers kept alive; the least recently opened is stopped
 READY_TIMEOUT = 60.0
 MAX_LINE = 1 << 20
+METRICS_FILE = "metrics.jsonl"  # the training code's curves, in $ARBORIA_OUT
+MAX_POINTS = 1500  # per metric sent to the app
 
 
 def child_env(base: dict[str, str] | None = None) -> dict[str, str]:
@@ -187,6 +194,109 @@ class Daemon:
                   "text": t["text"], "when": t["created_at"]} for t in board.todos]
         return {"needs_you": len(items), "items": items, "todos": todos}
 
+    # -- experiments (runs) and compute, for the app's pages
+
+    def _metrics(self, run_id: str) -> dict[str, list[list[float]]]:
+        """`$ARBORIA_OUT/metrics.jsonl` as fetched by `arb poll`: one JSON object per line,
+        `step` (or `_step`) plus numeric metrics. {metric: [[step, value], ...]}, thinned."""
+        path = self.root / STATE_DIR_NAME / "runs" / run_id / "out" / METRICS_FILE
+        if not path.is_file():
+            return {}
+        series: dict[str, list[list[float]]] = {}
+        with path.open(encoding="utf-8", errors="replace") as fh:
+            for i, line in enumerate(fh):
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                step = row.get("step", row.get("_step", i))
+                if isinstance(step, bool) or not isinstance(step, (int, float)):
+                    step = i
+                for k, v in row.items():
+                    if k in ("step", "_step") or isinstance(v, bool) or not isinstance(v, (int, float)):
+                        continue
+                    if v == v and abs(v) != float("inf"):
+                        series.setdefault(str(k)[:80], []).append([float(step), float(v)])
+        for k, pts in series.items():
+            pts.sort(key=lambda p: p[0])
+            if len(pts) > MAX_POINTS:
+                stride = len(pts) / MAX_POINTS
+                series[k] = [pts[int(j * stride)] for j in range(MAX_POINTS - 1)] + [pts[-1]]
+        return series
+
+    def runs(self, idea: str | None = None) -> dict[str, Any]:
+        """The runs, newest first (one idea's, or all), for the experiment list."""
+        sql = ("SELECT r.id, i.name AS idea, r.parent_run, r.status, r.change_reason, r.machine,"
+               " r.est_cost, r.actual_cost, r.created_at FROM runs r JOIN ideas i ON i.id = r.idea_id")
+        with self._ledger() as ledger:
+            rows = (ledger.all(sql + " WHERE i.name = ? ORDER BY r.id DESC", (idea,)) if idea
+                    else ledger.all(sql + " ORDER BY r.id DESC"))
+        return {"runs": rows}
+
+    def run(self, run_id: str) -> dict[str, Any]:
+        """One experiment: the run, its jobs, its curves, and what changed since its parent
+        (the run it was derived from, else the previous run of the same idea)."""
+        with self._ledger() as ledger:
+            run = ledger.one("SELECT r.*, i.name AS idea, i.metric AS idea_metric FROM runs r"
+                             " JOIN ideas i ON i.id = r.idea_id WHERE r.id = ?", (run_id,))
+            if run is None:
+                raise ArbError(f"no run {run_id}")
+            jobs = ledger.all("SELECT segment, job_id, state, elapsed_s, billed_su, submitted_at,"
+                              " updated_at FROM jobs WHERE run_id = ? ORDER BY segment", (run_id,))
+            base_id = run["parent_run"] or (ledger.one(
+                "SELECT id FROM runs WHERE idea_id = ? AND id < ? ORDER BY id DESC LIMIT 1",
+                (run["idea_id"], run_id)) or {}).get("id")
+            base = ledger.one("SELECT * FROM runs WHERE id = ?", (base_id,)) if base_id else None
+        diff = None
+        if base is not None:
+            d = analysis.run_diff(self.root, base, run)
+            diff = {"rows": [list(r) for r in d.rows], "stat": d.stat, "same_tree": d.same_tree}
+        keep = ("id", "idea", "parent_run", "status", "change_reason", "summary", "machine",
+                "partition", "gpus", "walltime", "est_cost", "actual_cost", "created_at",
+                "updated_at", "snapshot_commit", "card_hash", "wandb_url", "idea_metric")
+        return {"run": {k: run.get(k) for k in keep}, "jobs": jobs, "metrics": self._metrics(run_id),
+                "base": base_id, "base_metrics": self._metrics(base_id) if base_id else {},
+                "diff": diff}
+
+    def compute(self) -> dict[str, Any]:
+        """Jobs per machine over time and the SU budget (what `lab.spend` and the old
+        dashboard showed), from the ledger only: cluster state is what `arb poll` wrote."""
+        board = board_data.load(self.root)
+        jobs = []
+        for r in board.runs:
+            for j in r["jobs"]:
+                jobs.append({"run": r["id"], "idea": (board.idea_by_id(r["idea_id"]) or {}).get("name"),
+                             "machine": r["machine"], "segment": j["segment"], "state": j["state"],
+                             "submitted_at": j["submitted_at"], "updated_at": j["updated_at"],
+                             "elapsed_s": j["elapsed_s"], "billed_su": j["billed_su"]})
+        return {"total_su": board.total_su, "used_su": board.su_used(), "jobs": jobs,
+                "timeline": [[t.strftime("%Y-%m-%dT%H:%M:%SZ"), su, run]
+                             for t, su, run in board.su_timeline()],
+                "awaiting_su": round(sum((board.cards.get(r["id"]) or {}).get("est_su") or 0
+                                         for r in board.awaiting()), 2)}
+
+    def card(self, run_id: str) -> dict[str, Any]:
+        """The approval card exactly as `arb card` shows it, recomputed now, for the app's
+        signing sheet. The app signs the hash returned here; approve.signed recomputes it."""
+        with self._ledger() as ledger:
+            run = ledger.one("SELECT r.*, i.name AS idea FROM runs r JOIN ideas i"
+                             " ON i.id = r.idea_id WHERE r.id = ?", (run_id,))
+            if run is None:
+                raise ArbError(f"no run {run_id}")
+            card, matches = submission.card_for(self.ctx, ledger, run_id)
+        return {"run": run_id, "idea": run["idea"], "status": run["status"],
+                "project": project_config(self.ctx).project_id, "text": card.text(),
+                "card_hash": card.card_hash, "matches": matches,
+                "est_su": card.est_su, "change_reason": run["change_reason"]}
+
+    def approve_signed(self, run_id: str, card_hash: str, signature: str) -> dict[str, Any]:
+        with Ledger(self.ctx.state_dir) as ledger:
+            res = submission.approve_signed(self.ctx, ledger, run_id, card_hash, signature)
+        return {"run": run_id, "status": res.run["status"],
+                "jobs": [{"segment": k, "job_id": j} for k, j, _ in res.submitted]}
+
     def _open_idea(self, name: str) -> dict[str, Any]:
         idea = next((i for i in self._ideas() if i["name"] == name), None)
         if idea is None:
@@ -253,6 +363,13 @@ class Daemon:
             "hello": lambda: {"protocol": PROTOCOL, "root": str(self.root)},
             "project": self.project,
             "inbox": self.inbox,
+            "runs": lambda: self.runs(params.get("idea")),
+            "run": lambda: self.run(str(params["run"])),
+            "compute": self.compute,
+            "keys": lambda: {"trusted": [k["fingerprint"] for k in approvekeys.load()]},
+            "card": lambda: self.card(str(params["run"])),
+            "approve.signed": lambda: self.approve_signed(
+                str(params["run"]), str(params["card_hash"]), str(params["signature"])),
             "notebook.open": lambda: self.notebook_open(str(params["idea"])),
             "notebook.close": lambda: self.notebook_close(str(params["idea"])),
         }
@@ -311,6 +428,9 @@ def serve(socket_path: Path | str, project: Path | str, *,
         threading.Thread(target=watch_stdin, daemon=True).start()
     try:
         print(json.dumps({"ready": True, "socket": str(sock), "protocol": PROTOCOL}), flush=True)
+        # The app reads only that first line: anything printed later (backends, ssh) goes
+        # to stderr, so a full stdout pipe can never block arbd.
+        os.dup2(2, 1)
         server.serve_forever()
     finally:
         server.server_close()

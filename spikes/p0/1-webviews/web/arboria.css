@@ -1,0 +1,5 @@
+@font-face { font-family: "Noto Sans SC"; src: url("arboria://fonts/NotoSansSC-VF.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: "Maple Mono CN"; src: url("arboria://fonts/MapleMono-CN-Regular.woff2") format("woff2"); }
+:root { --bg: #f6f3ee; --ink: #2a2620; --accent: #3f6b4a; }
+body { background: var(--bg); color: var(--ink); font-family: "Noto Sans SC", sans-serif; margin: 16px; }
+code { font-family: "Maple Mono CN", monospace; color: var(--accent); }

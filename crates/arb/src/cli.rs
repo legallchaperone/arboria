@@ -44,6 +44,7 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
             "key",
             "note",
             "status",
+            "tree",
             "ui",
         ],
     ),
@@ -142,6 +143,25 @@ pub enum Cmd {
         /// Compact text (as used by the hook).
         #[arg(long)]
         brief: bool,
+    },
+    /// The research tree: ideas and their runs, one line each (parent, change, result,
+    /// conclusion and who wrote it).
+    ///
+    /// Built from the ledger and the fetched metrics.jsonl only; the order is stable. Over
+    /// the budget, finished ideas off your path fold to one line.
+    Tree {
+        /// Only this idea and what grew from it.
+        #[arg(long)]
+        idea: Option<String>,
+        /// Levels of ideas to show.
+        #[arg(long)]
+        depth: Option<u32>,
+        /// Characters before finished subtrees fold.
+        #[arg(long, default_value_t = 16000)]
+        budget: usize,
+        /// Print machine-readable JSON.
+        #[arg(long)]
+        json: bool,
     },
     /// Open the read-only dashboard (看板).
     ///
@@ -1321,6 +1341,7 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         Cmd::Probe(cmd) => probe_cmd(cmd, json)?,
         Cmd::Key(_) => todo!("port of arboria.cli key (frozen: ADR 0004)"),
         Cmd::Milestone(_) => todo!("port of arboria.cli milestone (frozen: ADR 0004)"),
+        Cmd::Tree { .. } => todo!("port of arboria.cli tree (frozen: ADR 0004)"),
         Cmd::Arbd { .. } => todo!("port of arboria.arbd (frozen: ADR 0004)"),
     }
     Ok(0)

@@ -209,7 +209,7 @@ def test_todos_from_notebook_to_claude(idea: Path, initialized: Path, arb, monke
     hook = arb(idea, "hook", "session-start", input=json.dumps({"cwd": str(idea)})).stdout
     ctx = json.loads(hook)["hookSpecificOutput"]["additionalContext"]
     assert "来自 notebook 的待办：" in ctx and "- t001: 把 eval 改成每 500 步一次" in ctx
-    assert ctx.index("来自 notebook 的待办") < ctx.index("Runs (")
+    assert ctx.index("研究树") < ctx.index("来自 notebook 的待办") < ctx.index("Ledger rules")
 
     res = arb(idea, "todo", "done", "t001", "--result", "x" * 601, ok=False)
     assert "result is too long: 601 chars (max 600)" in res.stderr

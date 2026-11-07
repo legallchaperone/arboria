@@ -70,6 +70,8 @@ class ProjectConfig:
     wandb: WandbConfig = WandbConfig("", "")
     run: RunConfig = RunConfig((), DEFAULT_OVERRIDE_STYLE)
     claude: ClaudeConfig = ClaudeConfig()
+    metric: str = ""  # [project] metric: the metrics.jsonl key results are read from ("" = infer)
+    goal: str = ""  # [project] goal: "min" or "max" ("" = infer from the idea's metric text)
 
 
 def load_toml(path, what: str) -> dict[str, Any]:
@@ -103,6 +105,23 @@ def _project_id(cfg: dict[str, Any], path) -> str | None:
     if "id" not in table:
         return None
     return validate_project_id(table["id"], f"{path}: [project] id")
+
+
+GOALS = ("min", "max")
+
+
+def _primary_metric(cfg: dict[str, Any], path) -> tuple[str, str]:
+    """`[project] metric` / `goal`: which metrics.jsonl key is the result, and its direction."""
+    table = cfg.get("project", {})
+    if not isinstance(table, dict):
+        raise ArbError(f"{path}: [project] must be a table")
+    metric = table.get("metric", "")
+    if not isinstance(metric, str) or len(metric) > 80:
+        raise ArbError(f"{path}: [project] metric must be a metrics.jsonl key (≤80 chars)")
+    goal = table.get("goal", "")
+    if goal not in ("", *GOALS):
+        raise ArbError(f"{path}: [project] goal must be \"min\" or \"max\"")
+    return metric.strip(), goal
 
 
 def _watch(cfg: dict[str, Any], path) -> WatchConfig:
@@ -183,10 +202,11 @@ def project_config(ctx: RepoContext) -> ProjectConfig:
     total = budget.get("total_su", 0)
     if isinstance(total, bool) or not isinstance(total, (int, float)) or total < 0:
         raise ArbError(f"{path}: [budget] total_su must be a number >= 0")
+    metric, goal = _primary_metric(cfg, path)
     return ProjectConfig(default_machine=machine.strip(), total_su=float(total),
                          project_id=_project_id(cfg, path), watch=_watch(cfg, path),
                          wandb=_wandb(cfg, path), run=_run(cfg, path),
-                         claude=_claude(cfg, path))
+                         claude=_claude(cfg, path), metric=metric, goal=goal)
 
 
 def require_project_id(ctx: RepoContext) -> str:

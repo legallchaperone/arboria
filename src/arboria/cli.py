@@ -22,6 +22,7 @@ from . import machine as machine_mod
 from . import monitor, records, report, submission
 from . import seeds as seeds_mod
 from . import tasks as tasks_mod
+from . import tree as tree_mod
 from .config import project_config, require_project_id
 from .db import Ledger
 from .errors import ArbError, NotARepoError
@@ -1158,6 +1159,30 @@ def status(
 
 @app.command()
 @handle_errors
+def tree(
+    idea: Annotated[Optional[str], typer.Option("--idea", help="Only this idea and what grew from it.")] = None,
+    depth: Annotated[Optional[int], typer.Option("--depth", min=1, help="Levels of ideas to show.")] = None,
+    budget: Annotated[int, typer.Option("--budget", min=200, help="Characters before finished subtrees fold.")] = tree_mod.TREE_CHARS,
+    as_json: JsonOpt = False,
+) -> None:
+    """The research tree: ideas and their runs, one line each (parent, change, result,
+    conclusion and who wrote it).
+
+    Built from the ledger and the fetched metrics.jsonl only; the order is stable. Over
+    the budget, finished ideas off your path fold to one line."""
+    ctx, ledger = _open()
+    with ledger:
+        here = ideas_mod.current_idea(ctx, ledger)
+        t = tree_mod.build(ctx, ledger)
+    name = here["name"] if here else None
+    if as_json:
+        _echo_json(tree_mod.to_json(t, idea=idea, depth=depth, here=name))
+    else:
+        typer.echo(tree_mod.render(t, idea=idea, depth=depth, here=name, budget=budget))
+
+
+@app.command()
+@handle_errors
 def export(
     out: Annotated[Optional[Path], typer.Option("--out", help="Write to FILE instead of stdout.")] = None,
 ) -> None:
@@ -1573,7 +1598,7 @@ def claudemd_sync(
 # Kept in one table so the grouping reads at a glance; tests/test_cli_help.py checks that
 # every visible command is in exactly one panel.
 HELP_PANELS: dict[str, list[str]] = {
-    "你做的": ["idea", "milestone", "submit", "card", "approve", "reject", "key", "note", "status", "ui"],
+    "你做的": ["idea", "milestone", "submit", "card", "approve", "reject", "key", "note", "status", "tree", "ui"],
     "集群": ["watch", "poll", "cancel", "logs", "remote", "machine", "doctor"],
     "agent 做的": ["todo", "commands", "inspect", "run", "lesson"],
     "安装与内部": ["init", "install-claude", "hook", "claudemd", "export"],

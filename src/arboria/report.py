@@ -17,6 +17,7 @@ BRIEF_FOOTER = (
     "for a command todo read `arb commands guide` first, for an inspect todo "
     "`arb inspect guide` (deliver with `arb inspect done`, not `arb todo done`); "
     "`notebook.py` is the human's notebook: read it, never edit it; `arb note` is human-only. "
+    "Before proposing a run, read what was tried with `arb tree` (`--idea NAME` for a subtree). "
     "Use `arb status`, `arb run summary RUN \"...\"`, "
     "`arb submit --reason \"...\" --gpus N --time T [-- CMD]`; never edit .arboria/ by hand. "
     "Approval happens only in the human's own terminal: you cannot run `arb approve` or "
@@ -156,7 +157,7 @@ def _clip(text: str | None, n: int) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
-def _decision_lines(decisions: list[dict[str, Any]]) -> list[str]:
+def decision_lines(decisions: list[dict[str, Any]]) -> list[str]:
     return [f"- {d['id']} ({d['subject_type']} {d['subject_id']}): {_clip(d['question'], 160)}"
             for d in decisions]
 
@@ -264,7 +265,7 @@ def status_parts(data: dict[str, Any], brief: bool = False) -> tuple[str, str]:
         lines.extend(todo_lines(data.get("todos") or [], brief, with_idea=True))
     decisions = data["open_decisions"]
     lines.append("Open decisions" + (":" if decisions else ": none"))
-    lines.extend(_decision_lines(decisions))
+    lines.extend(decision_lines(decisions))
     tail = lesson_lines(data)
     if data.get("pending_approvals"):
         tail.insert(0, f"待你批准的 run：{data['pending_approvals']} 个"

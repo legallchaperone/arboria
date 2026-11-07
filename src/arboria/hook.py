@@ -11,7 +11,7 @@ from typing import IO
 from . import sessions
 from .db import Ledger, now
 from .paths import Home, RepoContext, home, locate
-from .report import home_status, status_data, status_parts
+from .report import decision_lines, home_status, status_data, status_parts, todo_lines
 
 MAX_CONTEXT_CHARS = 4000
 
@@ -68,11 +68,38 @@ def build_output(cwd: Path) -> str | None:
         return None
     remember_session(ctx)
     with Ledger(ctx.state_dir) as ledger:
-        head, tail = status_parts(status_data(ctx, ledger), brief=True)
+        data = status_data(ctx, ledger)
+        status_head, tail = status_parts(data, brief=True)
+        try:
+            head = research_index(ctx, ledger, data)
+        except Exception:  # the tree is a view; fall back to the plain status, never to nothing
+            _log_error(ctx.cwd, ctx.state_dir)
+            head = status_head
     # Lessons + rules (tail) are kept whole; the state part is truncated to fit.
     budget = max(MAX_CONTEXT_CHARS - len(tail) - 1, 500)
     text = cap(cap(head, budget) + "\n" + tail)
     return _json(text)
+
+
+def research_index(ctx: RepoContext, ledger: Ledger, data: dict) -> str:
+    """The session's starting context in a repo (ADR 0004): the research tree's index
+    around the current idea, then what waits for Claude (todos, open decisions). The full
+    history is `arb tree`, fetched on demand."""
+    from . import tree  # lazily: nothing here may fail at import time
+
+    here = data["idea"]["name"] if data["scope"] == "idea" else None
+    lines = [tree.index(tree.build(ctx, ledger), here)]
+    notes = (data.get("notes") or [])[:3] if here else []
+    if notes:
+        lines.append("你最近的笔记（这个 idea）：")
+        lines.extend(f"- {n['created_at'][:10]}" + (f"（{n['run_id']}）" if n["run_id"] else "")
+                     + f"：{tree.analysis.clip(n['text'], 200)}" for n in notes)
+    lines.extend(todo_lines(data.get("todos") or [], brief=True, with_idea=here is None))
+    decisions = data["open_decisions"]
+    if decisions:
+        lines.append("Open decisions:")
+        lines.extend(decision_lines(decisions))
+    return "\n".join(lines)
 
 
 def remember_session(ctx: RepoContext) -> None:

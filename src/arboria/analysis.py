@@ -543,3 +543,44 @@ def spend(ledger: Any, *, budget: float = 0.0, idea: dict[str, Any] | None = Non
         row["su"] = round(row["su"], 2)
     total = round(sum(r["su"] for r in rows), 2)
     return Spend(rows, None, total, budget, round(pending, 2), len(names) - len(rows))
+
+
+# -- metrics.jsonl (the training code's curves, fetched by `arb poll` into the run's out/)
+
+METRICS_FILE = "metrics.jsonl"
+
+
+def read_metrics(state_dir: Any, run_id: str, *,
+                 max_points: int | None = None) -> dict[str, list[list[float]]]:
+    """`<state>/runs/<run>/out/metrics.jsonl`: one JSON object per line, `step` (or `_step`)
+    plus numeric metrics. Returns {metric: [[step, value], ...]} sorted by step, thinned to
+    `max_points` per metric (keeping the last point). Bad lines and non-finite values are
+    skipped; a missing file is {}."""
+    from pathlib import Path
+
+    path = Path(state_dir) / "runs" / run_id / "out" / METRICS_FILE
+    if not path.is_file():
+        return {}
+    series: dict[str, list[list[float]]] = {}
+    with path.open(encoding="utf-8", errors="replace") as fh:
+        for i, line in enumerate(fh):
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(row, dict):
+                continue
+            step = row.get("step", row.get("_step", i))
+            if isinstance(step, bool) or not isinstance(step, (int, float)):
+                step = i
+            for k, v in row.items():
+                if k in ("step", "_step") or isinstance(v, bool) or not isinstance(v, (int, float)):
+                    continue
+                if v == v and abs(v) != float("inf"):
+                    series.setdefault(str(k)[:80], []).append([float(step), float(v)])
+    for k, pts in series.items():
+        pts.sort(key=lambda p: p[0])
+        if max_points and len(pts) > max_points:
+            stride = len(pts) / max_points
+            series[k] = [pts[int(j * stride)] for j in range(max_points - 1)] + [pts[-1]]
+    return series

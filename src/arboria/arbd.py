@@ -47,7 +47,7 @@ HOST = "127.0.0.1"
 MAX_NOTEBOOKS = 3  # marimo servers kept alive; the least recently opened is stopped
 READY_TIMEOUT = 60.0
 MAX_LINE = 1 << 20
-METRICS_FILE = "metrics.jsonl"  # the training code's curves, in $ARBORIA_OUT
+METRICS_FILE = analysis.METRICS_FILE
 MAX_POINTS = 1500  # per metric sent to the app
 
 
@@ -210,34 +210,7 @@ class Daemon:
     # -- experiments (runs) and compute, for the app's pages
 
     def _metrics(self, run_id: str) -> dict[str, list[list[float]]]:
-        """`$ARBORIA_OUT/metrics.jsonl` as fetched by `arb poll`: one JSON object per line,
-        `step` (or `_step`) plus numeric metrics. {metric: [[step, value], ...]}, thinned."""
-        path = self.root / STATE_DIR_NAME / "runs" / run_id / "out" / METRICS_FILE
-        if not path.is_file():
-            return {}
-        series: dict[str, list[list[float]]] = {}
-        with path.open(encoding="utf-8", errors="replace") as fh:
-            for i, line in enumerate(fh):
-                try:
-                    row = json.loads(line)
-                except ValueError:
-                    continue
-                if not isinstance(row, dict):
-                    continue
-                step = row.get("step", row.get("_step", i))
-                if isinstance(step, bool) or not isinstance(step, (int, float)):
-                    step = i
-                for k, v in row.items():
-                    if k in ("step", "_step") or isinstance(v, bool) or not isinstance(v, (int, float)):
-                        continue
-                    if v == v and abs(v) != float("inf"):
-                        series.setdefault(str(k)[:80], []).append([float(step), float(v)])
-        for k, pts in series.items():
-            pts.sort(key=lambda p: p[0])
-            if len(pts) > MAX_POINTS:
-                stride = len(pts) / MAX_POINTS
-                series[k] = [pts[int(j * stride)] for j in range(MAX_POINTS - 1)] + [pts[-1]]
-        return series
+        return analysis.read_metrics(self.root / STATE_DIR_NAME, run_id, max_points=MAX_POINTS)
 
     def roadmap(self, all_: bool = False) -> dict[str, Any]:
         """The human's milestones with spend, checklist and time left (the roadmap page)."""

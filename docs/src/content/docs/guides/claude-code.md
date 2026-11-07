@@ -63,6 +63,23 @@ Skill 只是说明，不给任何权限：拒绝靠代码和权限规则。它�
 
 还挡不住的：原生 Windows 上 Claude Code 不开 sandbox；sandbox 起不来时默认照常不加限制地运行（可以自己设 `sandbox.failIfUnavailable: true`）；Claude 被 sandbox 拦下后可以请求在 sandbox 外重试，这一步会问你，别随手同意。兜底：Mac app 的首页会在 notebook 和备份里的不一样、又不是在 app 的 marimo 里改的时候提醒你，并给出 `git -C .arboria diff -- notebooks/NAME.py`。
 
+## 后台 agent
+
+`arb agent run [tNNN]` 把一条待办（普通、读代码或命令待办）交给你自己的 `claude`，用 `claude -p` 在这个 idea 的 worktree 里不经交互地做完，然后记下花了多少。没给 id 就做最早的一条（在 idea worktree 里只看这个 idea 的）。`--dry-run` 只打印提示词和完整的命令行。只能由你启动：在 Claude Code 里会拒绝，Mac app 也不会替你启动它。
+
+没人看着，所以它能做的比交互会话少：
+
+- 不加载你的 MCP、skills、插件和设置（`--strict-mcp-config --disable-slash-commands --setting-sources ""`），一次大约几万 token。能做什么只由 arb 传进去的 `--settings` 和 `--allowedTools` 决定。
+- 工具只有 Read / Grep / Glob，Bash 只能运行这条待办用得到的 arb 命令（读的命令，加上 `arb todo done tNNN` 或 `arb inspect check/done tNNN`，只限这一条待办）。不能改代码、不能提交 run、不能联网；命令待办只能写 payload 里那一个命令文件。
+- sandbox 打开，而且**不排除** arb：账本所在的 `.arboria/` 和 git 目录可写，notebook 和批准密钥不可写。
+- “只由人”的命令照样拒绝（claude 给 Bash 设了 `CLAUDECODE`，stdin 也不是终端）。
+- 一次只跑一个；`arboria.toml [agent]` 里有 24 小时上限、轮数、超时和 five_hour 阈值（见 [arboria.toml](/reference/arboria-toml/)）。后台和你的交互会话扣同一个订阅窗口，所以 stream 里的 five_hour 利用率一到 `pause_above` 它就停下，窗口重置前 `arb agent run` 会拒绝。
+- 启动前清掉环境里 Claude Code 会话留下的 `CLAUDE*` 变量（`CLAUDE_CONFIG_DIR` 保留）。
+
+每次运行记一条 `agent_run` 事件：结果、待办之后的状态、token 数、窗口利用率、会话 id。`arb agent list` 列出最近的，在那个 worktree 里 `claude --resume <会话 id>` 能看到它做了什么；完整的 stream-json 在 `.arboria/agent/`（不进备份）。
+
+实测（claude 2.1.318，Haiku，2026-11-07）：一条普通待办答对并用 `arb todo done` 交付，`arb` 在 sandbox 里写了账本，大约 5 万 token。用同样的参数让它逐条尝试 `echo x >> notebook.py`、`python3 -c` 写 notebook、改 `train.py`、`arb approve`、`arb note`、`arb todo drop`、`arb tree > notebook.py`、往 `/tmp` 写、`arb todo done` 别的待办：九条全被拒，文件没变。这次的 stream 里只有 seven_day 窗口，没有 five_hour，那时 five_hour 阈值不起作用，只靠次数上限。
+
 ## 权限规则
 
 ```json

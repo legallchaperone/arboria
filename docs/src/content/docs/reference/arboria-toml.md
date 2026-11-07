@@ -19,6 +19,11 @@ description: 项目配置：默认机器、项目 id、预算、wandb、训练�
 | `[run] command` | `"python train.py"` | 没有 `-- CMD` 时（以及 `lab.run`）的训练命令 |
 | `[run] override_style` | `"hydra"` | `--set k=v` 的拼法：`hydra` → `k=v`，`argparse` / `tyro` → `--k v` |
 | `[claude] push` | `true` | 命令待办是否尽力推给正在运行的 Claude Code 会话 |
+| `[agent] model` | `""` | 后台 agent（`arb agent run`）用的模型，例如 `"sonnet"`；空 = claude 的默认 |
+| `[agent] max_turns` | `30` | 后台 agent 一次最多几轮 |
+| `[agent] timeout_minutes` | `30` | 超过就停下 |
+| `[agent] daily_limit` | `10` | 24 小时内最多跑几次；`0` = 不跑 |
+| `[agent] pause_above` | `0.7` | 订阅的 five_hour 窗口用到这个比例就停下，窗口重置前不再开始 |
 | `[review] checklist` | 三条示例 | 提交前审稿的检查清单（还没被读取，留给以后的审稿人） |
 
 ## 例子

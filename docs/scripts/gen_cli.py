@@ -50,6 +50,7 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
      "`lab.inspect(...)` 留下的活。", [
         "todo list", "todo done", "todo drop", "commands list", "commands guide",
         "commands promote", "inspect guide", "inspect source", "inspect check", "inspect done",
+        "agent run", "agent list",
     ]),
     ("看板", "", ["ui"]),
     ("机器", "机器配置在 `~/.config/arboria/clusters.toml`。", ["machine init", "doctor"]),

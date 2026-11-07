@@ -66,6 +66,8 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb inspect source`](#arb-inspect-source) | The code a 读代码 todo is about, at its code\_ref (read from git; nothing is changed). |
 | [`arb inspect check`](#arb-inspect-check) | Validate an answer and print what the human will see; saves nothing. |
 | [`arb inspect done`](#arb-inspect-done) | Deliver the answer to a 读代码 todo: arb extracts the code, stores it, closes the todo. |
+| [`arb agent run`](#arb-agent-run) | Hand one todo to `claude -p` (your own claude) and wait for it. Refused inside Claude Code. |
+| [`arb agent list`](#arb-agent-list) | The background agent's recent runs (newest first): outcome, tokens, five\_hour window. |
 | [`arb ui`](#arb-ui) | Open the read-only dashboard (看板). |
 | [`arb machine init`](#arb-machine-init) | Measure a Slurm machine over your ssh master (read-only) and print its profile. |
 | [`arb doctor`](#arb-doctor) | Read-only checks of a machine profile, the ssh setup and the cluster side. |
@@ -779,6 +781,33 @@ arb inspect done [OPTIONS] {task_id}
 | --- | --- | --- |
 | `task_id` | Todo id, e.g. t007. | 必填 |
 | `--file <str>` | The answer as JSON: a file, or - for stdin. | 必填 |
+| `--json` | Print machine-readable JSON. |  |
+
+### arb agent run
+
+Hand one todo to `claude -p` (your own claude) and wait for it. Refused inside Claude Code.
+
+```text
+arb agent run [OPTIONS] [task_id]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `task_id` | Todo id (default: the oldest open todo it can do, in this idea when in its worktree). |  |
+| `--dry-run` | Print the prompt and the claude command line; start nothing. |  |
+| `--json` | Print machine-readable JSON. |  |
+
+### arb agent list
+
+The background agent's recent runs (newest first): outcome, tokens, five\_hour window.
+
+```text
+arb agent list [OPTIONS]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `-n <int>` | How many. | `20` |
 | `--json` | Print machine-readable JSON. |  |
 
 ## 看板

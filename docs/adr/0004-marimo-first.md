@@ -83,7 +83,7 @@ arb：CLI，给终端和 Claude 用
 | P1 外壳（✅ 2026-11-06，`app/`、`arb arbd`） | Swift 薄壳、侧栏树、idea 页（marimo）、Claude 终端、arbd JSON API | 能打开项目、切 idea、编辑 notebook、和 Claude 对话 |
 | P2 设计（✅ 2026-11-06 人已认可；布局改用设计系统的：标题栏面包屑 + ⌘P 换 idea + ⌘J agent 面板，侧栏树不做常驻） | `arboria.css` 全套（我们的界面 + marimo 每一块） | 截图评审，人点头才算过 |
 | P3 experiment 与算力（FakeSlurm 部分 ✅ 2026-11-06：`app/web/pages.js`、`Approver.swift`、arbd `run/runs/compute/card/approve.signed`、`arb key`；真集群上的 Touch ID 批准等人做） | experiment 页、对比、`metrics.jsonl`、甘特图和预算、Touch ID 批准 | FakeSlurm 全流程；然后在一个真实集群上用 Touch ID 批准一个 run |
-| P4 AI（研究树 ✅ 2026-11-06：`arb tree`、SessionStart 索引、UserPromptSubmit 一行、Skill + `--json`、sandbox 与 notebook 改动提醒；AI 抽屉和后台 `claude -p` 未做） | `arb … --json` + Skill、`arb tree` 与 SessionStart 索引、两个 hook、sandbox 配置、AI 抽屉（ACP）、后台 `claude -p`；需要时再加薄的 `arb mcp` | 新会话能说出“做过什么、什么有用” |
+| P4 AI（研究树 ✅ 2026-11-06：`arb tree`、SessionStart 索引、UserPromptSubmit 一行、Skill + `--json`、sandbox 与 notebook 改动提醒；2026-11-07 后台 `claude -p`：`arb agent run`；AI 抽屉未做） | `arb … --json` + Skill、`arb tree` 与 SessionStart 索引、两个 hook、sandbox 配置、AI 抽屉（ACP）、后台 `claude -p`；需要时再加薄的 `arb mcp` | 新会话能说出“做过什么、什么有用” |
 
 ## 现有代码
 - 保留：db、snapshot、slurm / backends / submission / monitor / cards、machine、lab、commands、inspection、human。

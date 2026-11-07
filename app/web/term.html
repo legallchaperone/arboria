@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="xterm.css">
+<link rel="stylesheet" href="arboria.css">
+<style>
+  html, body { background: #1f1d1a; height: 100%; margin: 0; overflow: hidden; }
+  #t { position: absolute; inset: 8px; }
+</style></head>
+<body><div id="t"></div>
+<script src="xterm.js"></script>
+<script src="addon-fit.js"></script>
+<script>
+  const post = (m) => window.webkit.messageHandlers.term.postMessage(m);
+  window.b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  window.ended = () => term.write("\r\n\x1b[2m[claude 已退出]\x1b[0m\r\n");
+  document.fonts.load('14px "Maple Mono CN"').finally(() => {
+    window.term = new Terminal({ fontFamily: '"Maple Mono CN", monospace', fontSize: 13, cursorBlink: true,
+      allowProposedApi: false, theme: { background: "#1f1d1a", foreground: "#ece6dc" } });
+    const fit = new FitAddon.FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById("t"));
+    fit.fit();
+    term.onData((d) => post({ kind: "data", data: d }));
+    term.onResize(({ cols, rows }) => post({ kind: "resize", cols, rows }));
+    new ResizeObserver(() => fit.fit()).observe(document.getElementById("t"));
+    window.fitNow = () => { fit.fit(); post({ kind: "resize", cols: term.cols, rows: term.rows }); };
+    window.screenText = () => { const b = term.buffer.active, out = [];
+      for (let i = 0; i < b.length; i++) { const l = b.getLine(i)?.translateToString(true); if (l && l.trim()) out.push(l); }
+      return out.join("\n"); };
+    post({ kind: "ready", cols: term.cols, rows: term.rows });
+  });
+</script></body></html>

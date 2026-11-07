@@ -1,0 +1,7 @@
+/* Injected into the notebook WebView. P1 only swaps fonts; P2 redesigns every marimo
+   surface and hides what we do not use (selectors live only in this file). */
+/* Only the fonts for now: our colour tokens (incl. dark mode) must not leak into marimo
+   until P2 themes both together. */
+@import url("arboria://app/fonts.css");
+body, .markdown, .prose, h1, h2, h3, h4 { font-family: var(--sans) !important; }
+.cm-editor, .cm-content, code, pre { font-family: var(--mono) !important; }

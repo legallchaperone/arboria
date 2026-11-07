@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<link rel="stylesheet" href="arboria.css">
+<style>
+  body { padding: 14px 10px; box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  h1 { font-size: 15px; margin: 0 4px 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin: 0 4px 14px; }
+  .group { color: var(--muted); font-size: 11px; letter-spacing: .06em; margin: 14px 4px 4px; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 5px 8px; border-radius: 6px; cursor: default; }
+  li .name { font-family: var(--mono); }
+  li .meta { color: var(--muted); font-size: 12px; }
+  li.open:hover { background: var(--accent-soft); }
+  li.current { background: var(--accent); color: var(--bg); }
+  li.current .meta { color: inherit; opacity: .8; }
+  li.closed { opacity: .55; }
+  .depth1 { padding-left: 20px; } .depth2 { padding-left: 32px; } .depth3 { padding-left: 44px; }
+  #status { margin: 14px 4px 0; font-size: 12px; color: var(--warn); white-space: pre-wrap; }
+</style></head>
+<body>
+<h1 id="title">Arboria</h1>
+<div class="sub" id="sub"></div>
+<div id="tree"></div>
+<div id="status"></div>
+<script src="app.js"></script>
+</body></html>

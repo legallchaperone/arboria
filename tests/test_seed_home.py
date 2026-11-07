@@ -187,8 +187,11 @@ def test_hook_in_the_home(home: Home, arb, tmp_path: Path, monkeypatch) -> None:
         assert "t001 [rank-schedule]: 整理三篇相关工作" in ctx
         assert "never edit" in ctx and "arb todo done" in ctx
     # the session's inbox is recorded for the home (where seed command todos are pushed)
-    sock = tmp_path / "inbox.sock"
     import socket
+    import tempfile
+
+    # macOS caps AF_UNIX paths at 104 bytes; pytest's tmp_path can be longer
+    sock = Path(tempfile.mkdtemp(prefix="arb", dir="/tmp")) / "inbox.sock"
 
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     srv.bind(str(sock))

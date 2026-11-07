@@ -16,7 +16,7 @@ import nbBottom from '../../../assets/shots/nb-bottom.webp';
 - `arb idea new`（或 `arb idea plant`、`lab.fork`）同时创建 `.arboria/notebooks/<idea>.py`，worktree 里的 `notebook.py` 是指向它的符号链接。模板只在新建时写入，以后不会改你的 notebook。
 - `notebook.py` 写进了 `.git/info/exclude`，**快照永远不包含它**：改 notebook 不会让快照变化，合并时也不会冲突。仓库里本来就有被跟踪的 `notebook.py` 时，arb 不覆盖它，只提示你直接打开 `.arboria/notebooks/<idea>.py`。
 - 关闭 idea 时只删掉符号链接，notebook 本身保留；备份仓库每次提交都带上 `notebooks/*.py`。
-- `arb install-claude` 禁止 Claude 用 Edit/Write/MultiEdit/NotebookEdit 改 `**/notebook.py` 和 `.arboria/notebooks/**`，读不受限。
+- `arb install-claude` 禁止 Claude 改 `**/notebook.py` 和 `.arboria/notebooks/**`：`Edit(…)` 规则挡住它的文件工具和 Bash 重定向，Bash sandbox 在系统层面挡住其他写法（`sed -i`、`python -c`）；读不受限。
 - 旧的 idea 没有 notebook（或者你删了它）：`arb idea notebook [NAME]` 补建；已经有了就什么都不改。
 - 字体：所有 notebook 的正文、标题和 marimo 界面文字用 Noto Sans SC，代码（编辑器、行内代码、输出）用 Maple Mono CN（保留连字，`@ $ & % Q => ->` 用普通字形）。字体随 arb 安装，不依赖你的机器装了什么，也不联网：notebook 写的是 `marimo.App(..., css_file="arboria.css")`，arb 在 notebook 旁边写好 `arboria.css`（两种字体直接嵌在里面，约 25 MB；worktree 里的 `arboria.css` 是指向它的链接，同样写进了 `.git/info/exclude`；备份仓库只收 `*.py`，不收它）。
 - 更早建的 notebook 没有这一行：在你自己的终端里运行一次 `arb idea style`（在仓库里改这个仓库的所有 idea notebook，在仓库外改所有种子 notebook）。它只往 `marimo.App(...)` 里加 `css_file="arboria.css"`，不碰任何 cell，可以重复运行；在 Claude Code 里拒绝。

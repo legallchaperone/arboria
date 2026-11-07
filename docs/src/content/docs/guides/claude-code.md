@@ -59,6 +59,8 @@ Skill 只是说明，不给任何权限：拒绝靠代码和权限规则。它�
 
 你自己设过的值（例如 `sandbox.enabled: false`）会保留，`install-claude` 只提示一句。`--user` 不动 sandbox：那会影响这台机器上所有的 Claude 会话。
 
+在 macOS 上用 claude 2.1.318 实测过（2026-11-06）：Bash 里 `python3 -c` 写 `.arboria/notebooks/` 和 `touch approve-keys.json` 都是 `Operation not permitted`，notebook 一个字节没变；同一个会话里 `arb lesson propose` 照常写进主 worktree 的账本，`.arboria/commands/` 可写，主 worktree 的其他地方不可写（sandbox 默认只放开当前 worktree 和临时目录）。
+
 还挡不住的：原生 Windows 上 Claude Code 不开 sandbox；sandbox 起不来时默认照常不加限制地运行（可以自己设 `sandbox.failIfUnavailable: true`）；Claude 被 sandbox 拦下后可以请求在 sandbox 外重试，这一步会问你，别随手同意。兜底：Mac app 的首页会在 notebook 和备份里的不一样、又不是在 app 的 marimo 里改的时候提醒你，并给出 `git -C .arboria diff -- notebooks/NAME.py`。
 
 ## 权限规则
@@ -74,13 +76,12 @@ Skill 只是说明，不给任何权限：拒绝靠代码和权限规则。它�
              "Bash(ssh:*)", "Bash(scp:*)", "Bash(rsync:*)",
              "Bash(arb approve:*)", "Bash(arb lesson accept:*)",
              "Bash(arb idea plant:*)", "Bash(arb idea set:*)", "Bash(arb idea revive:*)", "Bash(arb seed new:*)", "...",
-             "Edit(**/.arboria/notebooks/**)", "Write(**/.arboria/notebooks/**)", "...",
-             "Edit(**/notebook.py)", "Write(**/notebook.py)", "MultiEdit(**/notebook.py)", "NotebookEdit(**/notebook.py)"]
+             "Edit(**/.arboria/notebooks/**)", "Edit(**/notebook.py)", "..."]
   }
 }
 ```
 
-- 文件规则对 Edit、Write、MultiEdit、NotebookEdit 各有一条，覆盖 `**/.arboria/notebooks/**`、`**/.arboria/ledger.db*`、`**/.arboria/backup/**`、`**/.arboria/*.toml`、`**/.arboria/sessions/**` 和 `**/notebook.py`。读取不受限制；`.arboria/commands/` 也不受限制（Claude 在那里写命令）。
+- 文件规则每个路径一条 `Edit(…)`：Claude Code 只按 `Edit(path)` 匹配文件规则，它管所有改文件的工具，也管 Bash 里重定向进这个路径（`echo x >> notebook.py` 会被拒绝）；`Write(…)` / `MultiEdit(…)` / `NotebookEdit(…)` 规则不生效，只在启动时报警告，旧版 arb 写过的这些会在重新运行 `install-claude` 时删掉。覆盖 `**/.arboria/notebooks/**`、`**/.arboria/ledger.db*`、`**/.arboria/backup/**`、`**/.arboria/*.toml`、`**/.arboria/sessions/**` 和 `**/notebook.py`。读取不受限制；`.arboria/commands/` 也不受限制（Claude 在那里写命令）。
 - 全局命令目录（`~/.config/arboria/commands`，写成绝对路径）加进 `permissions.additionalDirectories`。这个路径只属于你这台机器，所以在项目里它写进**不提交**的 `.claude/settings.local.json`（arb 把它加进 `.git/info/exclude`），`.claude/settings.json` 保持可移植、可以提交。
 - 只写种子的命令（`arb idea plant/set/revive` 和旧写法 `arb seed new/set/drop/revive/plant`）也设为 deny：它们本来就只由你在终端里运行，在 Claude Code 里代码会拒绝，这几条规则是多一层。
 - `arb key …`（Touch ID 签字密钥）、改里程碑的 `arb milestone new/set/check/uncheck/done/reopen/drop`，以及对 `**/approve-keys.json`、`**/Library/Application Support/Arboria/**` 的编辑也是 deny；`arb milestone list/show` 可以用。

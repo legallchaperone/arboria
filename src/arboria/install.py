@@ -147,6 +147,69 @@ def remove_directories(settings: dict[str, Any], ours: list[str],
             f"{LOCAL_NAME})" for d in gone]
 
 
+# Claude Code's Bash sandbox (ADR 0004): OS-level, so it also stops `sed -i`, `python -c`
+# and every child process, which the `Edit(...)` deny rules (file tools only) cannot.
+# `arb` itself runs outside it: arb is the code that writes the ledger and new notebooks and
+# enforces its own rules (human-only commands refuse inside Claude Code regardless).
+# Prompts stay as they were: the sandbox only adds restrictions here.
+SANDBOX_SHARED: dict[str, Any] = {"enabled": True, "autoAllowBashIfSandboxed": False}
+SANDBOX_EXCLUDED = ["arb *"]
+
+
+def sandbox_paths(main: Path | None, worktree: Path | None,
+                  seeds: Path | None = None) -> tuple[list[str], list[str]]:
+    """(denyWrite, allowWrite) for this machine, as absolute paths (the sandbox resolves
+    relative ones against the settings file, and the notebooks live in the main worktree,
+    not in an idea's), so they go into the uncommitted settings.local.json."""
+    from .approvekeys import APP_PUBLIC_KEY, keys_path
+
+    deny = [str(keys_path().expanduser().absolute()),
+            str(APP_PUBLIC_KEY.expanduser().parent)]
+    allow: list[str] = []
+    if main is not None:
+        state = Path(main).absolute() / ".arboria"
+        deny.insert(0, str(state / "notebooks"))
+        allow.append(str(state / "commands"))  # Claude writes the project's notebook commands
+    if worktree is not None:
+        deny.insert(1, str(Path(worktree).absolute() / "notebook.py"))  # the link itself
+    if seeds is not None:
+        deny.insert(0, str(Path(seeds).absolute()))
+    return deny, allow
+
+
+def merge_sandbox(settings: dict[str, Any], where: str, *, shared: bool,
+                  deny: list[str] = (), allow: list[str] = ()) -> list[str]:
+    """Add the sandbox entries in place. A value the human set (e.g. `enabled: false`) is
+    kept; arrays only gain entries."""
+    changes: list[str] = []
+    box = _section(settings, "sandbox", dict, where)
+    if shared:
+        for key, value in SANDBOX_SHARED.items():
+            if key not in box:
+                box[key] = value
+                changes.append(f"sandbox.{key} = {json.dumps(value)}")
+            elif box[key] != value:
+                changes.append(f"left sandbox.{key} = {json.dumps(box[key])} as you set it")
+        excluded = _section(box, "excludedCommands", list, where)
+        for cmd in SANDBOX_EXCLUDED:
+            if cmd not in excluded:
+                excluded.append(cmd)
+                changes.append(f"sandbox.excludedCommands += {cmd}")
+    if deny or allow:
+        fs = _section(box, "filesystem", dict, where)
+        for key, paths in (("denyWrite", deny), ("allowWrite", allow)):
+            if not paths:
+                continue
+            have = _section(fs, key, list, where)
+            for p in paths:
+                if p not in have:
+                    have.append(p)
+                    changes.append(f"sandbox.filesystem.{key} += {p}")
+    if not box:
+        del settings["sandbox"]
+    return changes
+
+
 def default_add_dirs() -> list[str]:
     """The global commands dir (created, so Claude Code can add it as a working dir)."""
     from .commands import global_dir
@@ -177,7 +240,8 @@ def _save(path: Path, settings: dict[str, Any]) -> None:
 
 
 def install(root: Path, add_dirs: list[str] | None = None, *,
-            local: bool = True, deny_rules: list[str] | None = None) -> tuple[Path, list[str]]:
+            local: bool = True, deny_rules: list[str] | None = None,
+            sandbox: tuple[list[str], list[str]] | None = None) -> tuple[Path, list[str]]:
     """Merge into `<root>/.claude/settings.json` (created if missing).
 
     The global commands dir is an absolute path on this machine, so with `local` (a
@@ -193,9 +257,17 @@ def install(root: Path, add_dirs: list[str] | None = None, *,
     local_settings = _load(local_path) if local else {}
     changes = merge_settings(settings, str(path), None if local else add_dirs, deny_rules)
     local_changes: list[str] = []
+    if sandbox is not None:  # `sandbox` = this machine's (denyWrite, allowWrite)
+        deny, allow = sandbox
+        if local:
+            changes += merge_sandbox(settings, str(path), shared=True)
+            local_changes += merge_sandbox(local_settings, str(local_path), shared=False,
+                                           deny=deny, allow=allow)
+        else:
+            changes += merge_sandbox(settings, str(path), shared=True, deny=deny, allow=allow)
     if local:
         changes += remove_directories(settings, add_dirs, str(path))
-        local_changes = add_directories(local_settings, add_dirs, str(local_path))
+        local_changes += add_directories(local_settings, add_dirs, str(local_path))
     if changes or not path.exists():
         _save(path, settings)
     if local_changes:

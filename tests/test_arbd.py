@@ -349,3 +349,25 @@ def test_real_marimo_serves_the_notebook(idea: Path, initialized: Path) -> None:
             assert "/auth/login" in r.url  # no token: the login page
     finally:
         d.shutdown()
+
+
+def test_notebook_changed_outside_the_app(idea: Path, initialized: Path, arb) -> None:
+    """ADR 0004 backstop: a notebook that differs from the backup and was not changed while
+    arbd's marimo had it open shows on the home page, with the diff command to read."""
+    import time as _t
+
+    d = arbd.Daemon(initialized)
+    nb = initialized / ".arboria" / "notebooks" / "exp1.py"
+    assert nb.is_file() and d.notebook_drift("exp1") is None  # same as the backup
+    nb.write_text(nb.read_text() + "\n# appended by someone\n")
+    assert d.notebook_drift("exp1") is not None
+    item = next(i for i in d.handle({"id": 1, "method": "inbox"})["result"]["items"]
+                if i["kind"] == "notebook")
+    assert item["id"] == "exp1" and item["tone"] == "warn"
+    assert item["command"] == "git -C .arboria diff -- notebooks/exp1.py"
+    d._windows["exp1"] = [[_t.time() - 60, None]]  # edited while the app's marimo had it
+    assert d.notebook_drift("exp1") is None
+    d._windows["exp1"] = [[_t.time() - 600, _t.time() - 300]]  # it was closed before the edit
+    assert d.notebook_drift("exp1") is not None
+    arb(idea, "note", "a backup commit takes the notebook in")
+    assert d.notebook_drift("exp1") is None

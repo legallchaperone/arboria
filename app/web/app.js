@@ -116,8 +116,9 @@
       const head = el("span", "ab-clip");
       head.append(el("span", "strong", it.id), el("span", "ab-muted", " · "));
       const what = it.kind === "card" ? "等你签字" : it.kind === "lesson" ? "经验待确认"
-        : it.kind === "milestone" ? `里程碑 · ${it.meta}` : STATUS[it.status] || it.status;
-      head.append(el("span", "", what + (it.idea ? ` · ${it.idea}` : "")));
+        : it.kind === "milestone" ? `里程碑 · ${it.meta}`
+        : it.kind === "notebook" ? "notebook 有改动" : STATUS[it.status] || it.status;
+      head.append(el("span", "", what + (it.idea && it.idea !== it.id ? ` · ${it.idea}` : "")));
       row.append(head, el("span", "when small", ago(it.when)));
       if (it.text) row.append(el("span", "meta ab-clip", it.text));
       if (it.command) {  // acting is the human's: in a terminal, or (a card) Touch ID on the run page

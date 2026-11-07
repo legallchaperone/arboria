@@ -1571,8 +1571,9 @@ def install_claude(
         raise ArbError("use only one of --main / --user / --home")
     if home:
         h = seeds_mod.ensure_home(_info)
-        path, changes = install_mod.install(h.root, local=False,
-                                            deny_rules=install_mod.HOME_DENY_RULES)
+        path, changes = install_mod.install(
+            h.root, local=False, deny_rules=install_mod.HOME_DENY_RULES,
+            sandbox=install_mod.sandbox_paths(None, None, seeds=h.seeds_dir))
         for c in changes:
             typer.echo(c)
         typer.echo(f"updated {path}" if changes else f"{path} already up to date")
@@ -1592,7 +1593,8 @@ def install_claude(
         root = ctx.main if main else ctx.toplevel
         if root is None:
             raise ArbError("not inside a worktree")
-    path, changes = install_mod.install(root, local=not user)
+    box = None if user else install_mod.sandbox_paths(ctx.main, root)
+    path, changes = install_mod.install(root, local=not user, sandbox=box)
     skill_change = skill_mod.install(root)
     if skill_change:
         changes.append(skill_change)

@@ -119,7 +119,8 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     gdir = Path(os.environ["ARBORIA_CONFIG_DIR"]) / "commands"
     assert "additionalDirectories" not in data["permissions"]
     local = json.loads((idea / ".claude" / "settings.local.json").read_text())
-    assert local == {"permissions": {"additionalDirectories": [str(gdir)]}} and gdir.is_dir()
+    assert local["permissions"] == {"additionalDirectories": [str(gdir)]} and gdir.is_dir()
+    assert set(local) == {"permissions", "sandbox"}  # the sandbox paths are this machine's too
     assert "/.claude/settings.local.json" in (initialized / ".git" / "info" / "exclude").read_text()
     assert git(idea, "status", "--porcelain", "--untracked-files=all") == \
         "?? .claude/settings.json\n?? .claude/skills/arboria/SKILL.md"  # both meant to be committed
@@ -145,7 +146,8 @@ def test_install_claude_moves_the_commands_dir_out_of_settings_json(initialized:
     data = json.loads((claude / "settings.json").read_text())
     assert data["permissions"]["additionalDirectories"] == ["/data/shared"]  # the user's stays
     local = json.loads((claude / "settings.local.json").read_text())
-    assert local == {"model": "opus", "permissions": {"additionalDirectories": [gdir]}}
+    assert {k: v for k, v in local.items() if k != "sandbox"} == \
+        {"model": "opus", "permissions": {"additionalDirectories": [gdir]}}
     # only our own dir, and the key goes away once nothing is left
     (claude / "settings.json").write_text(json.dumps({"permissions": {
         "additionalDirectories": [gdir]}}))
@@ -214,3 +216,36 @@ def test_merge_settings_type_errors() -> None:
 
     with pytest.raises(ArbError, match="must be a list"):
         install.merge_settings({"hooks": {"SessionStart": {}}})
+
+
+def test_install_claude_turns_on_the_sandbox(idea: Path, initialized: Path, arb) -> None:
+    """ADR 0004: an OS-level write ban on the human's notebook (Bash, `sed -i`, child
+    processes), which the Edit deny rules cannot give; `arb` runs outside it."""
+    from arboria import approvekeys
+
+    out = arb(idea, "install-claude").stdout
+    shared = json.loads((idea / ".claude" / "settings.json").read_text())["sandbox"]
+    assert shared == {"enabled": True, "autoAllowBashIfSandboxed": False, "excludedCommands": ["arb *"]}
+    fs = json.loads((idea / ".claude" / "settings.local.json").read_text())["sandbox"]["filesystem"]
+    state = initialized.absolute() / ".arboria"
+    assert fs["denyWrite"][:2] == [str(state / "notebooks"), str(idea.absolute() / "notebook.py")]
+    assert str(approvekeys.keys_path().absolute()) in fs["denyWrite"]
+    assert fs["allowWrite"] == [str(state / "commands")]
+    assert all(Path(p).is_absolute() for p in fs["denyWrite"])  # machine paths, not committed
+    assert "sandbox.enabled = true" in out
+    assert "sandbox" not in arb(idea, "install-claude").stdout  # idempotent
+
+    # a choice the human made stays
+    path = idea / ".claude" / "settings.json"
+    data = json.loads(path.read_text())
+    data["sandbox"]["enabled"] = False
+    path.write_text(json.dumps(data))
+    assert "left sandbox.enabled = false as you set it" in arb(idea, "install-claude").stdout
+    assert json.loads(path.read_text())["sandbox"]["enabled"] is False
+
+
+def test_user_install_leaves_the_sandbox_alone(initialized: Path, arb, tmp_path: Path,
+                                               monkeypatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    arb(initialized, "install-claude", "--user")
+    assert "sandbox" not in json.loads((tmp_path / ".claude" / "settings.json").read_text())

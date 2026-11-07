@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from . import analysis, approvekeys, roadmap, submission
+from . import analysis, approvekeys, gitutil, roadmap, submission
 from .config import project_config
 from .db import Ledger
 from .errors import ArbError
@@ -130,6 +130,9 @@ class Daemon:
         self._start, self._ready = start, ready
         self._notebooks: OrderedDict[str, Notebook] = OrderedDict()
         self._lock = threading.Lock()
+        # [start, end or None] of each marimo server arbd ran per idea: a notebook change
+        # outside these windows was not made in the app (see notebook_drift)
+        self._windows: dict[str, list[list[float | None]]] = {}
 
     # -- reads (ledger re-opened per call)
 
@@ -203,6 +206,18 @@ class Daemon:
                               "idea": None, "text": p["title"],
                               "meta": "，".join(words[f]() for f in p["flags"]),
                               "when": p["updated_at"]})
+        for i in self._ideas():
+            if i["status"] != "open":
+                continue
+            try:
+                changed = self.notebook_drift(i["name"])
+            except (ArbError, OSError):
+                changed = None
+            if changed is not None:
+                items.append({"kind": "notebook", "tone": "warn", "id": i["name"], "idea": i["name"],
+                              "text": "notebook.py 在 Arboria 之外被改过；不是你改的就看看改了什么",
+                              "command": f"git -C .arboria diff -- notebooks/{i['name']}.py",
+                              "when": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(changed))})
         todos = [{"kind": "todo", "tone": "none", "id": t["id"], "idea": t["idea"],
                   "text": t["text"], "when": t["created_at"]} for t in board.todos]
         return {"needs_you": len(items), "items": items, "todos": todos}
@@ -310,6 +325,7 @@ class Daemon:
             if nb is not None:
                 nb.stop()
                 del self._notebooks[idea]
+                self._closed(idea)
             worktree = Path(info["worktree"])
             port, token = free_port(), secrets.token_urlsafe(24)
             fd, tf = tempfile.mkstemp(prefix="arbd-token-")
@@ -326,9 +342,11 @@ class Daemon:
                 nb.stop()
                 raise
             self._notebooks[idea] = nb
+            self._windows.setdefault(idea, []).append([time.time(), None])
             while len(self._notebooks) > MAX_NOTEBOOKS:
-                _, old = self._notebooks.popitem(last=False)
+                name, old = self._notebooks.popitem(last=False)
                 old.stop()
+                self._closed(name)
             return {"idea": idea, "url": nb.url, "worktree": info["worktree"]}
 
     def notebook_close(self, idea: str) -> dict[str, Any]:
@@ -336,7 +354,38 @@ class Daemon:
             nb = self._notebooks.pop(idea, None)
         if nb is not None:
             nb.stop()
+            self._closed(idea)
         return {"idea": idea, "stopped": nb is not None}
+
+    def _closed(self, idea: str) -> None:
+        for w in self._windows.get(idea, []):
+            if w[1] is None:
+                w[1] = time.time()
+
+    def notebook_drift(self, idea: str) -> float | None:
+        """When the idea's notebook was last changed outside the app, or None.
+
+        The ADR 0004 backstop for the sandbox: the notebook differs from the copy in the
+        backup repo (last backup commit) and its mtime is outside every marimo server arbd
+        ran for it. Read only (`git rev-parse`, `git hash-object` without -w). The human
+        editing elsewhere (VS Code, a terminal) shows up too, so the wording says "if it
+        was not you"."""
+        state = self.root / STATE_DIR_NAME
+        rel = f"notebooks/{idea}.py"
+        path = state / rel
+        if not path.is_file():
+            return None
+        saved = gitutil.run(["rev-parse", "--verify", "--quiet", f"HEAD:{rel}"], state, check=False)
+        if saved.returncode != 0:
+            return None  # never backed up yet: nothing to compare with
+        now = gitutil.run(["hash-object", "--", rel], state, check=False)
+        if now.returncode != 0 or now.stdout == saved.stdout:
+            return None
+        mtime = path.stat().st_mtime
+        for start, end in self._windows.get(idea, []):
+            if start - 2 <= mtime <= (end if end is not None else time.time()) + 2:
+                return None
+        return mtime
 
     def shutdown(self) -> None:
         with self._lock:

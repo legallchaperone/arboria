@@ -187,7 +187,60 @@ def test_install_claude_preserves_existing(initialized: Path, arb) -> None:
 def test_install_claude_main_flag_from_worktree(idea: Path, initialized: Path, arb) -> None:
     arb(idea, "install-claude", "--main")
     assert (initialized / ".claude" / "settings.json").exists()
-    assert not (idea / ".claude").exists()
+    # the open idea's worktree gets the setup in its uncommitted local file only
+    assert [p.name for p in (idea / ".claude").iterdir()] == ["settings.local.json"]
+    assert git(idea, "status", "--porcelain") == ""
+
+
+def _local(worktree: Path) -> dict:
+    return json.loads((worktree / ".claude" / "settings.local.json").read_text())
+
+
+def test_idea_worktrees_get_the_setup(idea: Path, initialized: Path, arb) -> None:
+    """Claude Code reads only the folder it runs in (the app's drawer and terminal run in
+    the idea worktree), and an uncommitted settings.json never reaches a worktree."""
+    out = arb(initialized, "install-claude").stdout
+    assert f"set up {idea / '.claude' / 'settings.local.json'}" in out
+    local = _local(idea)
+    assert install._has_hook(local["hooks"]["SessionStart"])
+    assert install._has_hook(local["hooks"]["UserPromptSubmit"], install.PROMPT_HOOK_COMMAND)
+    assert set(install.DENY_RULES) <= set(local["permissions"]["deny"])
+    box = local["sandbox"]
+    assert box["enabled"] is True and box["excludedCommands"] == ["arb *"]
+    state = initialized.absolute() / ".arboria"
+    assert box["filesystem"]["denyWrite"][:2] == [str(state / "notebooks"), str(idea.absolute() / "notebook.py")]
+    assert box["filesystem"]["allowWrite"] == [str(state / "commands")]
+    assert "set up" not in arb(initialized, "install-claude").stdout  # idempotent
+
+    # a new idea gets it when it is created; nothing shows up in git
+    res = arb(initialized, "idea", "new", "exp2", "--hypothesis", "h", "--metric", "m", "--parent", "exp1")
+    exp2 = Path(res.stdout.strip())
+    assert install._has_hook(_local(exp2)["hooks"]["SessionStart"])
+    assert str(exp2.absolute() / "notebook.py") in _local(exp2)["sandbox"]["filesystem"]["denyWrite"]
+    assert git(exp2, "status", "--porcelain") == ""
+
+
+def test_no_setup_without_install_claude(idea: Path, initialized: Path, arb) -> None:
+    res = arb(initialized, "idea", "new", "exp2", "--hypothesis", "h", "--metric", "m")
+    assert not (Path(res.stdout.strip()) / ".claude").exists()
+
+
+def test_committed_settings_are_respected_in_worktrees(initialized: Path, arb) -> None:
+    """With settings.json committed, the worktree has it: only this machine's entries go into
+    the local file, so a rule the human loosened in settings.json stays loosened."""
+    arb(initialized, "install-claude")
+    path = initialized / ".claude" / "settings.json"
+    data = json.loads(path.read_text())
+    data["permissions"]["deny"].remove("Bash(ssh:*)")
+    path.write_text(json.dumps(data))
+    git(initialized, "add", ".claude/settings.json")
+    git(initialized, "commit", "-qm", "claude settings")
+    res = arb(initialized, "idea", "new", "exp9", "--hypothesis", "h", "--metric", "m")
+    wt = Path(res.stdout.strip())
+    local = _local(wt)
+    assert "hooks" not in local and "deny" not in local.get("permissions", {})
+    assert local["permissions"]["additionalDirectories"] and local["sandbox"]["filesystem"]["denyWrite"]
+    assert "enabled" not in local["sandbox"]  # the shared part is in the committed file
 
 
 def test_install_claude_user_level(idea: Path, arb, tmp_path: Path, monkeypatch) -> None:

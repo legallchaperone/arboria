@@ -1614,7 +1614,26 @@ def install_claude(
         typer.echo(f"updated {path}")
     else:
         typer.echo(f"{path} already up to date")
+    if not user and ctx is not None and ctx.initialized and root == ctx.main:
+        _setup_idea_worktrees(ctx)
     _sync_claudemd_after(ctx, quiet_if_unchanged=True)
+
+
+def _setup_idea_worktrees(ctx: RepoContext) -> None:
+    """The open ideas' worktrees get the same setup (Claude Code reads only the folder it
+    runs in; new ideas get it when they are created)."""
+    with Ledger(ctx.state_dir) as ledger:
+        rows = ledger.all("SELECT name, worktree_path FROM ideas WHERE status = 'open'")
+    for row in rows:
+        wt = Path(row["worktree_path"] or "")
+        if row["worktree_path"] and wt.is_dir():
+            try:
+                changes = install_mod.install_worktree(ctx.main, wt)
+            except ArbError as exc:
+                _warn(f"{row['name']}: {exc}")
+                continue
+            if changes:
+                typer.echo(f"set up {wt / '.claude' / install_mod.LOCAL_NAME}")
 
 
 def _sync_claudemd_after(ctx: RepoContext | None, *, quiet_if_unchanged: bool = False) -> None:

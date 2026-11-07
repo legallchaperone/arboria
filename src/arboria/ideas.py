@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from . import gitutil, notebooks, snapshot
+from . import gitutil, install, notebooks, snapshot
 from .db import CONFIDENCE, Ledger, now, validate_choice, validate_name, validate_text
 from .errors import ArbError
 from .paths import RepoContext
@@ -125,7 +125,22 @@ def new_idea(
         if nb_path.exists() and ledger.one("SELECT id FROM ideas WHERE name = ?", (name,)) is None:
             nb_path.unlink()
         raise
+    setup_claude(ctx, path, warn)
     return get_idea(ledger, name) | {"notebook": str(notebooks.notebook_path(ctx.state_dir, name))}
+
+
+def setup_claude(ctx: RepoContext, worktree: Path, warn: Callable[[str], None] | None = None) -> bool:
+    """If the main worktree has `install-claude`'s setup, give the idea worktree the same
+    (`install.install_worktree`). Best effort: the idea exists either way."""
+    if ctx.main is None or not install.installed(ctx.main):
+        return False
+    try:
+        install.install_worktree(ctx.main, worktree)
+    except (ArbError, OSError) as exc:
+        if warn:
+            warn(f"Claude Code settings not set up in {worktree}: {exc} (run arb install-claude there)")
+        return False
+    return True
 
 
 def ensure_notebook(ctx: RepoContext, ledger: Ledger, name: str | None,

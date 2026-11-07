@@ -283,3 +283,46 @@ def install(root: Path, add_dirs: list[str] | None = None, *,
         _save(local_path, local_settings)
         changes += [f"{LOCAL_NAME}: {c}" for c in local_changes]
     return path, changes
+
+
+def installed(root: Path) -> bool:
+    """Has `install-claude` set up this worktree (our SessionStart hook in its settings)?"""
+    return any(installed_in(Path(root) / ".claude" / name) for name in (SETTINGS_NAME, LOCAL_NAME))
+
+
+def install_worktree(main: Path, worktree: Path,
+                     add_dirs: list[str] | None = None) -> list[str]:
+    """Give an idea worktree the project's setup in its own settings.local.json.
+
+    Claude Code reads only the `.claude/` of the folder it runs in, and an idea worktree
+    has the main worktree's `.claude/settings.json` only once it is committed, and never
+    the uncommitted settings.local.json (the sandbox paths and the global commands dir).
+    The app's agent drawer and terminal, and the human's own `claude`, run in the idea
+    worktree. So the same entries go into the worktree's settings.local.json, which stays
+    out of git (`LOCAL_EXCLUDE`, shared by all worktrees). If the worktree's
+    settings.json already carries our hooks (committed), only the machine-specific
+    entries are added, and rules the human loosened there stay loosened."""
+    if add_dirs is None:
+        add_dirs = default_add_dirs()
+    path = Path(worktree) / ".claude" / LOCAL_NAME
+    settings = _load(path)
+    where = str(path)
+    deny, allow = sandbox_paths(main, worktree)
+    if installed_in(Path(worktree) / ".claude" / SETTINGS_NAME):
+        changes = add_directories(settings, add_dirs, where)
+        changes += merge_sandbox(settings, where, shared=False, deny=deny, allow=allow)
+    else:
+        changes = merge_settings(settings, where, add_dirs)
+        changes += merge_sandbox(settings, where, shared=True, deny=deny, allow=allow)
+    if changes:
+        _save(path, settings)
+    return changes
+
+
+def installed_in(path: Path) -> bool:
+    try:
+        hooks = _load(path).get("hooks")
+    except ArbError:
+        return False
+    return isinstance(hooks, dict) and isinstance(hooks.get("SessionStart"), list) \
+        and _has_hook(hooks["SessionStart"])

@@ -45,7 +45,7 @@
   }
 
   // ---------------------------------------------------------------- title bar
-  const PAGE = { run: (p) => p.id, runs: () => "run", compute: () => "算力" };
+  const PAGE = { run: (p) => p.id, runs: () => "run", compute: () => "算力", roadmap: () => "路线图" };
   function renderBar() {
     const p = S.project;
     $("crumb-project").textContent = p ? p.name : "Arboria";
@@ -57,6 +57,7 @@
     $("runs").hidden = !S.current;
     $("runs").classList.toggle("is-on", !!S.page && S.page.kind === "runs");
     $("compute").classList.toggle("is-on", !!S.page && S.page.kind === "compute");
+    $("roadmap").classList.toggle("is-on", !!S.page && S.page.kind === "roadmap");
     const n = S.inbox ? S.inbox.needs_you : 0;
     $("needs").hidden = !n || !S.current;
     $("needs-n").textContent = n;
@@ -81,6 +82,7 @@
     try {
       if (page.kind === "run") await P.run(box, page.id, S);
       else if (page.kind === "runs") await P.runs(box, page.idea);
+      else if (page.kind === "roadmap") await P.roadmap(box);
       else await P.compute(box);
       if (page.kind === "run" && page.idea === null && S.page === page) { page.idea = undefined; renderBar(); }
     } catch (e) { box.replaceChildren(el("p", "body ab-bad", String(e))); }
@@ -107,13 +109,14 @@
     else if (!items.length) box.append(el("div", "empty", "没有要你处理的事"));
     for (const it of items) {
       const row = el("div", "ab-item");
-      const tone = it.kind === "card" ? "warn" : it.tone === "ok" ? "ok" : it.tone === "bad" ? "bad" : "none";
+      const tone = it.kind === "card" || it.tone === "warn" ? "warn" : it.tone === "ok" ? "ok" : it.tone === "bad" ? "bad" : "none";
       const mark = el("span", "mark " + ({ ok: "ab-ok", bad: "ab-bad", warn: "ab-warn" }[tone] || "ab-muted"));
-      mark.append(glyph(it.kind === "card" ? "warn" : tone === "none" ? "wait" : tone));
+      mark.append(glyph(it.kind === "card" ? "warn" : tone === "none" || tone === "warn" ? "wait" : tone));
       row.append(mark);
       const head = el("span", "ab-clip");
       head.append(el("span", "strong", it.id), el("span", "ab-muted", " · "));
-      const what = it.kind === "card" ? "等你签字" : it.kind === "lesson" ? "经验待确认" : STATUS[it.status] || it.status;
+      const what = it.kind === "card" ? "等你签字" : it.kind === "lesson" ? "经验待确认"
+        : it.kind === "milestone" ? `里程碑 · ${it.meta}` : STATUS[it.status] || it.status;
       head.append(el("span", "", what + (it.idea ? ` · ${it.idea}` : "")));
       row.append(head, el("span", "when small", ago(it.when)));
       if (it.text) row.append(el("span", "meta ab-clip", it.text));
@@ -122,7 +125,10 @@
         c.append(el("code", "", it.command));
         row.append(c);
       }
-      if (/^r\d+$/.test(it.id || "")) {
+      if (it.kind === "milestone") {
+        row.classList.add("is-link");
+        row.addEventListener("click", () => openPage({ kind: "roadmap", idea: S.current }));
+      } else if (/^r\d+$/.test(it.id || "")) {
         row.classList.add("is-link");
         row.addEventListener("click", (e) => { if (!e.target.closest(".cmd")) openPage({ kind: "run", id: it.id, idea: it.idea }); });
       }
@@ -198,7 +204,11 @@
     comp.setAttribute("role", "option");
     comp.append(el("span", "name", "算力"), el("span", "meta", "作业和 SU 预算"));
     comp.addEventListener("click", () => { closePalette(); openPage({ kind: "compute", idea: S.current }); });
-    box.append(el("div", "ab-palette-group small", "页面"), home, comp);
+    const rm = el("div", "ab-line");
+    rm.setAttribute("role", "option");
+    rm.append(el("span", "name", "路线图"), el("span", "meta", "里程碑、截止日期和算力预算"));
+    rm.addEventListener("click", () => { closePalette(); openPage({ kind: "roadmap", idea: S.current }); });
+    box.append(el("div", "ab-palette-group small", "页面"), home, rm, comp);
     if (S.current) {
       const rr = el("div", "ab-line");
       rr.setAttribute("role", "option");
@@ -224,6 +234,7 @@
   $("crumb").addEventListener("click", openPalette);
   $("needs").addEventListener("click", () => { closePage(false); post({ cmd: "home" }); });
   $("runs").addEventListener("click", () => (S.page && S.page.kind === "runs" ? closePage() : openPage({ kind: "runs", idea: S.current })));
+  $("roadmap").addEventListener("click", () => (S.page && S.page.kind === "roadmap" ? closePage() : openPage({ kind: "roadmap", idea: S.current })));
   $("compute").addEventListener("click", () => (S.page && S.page.kind === "compute" ? closePage() : openPage({ kind: "compute", idea: S.current })));
   $("agent").addEventListener("click", () => post({ cmd: "panel" }));
   // dragging the window by the title bar's empty parts (the page sits under the title bar)

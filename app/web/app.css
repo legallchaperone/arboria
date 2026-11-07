@@ -64,3 +64,17 @@ button { font: inherit; border: 0; background: none; padding: 0; cursor: default
 .gantt .bar.t-warn { fill: var(--warn); }
 #bar .tool.is-on { background: var(--fill-active); }
 #toasts { position: absolute; right: var(--col-4); bottom: var(--space-4); z-index: 4; }
+
+/* roadmap */
+.page .milestone .page-head { align-items: baseline; margin-bottom: var(--space-2); }
+.page .milestone .page-head h2 { margin: 0; }
+.page .milestone.is-closed { opacity: .6; }
+.page .milestone .meter { margin-bottom: var(--space-3); }
+.meter i.over { background: var(--bad); }
+.page .milestone .ideas { margin-bottom: var(--space-2); }
+.page .checklist .item { display: flex; gap: var(--col-1); align-items: baseline; }
+.page .checklist .item.is-done span:last-child { color: var(--ink-muted); text-decoration: line-through; }
+.page pre.cmdline { background: var(--fill); border-radius: var(--radius-md); padding: var(--space-2) var(--col-2); user-select: text; }
+.strip .today { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 2 3; }
+.strip .ms.t-ok { fill: var(--ok); } .strip .ms.t-warn { fill: var(--warn); } .strip .ms.t-bad { fill: var(--bad); }
+.strip .lane { fill: var(--ink); }

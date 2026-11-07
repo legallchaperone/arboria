@@ -303,7 +303,7 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
     // MARK: what the page may ask arbd: reading only. Approving is `approve` below, where
     // the signature comes from the Secure Enclave after Touch ID, never from the page.
 
-    static let readMethods: Set<String> = ["runs", "run", "compute", "card"]
+    static let readMethods: Set<String> = ["runs", "run", "compute", "card", "roadmap"]
 
     private func call(_ msg: [String: Any]) {
         guard let rid = msg["rid"] as? Int, let method = msg["method"] as? String,

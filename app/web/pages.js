@@ -295,5 +295,101 @@ window.Pages = function (U) {
     return box;
   }
 
-  return { run, runs, compute };
+  // ------------------------------------------------------------ roadmap
+  // the human's milestones: a time strip, then each one's budget, ideas and checklist.
+  // Changing them is the human's, in a terminal; the page only shows the commands.
+  async function roadmap(box) {
+    const p = await call("roadmap", { all: true });
+    box.replaceChildren();
+    const head = section("路线图", "title");
+    const open = p.milestones.filter((m) => m.status === "open");
+    if (!p.milestones.length) {
+      head.append(el("p", "body ab-muted", "还没有里程碑。在你自己的终端里："));
+      head.append(el("pre", "code cmdline", "arb milestone new NAME --title \"…\" --deadline YYYY-MM-DD --su 500 --idea IDEA --item \"…\""));
+      box.append(head);
+      return;
+    }
+    if (open.some((m) => m.deadline)) head.append(strip(open));
+    box.append(head);
+    for (const m of p.milestones) box.append(milestone(m));
+  }
+
+  const DAY = 86400e3;
+  const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  function strip(ms) {  // today → the last deadline, one diamond per milestone
+    const t0 = today();
+    const dated = ms.filter((m) => m.deadline).map((m) => ({ m, t: Date.parse(m.deadline + "T00:00:00") }));
+    const lo = Math.min(t0, ...dated.map((d) => d.t)), hi = Math.max(t0 + 7 * DAY, ...dated.map((d) => d.t));
+    const W = 640, L = 8, R = 8, H = 30 + 18 * dated.length;
+    const X = (t) => L + ((t - lo) / (hi - lo)) * (W - L - R);
+    const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img" });
+    s.append(svg("line", { class: "base", x1: L, x2: W - R, y1: 12, y2: 12 }));
+    s.append(svg("line", { class: "today", x1: X(t0), x2: X(t0), y1: 4, y2: H - 4 }));
+    s.append(svg("text", { class: "tick small", x: X(t0) + 4, y: 9 }, "今天"));
+    dated.sort((a, b) => a.t - b.t).forEach(({ m, t }, k) => {
+      const x = X(t), y = 30 + 18 * k;
+      const tone = m.flags.includes("late") || m.flags.includes("over") ? "bad" : m.flags.length ? "warn" : "ok";
+      s.append(svg("path", { class: `ms t-${tone}`, d: `M${x},6 l6,6 l-6,6 l-6,-6z` }));
+      s.append(svg("line", { class: "grid", x1: x, x2: x, y1: 18, y2: y - 10 }));
+      s.append(svg("text", { class: "lane small", x: x < W * 0.7 ? x + 6 : x - 6, y, "text-anchor": x < W * 0.7 ? "start" : "end" },
+                   `${m.name} · ${m.deadline.slice(5)}`));
+    });
+    const b = el("div", "ab-chart strip"); b.append(s);
+    return b;
+  }
+
+  function milestone(m) {
+    const sec = el("section", "milestone" + (m.status === "open" ? "" : " is-closed"));
+    const h = el("div", "ab-row page-head");
+    h.append(el("h2", "heading", m.name), el("span", "body", m.title), el("span", "ab-spacer"));
+    if (m.status !== "open") h.append(el("span", "small ab-muted", m.status === "done" ? "已完成" : "已放弃"));
+    else if (m.days_left != null) {
+      const late = m.days_left < 0;
+      const w = el("span", "small " + (late ? "ab-bad" : m.flags.includes("soon") ? "ab-warn" : "ab-muted"),
+                   late ? `已过截止 ${-m.days_left} 天` : m.days_left === 0 ? "今天截止" : `还有 ${m.days_left} 天 · ${m.deadline}`);
+      h.append(w);
+    }
+    sec.append(h);
+
+    const su = el("p", "body");
+    if (m.su_budget == null) su.append(el("span", "", `已用 ${num(m.spent_su, 1)} SU`), el("span", "ab-muted", "（未设算力预算）"));
+    else {
+      su.append(el("span", "strong", `${num(m.spent_su, 1)} SU`), el("span", "ab-muted", ` / ${num(m.su_budget, 0)} SU`));
+      su.append(el("span", m.left_su < 0 ? "ab-bad" : "ab-muted", m.left_su < 0 ? ` · 超出 ${num(-m.left_su, 1)}` : ` · 剩余 ${num(m.left_su, 1)}`));
+    }
+    if (m.awaiting_su) su.append(el("span", m.flags.includes("tight") ? "ab-warn" : "ab-muted", ` · 等你签字的 ≈ ${num(m.awaiting_su, 0)} SU`));
+    sec.append(su);
+    if (m.su_budget) {
+      const bar = el("div", "meter"); const f = el("i"), a = el("i", "await");
+      const pct = (v) => Math.max(0, Math.min(100, (100 * v) / m.su_budget));
+      f.style.width = `${pct(m.spent_su)}%`; a.style.width = `${Math.min(100 - pct(m.spent_su), pct(m.awaiting_su))}%`;
+      if (m.left_su < 0) f.classList.add("over");
+      bar.append(f, a); sec.append(bar);
+    }
+
+    if (m.idea_progress.length) {
+      const list = el("div", "ab-list ideas");
+      for (const i of m.idea_progress) {
+        const row = el("div", "ab-line");
+        row.append(el("span", "name", i.name), el("span", "meta", `${i.status} · ${i.runs} 个 run · ${num(i.su, 1)} SU`));
+        if (i.runs) { row.setAttribute("role", "option"); row.addEventListener("click", () => U.open({ kind: "runs", idea: i.name })); }
+        list.append(row);
+      }
+      sec.append(list);
+    }
+    if (m.items.length) {
+      const list = el("div", "checklist");
+      m.items.forEach((it, k) => {
+        const row = el("div", "item body" + (it.done ? " is-done" : ""));
+        const mark = el("span", it.done ? "ab-ok" : "ab-muted"); mark.append(glyph(it.done ? "ok" : "wait"));
+        row.append(mark, el("span", "", `${k + 1}. ${it.text}`));
+        list.append(row);
+      });
+      sec.append(list);
+      sec.append(el("p", "small ab-muted", `打勾在终端里：arb milestone check ${m.name} 编号`));
+    }
+    return sec;
+  }
+
+  return { run, runs, compute, roadmap };
 };

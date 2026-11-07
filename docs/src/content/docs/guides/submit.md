@@ -28,7 +28,17 @@ arb watch              # 或 arb poll / arb logs r003 / arb remote ls r003
 
 拒绝时提示“批准只能在你自己的终端里做：请在终端运行 arb approve rNNN”。通过之后显示审核单，要你输入 run id 确认。批准 Decision 里记下 author = human、进程号和最多 6 层父进程（尽力而为）。
 
-这是护栏，不是沙箱；硬保证是：**只有 `arb approve` 会调用后端的提交**，而且提交前代码会再查一次账本里有你的批准 Decision。没有任何自动批准的代码路径。
+## 在 Mac app 里用 Touch ID 签字
+
+Arboria 的 Mac app 里，run 页面会显示等你签字的审核单和“用 Touch ID 签字”。这条路和 `arb approve` 记下同一个人的批准 Decision，只是确认方式不同：
+
+1. app 第一次启动时在 Secure Enclave 里生成一把签字密钥（每次签名都要 Touch ID 或密码），并显示它的指纹。
+2. 在你自己的终端里信任它：`arb key trust`。终端显示指纹，你核对它和 app 里的一致，再输入这串指纹。`arb key list` 列出、`arb key revoke 指纹` 撤销。
+3. 签字时 app 从 arbd 重新取审核单，系统的 Touch ID 弹窗写着 run id、预估 SU 和审核单哈希前 8 位（网页改不了这段文字）。签的是 `arboria-approve-v1`、项目 id、run id 和审核单哈希这一行消息；arbd 重算审核单、用信任的公钥验签，对得上才记下批准并提交。重放同一个签名不会再提交。
+
+Decision 里记下 `confirmed_by: Touch ID`、密钥指纹和签名。`arb key …` 和 `arb approve` 一样只在你自己的终端里运行，`arb install-claude` 把它们和密钥文件（`approve-keys.json`、`~/Library/Application Support/Arboria/`）都设为 Claude 不能用、不能编辑。剩下的风险：在 P4 的 sandbox 之前，以你的身份运行的任何进程（包括 Claude Code 的 Bash）都能改这个文件，deny 规则只挡 Claude 的文件工具和 `arb key` 命令。
+
+这是护栏，不是沙箱；硬保证是：**只有批准路径（`arb approve` 或验过签的 Touch ID）会调用后端的提交**，而且提交前代码会再查一次账本里有你的批准 Decision。没有任何自动批准的代码路径。
 
 ## 审核单
 

@@ -81,8 +81,8 @@ arb：CLI，给终端和 Claude 用
 | P0 验证（✅ 2026-11-06 完成，结论在 `spikes/p0/`） | ① 第二个 WKWebView 跑 marimo，`WKUserStyleSheet` 能改到什么程度 ② 两个 WebView 间的快捷键、焦点、剪贴板，和菜单快捷键的冲突 ③ 自定义 scheme 给字体，含 http 页面跨域加载（CORS） ④ xterm.js + pty 跑 `claude`、`--resume` ⑤ Secure Enclave 签名、Python 验签、`localizedReason` 显示审核单摘要 ⑥ ACP spike：`claude-code-acp` 驱动抽屉 ⑦ 后台 `claude -p` 的用量从哪里扣 | 每项一个 spike 和结论；做不到的改计划 |
 | 并行：第一个真实 run | 不依赖 app，用现有 CLI，在用户配置的任意 Slurm 集群（`clusters.toml` 里的 profile）上 submit → approve → watch → 拉回（1b 第 4 步） | 命令行、日志路径、`sacct` 状态和花费都对上 |
 | P1 外壳（✅ 2026-11-06，`app/`、`arb arbd`） | Swift 薄壳、侧栏树、idea 页（marimo）、Claude 终端、arbd JSON API | 能打开项目、切 idea、编辑 notebook、和 Claude 对话 |
-| P2 设计（2026-11-06 做完，等人评审；布局改用设计系统的：标题栏面包屑 + ⌘P 换 idea + ⌘J agent 面板，侧栏树不做常驻） | `arboria.css` 全套（我们的界面 + marimo 每一块） | 截图评审，人点头才算过 |
-| P3 experiment 与算力 | experiment 页、对比、`metrics.jsonl`、甘特图和预算、Touch ID 批准 | FakeSlurm 全流程；然后在一个真实集群上用 Touch ID 批准一个 run |
+| P2 设计（✅ 2026-11-06 人已认可；布局改用设计系统的：标题栏面包屑 + ⌘P 换 idea + ⌘J agent 面板，侧栏树不做常驻） | `arboria.css` 全套（我们的界面 + marimo 每一块） | 截图评审，人点头才算过 |
+| P3 experiment 与算力（FakeSlurm 部分 ✅ 2026-11-06：`app/web/pages.js`、`Approver.swift`、arbd `run/runs/compute/card/approve.signed`、`arb key`；真集群上的 Touch ID 批准等人做） | experiment 页、对比、`metrics.jsonl`、甘特图和预算、Touch ID 批准 | FakeSlurm 全流程；然后在一个真实集群上用 Touch ID 批准一个 run |
 | P4 AI | `arb … --json` + Skill、`arb tree` 与 SessionStart 索引、两个 hook、sandbox 配置、AI 抽屉（ACP）、后台 `claude -p`；需要时再加薄的 `arb mcp` | 新会话能说出“做过什么、什么有用” |
 
 ## 现有代码

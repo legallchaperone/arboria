@@ -33,6 +33,15 @@ wandb.init(id=os.environ["ARBORIA_WANDB_ID"], group=os.environ["ARBORIA_IDEA"], 
 
 checkpoint 存到 `ARBORIA_CKPT_DIR`，启动时有就从最新的续训。超过分区上限的 run 会被拆成几段串起来跑（`ARBORIA_SEGMENT` 是第几段），靠的就是这一条。
 
+## 曲线：metrics.jsonl（可选）
+
+Mac app 的 run 页面画的曲线来自 `$ARBORIA_OUT/metrics.jsonl`：每步一行 JSON，`step`（或 `_step`）加上要画的数，例如 `{"step": 100, "val/loss": 2.31, "train/lr": 3e-4}`。`arb poll` 拉回 out/ 后就能看，不联网、不需要 wandb；idea 的 metric 排在第一张，和它所基于的 run 画在一起。
+
+```python
+with open(os.path.join(out, "metrics.jsonl"), "a") as f:
+    f.write(json.dumps({"step": step, "val/loss": loss}) + "\n")
+```
+
 ## 覆盖参数
 
 `lab.run(set={...})` 和 `arb submit --set k=v` 把参数接在 `[run] command` 后面，拼法由 `[run] override_style` 决定：

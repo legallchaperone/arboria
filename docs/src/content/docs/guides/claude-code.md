@@ -4,7 +4,7 @@ description: SessionStart hook、权限规则、CLAUDE.md 里由 arb 管理的�
 ---
 
 ```bash
-arb install-claude          # 当前 worktree 的 .claude/settings.json
+arb install-claude          # 当前 worktree 的 .claude/settings.json（在主 worktree 里也配好各 idea worktree）
 arb install-claude --main   # 主 worktree
 arb install-claude --user   # ~/.claude/settings.json，对所有项目生效
 arb install-claude --home   # 种子园：~/arboria/.claude/settings.json 和 ~/arboria/CLAUDE.md
@@ -110,8 +110,10 @@ Skill 只是说明，不给任何权限：拒绝靠代码和权限规则。它�
 - `arb key …`（Touch ID 签字密钥）、改里程碑的 `arb milestone new/set/check/uncheck/done/reopen/drop`，以及对 `**/approve-keys.json`、`**/Library/Application Support/Arboria/**` 的编辑也是 deny；`arb milestone list/show` 可以用。
 - 需要 Claude 上集群帮你排查时，可以自己在 settings.json 里放宽 `Bash(ssh:*)`，排查完再改回来。
 
-:::caution[每个 worktree 是独立的文件夹]
-Claude Code 只读取当前项目文件夹下的 `.claude/settings.json`。三选一：在主 worktree `arb install-claude --main` 并把 `.claude/settings.json` **提交**到主分支（之后新建的 idea worktree 都自带）；或在每个 idea worktree 里分别运行；或用 `--user`。
+:::note[idea worktree 自动配好]
+Claude Code 只读取它所在文件夹的 `.claude/`，而 idea worktree 拿不到主 worktree 里没提交的文件（`settings.local.json` 永远不提交）。所以在主 worktree 运行 `arb install-claude` 时，arb 也给每个进行中的 idea worktree 写一份 `.claude/settings.local.json`（hook、deny 规则、sandbox，路径按那个 worktree），之后 `arb idea new` / `arb idea plant` 新建的 worktree 也自动写。这个文件不进 git，worktree 的 `git status` 保持干净。
+
+如果你把 `.claude/settings.json` 提交了，worktree 里就有它，arb 只往 `settings.local.json` 加这台机器的路径，你在 settings.json 里放宽的规则（比如 `Bash(ssh:*)`）在 worktree 里也保持放宽。Skill（`.claude/skills/arboria/`）要提交了才会出现在 worktree 里。
 :::
 
 ## CLAUDE.md 区块与经验

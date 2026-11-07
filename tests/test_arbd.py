@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import importlib.util
 import json
 import socket
@@ -133,6 +134,23 @@ def test_failed_start_cleans_up(idea: Path, initialized: Path, started) -> None:
     assert calls[0]["proc"].terminated
 
 
+def test_inbox_lists_what_needs_the_human(idea: Path, initialized: Path, arb, started) -> None:
+    from arboria.db import Ledger
+    from arboria.paths import locate
+
+    d = _daemon(initialized, started[1])
+    empty = d.inbox()
+    assert empty["needs_you"] == 0 and empty["items"] == [] and empty["todos"] == []
+    with Ledger(locate(initialized).state_dir) as ledger, ledger.write():
+        ledger.conn.execute("INSERT INTO lessons (id, text, created_at) VALUES"
+                            " ('l001', '<b>先看数据</b>', '2026-11-06T10:00:00Z')")
+    got = d.inbox()
+    assert got["needs_you"] == 1
+    [item] = got["items"]
+    assert item["kind"] == "lesson" and item["text"] == "<b>先看数据</b>"  # escaped by the page
+    assert item["command"] == "arb lesson accept l001"
+
+
 def test_dispatch_errors(initialized: Path, started) -> None:
     d = _daemon(initialized, started[1])
     assert d.handle({"id": 7, "method": "hello"})["result"]["protocol"] == arbd.PROTOCOL
@@ -188,11 +206,21 @@ def test_arbd_has_no_approval_path() -> None:
     mods = _imported_modules(SRC)
     for forbidden in ("submission", "human", "lessons", "monitor", "backends", "db"):
         assert forbidden not in mods, forbidden
-    text = SRC.read_text()
-    for word in ("approve", "accept", "Decision", "sbatch", "_guarded_submit"):
-        # only the docstring may mention approval (to say there is none)
-        code = "\n".join(l for l in text.splitlines()[14:] if not l.lstrip().startswith("#"))
+    lines = SRC.read_text().splitlines()
+    start = next(i for i, l in enumerate(lines) if l.startswith("from __future__"))
+    code = "\n".join(l for l in lines[start:] if not l.lstrip().startswith("#"))
+    for word in ("Decision", "sbatch", "_guarded_submit", "require_terminal"):
         assert word not in code, word
+    # approving and accepting appear only as command text for the human's terminal
+    for m in re.finditer(r"approve|accept", code):
+        before = code[max(0, m.start() - 12):m.start()]
+        assert before.endswith(("arb ", "arb lesson ")), code[m.start() - 40:m.end() + 20]
+    # and the dispatch table has no such method
+    tree = ast.parse(SRC.read_text())
+    keys = [k.value for node in ast.walk(tree) if isinstance(node, ast.Dict)
+            for k in node.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)]
+    methods = [k for k in keys if "." in k or k in ("hello", "project", "inbox")]
+    assert methods and not [k for k in methods if re.search(r"approv|accept|sign|submit|cancel", k)]
 
 
 # ------------------------------------------------------------ real marimo

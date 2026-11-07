@@ -1,7 +1,199 @@
-/* Injected into the notebook WebView. P1 only swaps fonts; P2 redesigns every marimo
-   surface and hides what we do not use (selectors live only in this file). */
-/* Only the fonts for now: our colour tokens (incl. dark mode) must not leak into marimo
-   until P2 themes both together. */
-@import url("arboria://app/fonts.css");
-body, .markdown, .prose, h1, h2, h3, h4 { font-family: var(--sans) !important; }
-.cm-editor, .cm-content, code, pre { font-family: var(--mono) !important; }
+/* Injected into the notebook WebView (Shell.swift adds <link> at document start).
+   Every marimo selector lives in this file; pinned to marimo 0.25.2 (see app/README.md).
+   Our tokens come in as --ab-* (marimo has its own --primary, --accent, --border…). */
+@import url("arboria://app/ab-tokens.css");
+
+/* marimo re-declares its variables on every element (`:is(.marimo,:root) *`), so ours go
+   on every element too, with !important. */
+:root, :root *, .marimo, .marimo * {
+  --marimo-monospace-font: var(--ab-font-mono) !important;
+  --marimo-text-font: var(--ab-font-mono) !important;
+  --marimo-heading-font: var(--ab-font-mono) !important;
+  --monospace-font: var(--ab-font-mono) !important;
+  --text-font: var(--ab-font-mono) !important;
+  --heading-font: var(--ab-font-mono) !important;
+  --radius: var(--ab-radius-md) !important;
+  --markdown-max-width: var(--ab-size-measure) !important;
+
+  --background: var(--ab-bg) !important;
+  --foreground: var(--ab-ink) !important;
+  --textColor: var(--ab-ink) !important;
+  --muted: var(--ab-fill) !important;
+  --muted-foreground: var(--ab-ink-muted) !important;
+  --popover: var(--ab-bg-raised) !important;
+  --popover-foreground: var(--ab-ink) !important;
+  --card: var(--ab-bg) !important;
+  --card-foreground: var(--ab-ink) !important;
+  --border: var(--ab-line) !important;
+  --input: var(--ab-line-strong) !important;
+  --primary: var(--ab-accent) !important;
+  --primary-foreground: var(--ab-on-accent) !important;
+  --secondary: var(--ab-fill) !important;
+  --secondary-foreground: var(--ab-ink) !important;
+  --accent: var(--ab-accent-fill) !important;
+  --accent-foreground: var(--ab-accent-text) !important;
+  --link: var(--ab-accent-text) !important;
+  --link-visited: var(--ab-accent-text) !important;
+  --ring: var(--ab-focus) !important;
+  --destructive: var(--ab-bad) !important;
+  --destructive-foreground: var(--ab-on-accent) !important;
+  --destructive-hover: var(--ab-bad) !important;
+  --destructive-border: var(--ab-bad) !important;
+  --error: var(--ab-bad) !important;
+  --error-foreground: var(--ab-on-accent) !important;
+  --success: var(--ab-ok) !important;
+  --success-foreground: var(--ab-on-accent) !important;
+  --success-hover: var(--ab-ok) !important;
+  --success-border: var(--ab-ok) !important;
+  --action: var(--ab-warn-fill) !important;
+  --action-foreground: var(--ab-warn) !important;
+  --action-hover: var(--ab-warn-fill) !important;
+  --action-border: var(--ab-warn-fill) !important;
+  --base-shadow: transparent !important;
+  --base-shadow-darker: transparent !important;
+  --cm-background: var(--ab-fill) !important;
+}
+
+/* ------------------------------------------------------------ type */
+body, #App {
+  font-family: var(--ab-font-mono) !important;
+  font-size: 14px; line-height: 24px;
+  font-feature-settings: "calt" 1, "cv01" 1;
+  font-variant-numeric: tabular-nums lining-nums;
+  -webkit-font-smoothing: antialiased;
+  background: var(--ab-bg) !important; color: var(--ab-ink);
+}
+.markdown, .prose { font-size: 14px !important; line-height: 24px !important; color: var(--ab-ink) !important; max-width: var(--ab-size-measure); }
+.markdown h1, .prose h1, .markdown h2, .prose h2, .markdown h3, .prose h3, .markdown h4, .prose h4 { color: var(--ab-ink) !important; }
+.markdown h1, .prose h1 { font-size: 20px !important; line-height: 32px !important; font-weight: 700 !important; margin: 0 0 var(--ab-space-3) !important; letter-spacing: 0 !important; }
+.markdown h2, .prose h2, .markdown h3, .prose h3, .markdown h4, .prose h4 {
+  font-size: 15px !important; line-height: 24px !important; font-weight: 700 !important;
+  margin: var(--ab-space-4) 0 var(--ab-space-2) !important; letter-spacing: 0 !important; border: 0 !important;
+}
+.markdown p, .prose p { margin: 0 0 var(--ab-space-3) !important; }
+.markdown ul, .prose ul, .markdown ol, .prose ol { margin: 0 0 var(--ab-space-3) !important; padding-left: var(--ab-col-4) !important; }
+.markdown li, .prose li { margin: 0 !important; }
+.markdown li::marker, .prose li::marker { color: var(--ab-ink-muted); }
+.markdown em, .prose em, .markdown i, .prose i { font-style: normal !important; color: var(--ab-ink-muted); }
+.markdown strong, .prose strong { font-weight: 700 !important; color: var(--ab-ink) !important; }
+.markdown blockquote, .prose blockquote {
+  border: 0 !important; margin: 0 0 var(--ab-space-3) !important; padding: 0 0 0 var(--ab-col-2) !important;
+  color: var(--ab-ink-muted) !important; font-style: normal !important; quotes: none;
+}
+.markdown blockquote p::before, .markdown blockquote p::after, .prose blockquote p::before, .prose blockquote p::after { content: none !important; }
+.markdown code, .prose code {
+  font-family: var(--ab-font-mono) !important; font-size: 14px !important; font-weight: 400 !important;
+  background: var(--ab-fill) !important; color: var(--ab-ink) !important;
+  border-radius: var(--ab-radius-sm); padding: 0 var(--ab-col-1) !important; border: 0 !important;
+}
+.markdown code::before, .markdown code::after, .prose code::before, .prose code::after { content: none !important; }
+.markdown a, .prose a { color: var(--ab-accent-text) !important; text-decoration: none !important; }
+.markdown a:hover, .prose a:hover { text-decoration: underline !important; }
+.markdown hr, .prose hr { border: 0; border-top: 1px solid var(--ab-line); margin: var(--ab-space-4) 0; }
+
+/* marimo's data table (inside a shadow root: this file is injected there too) */
+.marimo table td, .marimo table th { border-left: 0 !important; border-right: 0 !important; }
+.marimo table tbody tr { border-bottom: 0 !important; }
+.marimo table tbody tr:hover { background: var(--ab-fill) !important; }
+.marimo table { font-size: 14px !important; }
+
+/* tables, markdown and marimo's own: header muted with one line under it, no other lines */
+.markdown table, .prose table { border-collapse: collapse !important; width: auto !important; margin: 0 0 var(--ab-space-3) !important; font-size: 14px !important; }
+.markdown th, .prose th, .markdown td, .prose td {
+  border: 0 !important; padding: 0 var(--ab-col-2) 0 0 !important; line-height: 24px !important; background: none !important;
+}
+.markdown th, .prose th { color: var(--ab-ink-muted) !important; font-weight: 400 !important; border-bottom: 1px solid var(--ab-line) !important; }
+.markdown thead, .prose thead, .markdown tr, .prose tr { border: 0 !important; background: none !important; }
+table thead th { font-weight: 400 !important; color: var(--ab-ink-muted) !important; }
+table tbody tr, table tbody td { border-color: transparent !important; }
+table thead tr { border-bottom: 1px solid var(--ab-line) !important; }
+
+/* ------------------------------------------------------------ cells: CommandBlock + Output */
+.marimo-cell {
+  border: 0 !important; box-shadow: none !important; background: transparent !important;
+  border-radius: var(--ab-radius-md) !important;
+}
+.marimo-cell:hover, .marimo-cell:focus-within { border: 0 !important; box-shadow: none !important; }
+.marimo-cell [data-testid="cell-editor"] { background: transparent !important; }
+.marimo-cell .cm-editor {
+  background: var(--ab-fill) !important; border-radius: var(--ab-radius-md) !important;
+  padding: var(--ab-space-3) var(--ab-col-2) !important;
+}
+.marimo-cell:focus-within .cm-editor { outline: 2px solid var(--ab-focus); outline-offset: 2px; }
+.marimo-cell .cm-editor.cm-focused { outline: none; }
+.marimo-cell:focus-within .cm-editor.cm-focused { outline: 2px solid var(--ab-focus) !important; outline-offset: 2px; }
+.cm-gutters { display: none !important; }
+.cm-content { padding: 0 !important; font-family: var(--ab-font-mono) !important; font-size: 14px !important; line-height: 24px !important; caret-color: var(--ab-accent) !important; }
+.cm-line { padding: 0 !important; }
+.cm-activeLine { background: transparent !important; }
+.cm-cursor { border-left: 2px solid var(--ab-accent) !important; }
+.cm-selectionBackground, .cm-focused .cm-selectionBackground { background: var(--ab-accent-fill-hover) !important; }
+/* commands are shown as written: no syntax colours; strings may go muted (design system) */
+.marimo-cell .cm-line, .marimo-cell .cm-line span { color: var(--ab-ink) !important; font-style: normal !important; font-weight: 400 !important; }
+.cm-tooltip, .cm-tooltip-autocomplete { background: var(--ab-bg-raised) !important; border: 0 !important; border-radius: var(--ab-radius-md) !important; box-shadow: var(--ab-shadow-float) !important; color: var(--ab-ink) !important; }
+.cm-panels { background: var(--ab-bg-subtle) !important; border: 0 !important; color: var(--ab-ink) !important; }
+
+/* output: directly on the page, aligned with the command text */
+.output-area, .marimo-cell .output-area, .console-output-area {
+  background: transparent !important; border: 0 !important; box-shadow: none !important;
+  padding-left: var(--ab-col-2) !important; padding-right: var(--ab-col-2) !important;
+}
+.marimo-cell .output-area { padding-top: var(--ab-space-3) !important; }
+.console-output-area { color: var(--ab-ink-muted) !important; font-size: 12px !important; line-height: 20px !important; }
+/* a cell whose code is hidden is just its output (prose): no block, no padding */
+.marimo-cell.published .output-area, .marimo-cell:not(:has(.cm-editor)) .output-area { padding-top: 0 !important; }
+
+/* cell status: small and muted, the design system's status words */
+.elapsed-time, [data-testid="cell-status"] { color: var(--ab-ink-muted) !important; font-size: 12px !important; }
+.marimo-cell.has-error .cm-editor { background: var(--ab-bad-fill) !important; }
+.marimo-cell.has-error, .marimo-cell.has-error:hover { border: 0 !important; }
+.marimo-cell.stale .output-area, .marimo-cell.needs-run .cm-editor { opacity: 1 !important; }
+.marimo-error, [data-testid="marimo-traceback"], .traceback { color: var(--ab-bad) !important; background: transparent !important; }
+pre, .codehilite { background: transparent !important; font-family: var(--ab-font-mono) !important; font-size: 12px !important; line-height: 20px !important; }
+
+/* an error is the status colour on the block; no extra frames inside the cell */
+.marimo-cell.has-error *:not(.cm-editor):not(.cm-editor *) { border-color: transparent !important; }
+.marimo-cell.has-error .output-area { background: transparent !important; }
+
+/* JSON / list output: plain text, indices muted */
+.marimo-json-output, .marimo-json-output * { color: var(--ab-ink) !important; font-family: var(--ab-font-mono) !important; }
+.marimo-json-output [class*="key"], .marimo-json-output [class*="index"] { color: var(--ab-ink-muted) !important; }
+.marimo-json-output [class*="border"], .marimo-json-output > * { border-color: var(--ab-line) !important; }
+
+/* buttons and inputs: fill, no border, no shadow */
+.mo-button, button.mo-button, [data-testid="run-button"] { box-shadow: none !important; }
+*:not([role="dialog"]):not([role="menu"]):not([role="listbox"]):not([data-radix-popper-content-wrapper] *):not(.cm-tooltip) { box-shadow: none !important; }
+[role="dialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper] > * {
+  background: var(--ab-bg-raised) !important; border: 0 !important; border-radius: var(--ab-radius-lg) !important; box-shadow: var(--ab-shadow-float) !important;
+}
+input, select, textarea, button[role="combobox"] { background-color: var(--ab-fill) !important; color: var(--ab-ink) !important; border-color: transparent !important; }
+input, select, textarea { font-family: var(--ab-font-mono) !important; border-radius: var(--ab-radius-md) !important; }
+input[type="range"] { accent-color: var(--ab-accent); }
+:focus-visible { outline: 2px solid var(--ab-focus) !important; outline-offset: 2px; }
+
+/* callouts: the status fills, no border */
+[data-kind] { border: 0 !important; border-radius: var(--ab-radius-md) !important; box-shadow: none !important; }
+[data-kind="warn"] { background: var(--ab-warn-fill) !important; color: var(--ab-warn) !important; }
+[data-kind="danger"], [data-kind="alert"] { background: var(--ab-bad-fill) !important; color: var(--ab-bad) !important; }
+[data-kind="success"] { background: var(--ab-ok-fill) !important; color: var(--ab-ok) !important; }
+[data-kind="info"], [data-kind="neutral"] { background: var(--ab-fill) !important; color: var(--ab-ink) !important; }
+[data-kind] .markdown, [data-kind] .prose { color: inherit !important; }
+
+/* ------------------------------------------------------------ chrome we do not use
+   (the file name, marimo's sidebar and footer, its menus, the AI entry points; marimo's own AI
+   must stay off: one AI path, ours) */
+[data-testid="chrome-sidebar"], #app-chrome-sidebar,
+[data-testid="chrome-footer"], [data-testid="footer-panel"],
+[data-testid="chrome-controls-top-right"],
+[data-testid="save-button"], [data-testid="hide-code-button"], [data-testid="command-palette-button"],
+#preview-button, [data-testid="app-config-button"], [data-testid="layout-select"],
+.filename-input, #filename-input, [data-testid="dir-completion-input"],
+[data-testid="footer-ai-disabled"],
+button:has(> .lucide-sparkles), button:has(.lucide-bot), button:has(.lucide-database) { display: none !important; }
+/* one column at the design system's measure (80 columns), centred */
+[data-testid="cell-column"] { padding-top: var(--ab-space-5); max-width: calc(var(--ab-size-measure) + 2 * var(--ab-col-2)) !important; margin-left: auto !important; margin-right: auto !important; width: 100% !important; }
+[data-testid="cell-tray"], .tray { background: transparent !important; border: 0 !important; }
+/* drag handles, line numbers and per-cell buttons only on hover */
+.shoulder-right, .shoulder-bottom, [data-testid="drag-button"] { opacity: 0; }
+.marimo-cell:hover .shoulder-right, .marimo-cell:focus-within .shoulder-right,
+.marimo-cell:hover [data-testid="drag-button"], .marimo-cell:hover .shoulder-bottom { opacity: 1; }

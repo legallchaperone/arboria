@@ -34,6 +34,7 @@ from typing import Any, Callable
 from .config import project_config
 from .errors import ArbError
 from .paths import STATE_DIR_NAME, locate
+from .ui import data as board_data
 from .ui.data import SCHEMA_VERSION, ReadOnlyLedger
 
 PROTOCOL = 1
@@ -156,6 +157,36 @@ class Daemon:
         return {"root": str(self.root), "name": self.root.name, "project_id": project_id,
                 "ideas": self._ideas()}
 
+    def inbox(self) -> dict[str, Any]:
+        """What needs the human (the home page): awaiting cards, finished runs not yet
+        written about, proposed lessons; then open todos (they wait for the agent). Every
+        action is a command for the human's terminal, never something arbd does."""
+        board = board_data.load(self.root)
+        idea_name = {i["id"]: i["name"] for i in board.ideas}
+        items: list[dict[str, Any]] = []
+        for r in board.awaiting():
+            card = board.cards.get(r["id"]) or {}
+            su = card.get("est_su")
+            items.append({"kind": "card", "tone": "warn", "id": r["id"],
+                          "idea": idea_name.get(r["idea_id"]), "text": r["change_reason"],
+                          "meta": (f"≈ {round(su)} SU · " if su is not None else "")
+                          + f"card {(r['card_hash'] or '')[:8]}",
+                          "when": r["updated_at"], "command": f"arb approve {r['id']}"})
+        tone = {"succeeded": "ok", "failed": "bad", "cancelled": "none"}
+        for r in board.finished_unseen():
+            items.append({"kind": "finished", "tone": tone.get(r["status"], "none"),
+                          "id": r["id"], "idea": idea_name.get(r["idea_id"]),
+                          "text": r["summary"] or r["change_reason"], "status": r["status"],
+                          "meta": r["change_reason"], "when": r["finished_at"],
+                          "command": f"arb note \"…\" --run {r['id']}"})
+        for lesson in board.lessons:
+            items.append({"kind": "lesson", "tone": "none", "id": lesson["id"], "idea": None,
+                          "text": lesson["text"], "meta": "经验待确认", "when": lesson["created_at"],
+                          "command": f"arb lesson accept {lesson['id']}"})
+        todos = [{"kind": "todo", "tone": "none", "id": t["id"], "idea": t["idea"],
+                  "text": t["text"], "when": t["created_at"]} for t in board.todos]
+        return {"needs_you": len(items), "items": items, "todos": todos}
+
     def _open_idea(self, name: str) -> dict[str, Any]:
         idea = next((i for i in self._ideas() if i["name"] == name), None)
         if idea is None:
@@ -221,6 +252,7 @@ class Daemon:
         methods: dict[str, Callable[[], Any]] = {
             "hello": lambda: {"protocol": PROTOCOL, "root": str(self.root)},
             "project": self.project,
+            "inbox": self.inbox,
             "notebook.open": lambda: self.notebook_open(str(params["idea"])),
             "notebook.close": lambda: self.notebook_close(str(params["idea"])),
         }

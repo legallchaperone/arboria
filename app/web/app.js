@@ -1,60 +1,184 @@
-// The sidebar: renders what arbd returns (via Swift) and asks Swift to select ideas.
-// Ledger text is only ever set with textContent (never innerHTML).
+// The chrome page: title bar, home (待你处理) and the ⌘P idea switcher. It renders what
+// arbd returns (through Swift) and asks Swift to act. Ledger text only ever goes in via
+// textContent. Wording follows the design system: "agent", never a vendor name.
 (function () {
   const $ = (id) => document.getElementById(id);
   const post = (m) => window.webkit.messageHandlers.app.postMessage(m);
-  let current = null;
+  const S = { project: null, inbox: null, current: null, panel: false, palette: false, sel: 0, hits: [] };
 
+  const GLYPHS = {
+    ok: '<path d="M3.5 8.5l3 3 6-7"/>',
+    bad: '<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>',
+    run: '<path class="solid" d="M5 3.2v9.6l7.6-4.8z"/>',
+    wait: '<circle cx="8" cy="8" r="4.75"/>',
+    none: '<path d="M4.5 8h7"/>',
+    warn: '<path d="M3.6 12A5.6 5.6 0 0 1 2.9 9.2V8a5.1 5.1 0 0 1 10.2 0v1.6"/><path d="M6.1 13.6c-.6-1.4-.9-3.1-.9-5.1a2.8 2.8 0 0 1 5.6 0c0 1.9.3 3.4.9 4.7"/><path d="M8 8.4c0 2.1.3 3.8.9 5.2"/>',
+  };
+  function glyph(kind) {  // our own fixed markup, never ledger text
+    const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("class", "ab-glyph"); s.setAttribute("viewBox", "0 0 16 16"); s.setAttribute("aria-hidden", "true");
+    s.innerHTML = GLYPHS[kind] || GLYPHS.none;
+    return s;
+  }
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (text != null) e.textContent = text;
     return e;
   }
-
-  function depthOf(idea, byName) {
-    let d = 0, p = idea.parent;
-    while (p && byName[p] && d < 3) { d++; p = byName[p].parent; }
-    return d;
+  function ago(ts) {
+    if (!ts) return "";
+    const s = (Date.now() - Date.parse(ts)) / 1000;
+    if (!(s >= 0)) return "";
+    if (s < 60) return "刚刚";
+    if (s < 3600) return `${Math.floor(s / 60)} 分钟前`;
+    if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
+    return `${Math.floor(s / 86400)} 天前`;
   }
 
-  function renderTree(ideas) {
-    const tree = $("tree");
-    tree.replaceChildren();
-    const byName = Object.fromEntries(ideas.map((i) => [i.name, i]));
-    const groups = [["进行中", ideas.filter((i) => i.status === "open")],
-                    ["已结束", ideas.filter((i) => i.status !== "open")]];
-    for (const [label, list] of groups) {
-      if (!list.length) continue;
-      tree.append(el("div", "group", label));
-      const ul = el("ul");
-      for (const i of list) {
-        const li = el("li", (i.worktree ? "open" : "closed") + " depth" + depthOf(i, byName));
-        if (i.name === current) li.classList.add("current");
-        li.append(el("div", "name", i.name));
-        const runs = i.run_count ? ` · ${i.run_count} 个 run` : "";
-        li.append(el("div", "meta", (i.hypothesis || "") + runs));
-        li.title = i.worktree ? `${i.hypothesis || ""}\n指标：${i.metric || ""}` : `${i.status}，没有 worktree`;
-        if (i.worktree && i.has_notebook) li.addEventListener("click", () => post({ cmd: "select", idea: i.name }));
-        ul.append(li);
+  // ---------------------------------------------------------------- title bar
+  function renderBar() {
+    const p = S.project;
+    $("crumb-project").textContent = p ? p.name : "Arboria";
+    $("crumb-sep").hidden = !S.current;
+    $("crumb-idea").textContent = S.current || "";
+    const n = S.inbox ? S.inbox.needs_you : 0;
+    $("needs").hidden = !n || !S.current;
+    $("needs-n").textContent = n;
+    $("agent").classList.toggle("is-on", S.panel);
+    $("agent").hidden = !S.current;
+    document.documentElement.classList.toggle("is-bar", !!S.current);  // the notebook shows through
+    $("home").hidden = !!S.current;
+  }
+
+  // ---------------------------------------------------------------- home
+  const STATUS = { succeeded: "跑完了", failed: "失败", cancelled: "已取消" };
+  function renderHome() {
+    const box = $("inbox");
+    box.replaceChildren();
+    const items = (S.inbox && S.inbox.items) || [];
+    if (S.inboxError) box.append(el("div", "empty small", S.inboxError));
+    else if (!items.length) box.append(el("div", "empty", "没有要你处理的事"));
+    for (const it of items) {
+      const row = el("div", "ab-item");
+      const tone = it.kind === "card" ? "warn" : it.tone === "ok" ? "ok" : it.tone === "bad" ? "bad" : "none";
+      const mark = el("span", "mark " + ({ ok: "ab-ok", bad: "ab-bad", warn: "ab-warn" }[tone] || "ab-muted"));
+      mark.append(glyph(it.kind === "card" ? "warn" : tone === "none" ? "wait" : tone));
+      row.append(mark);
+      const head = el("span", "ab-clip");
+      head.append(el("span", "strong", it.id), el("span", "ab-muted", " · "));
+      const what = it.kind === "card" ? "等你签字" : it.kind === "lesson" ? "经验待确认" : STATUS[it.status] || it.status;
+      head.append(el("span", "", what + (it.idea ? ` · ${it.idea}` : "")));
+      row.append(head, el("span", "when small", ago(it.when)));
+      if (it.text) row.append(el("span", "meta ab-clip", it.text));
+      if (it.command) {  // acting is the human's, in a terminal (approval: Touch ID in P3)
+        const c = el("span", "cmd small", "在终端里：");
+        c.append(el("code", "", it.command));
+        row.append(c);
       }
-      tree.append(ul);
+      box.append(row);
     }
-    if (!ideas.length) tree.append(el("div", "sub", "还没有 idea。在终端里：arb idea new NAME"));
+
+    const ideas = $("ideas");
+    ideas.replaceChildren();
+    const list = (S.project && S.project.ideas) || [];
+    const open = list.filter((i) => i.worktree && i.has_notebook);
+    if (!open.length) ideas.append(el("div", "empty", "还没有进行中的 idea。在终端里：arb idea new NAME"));
+    for (const i of open) ideas.append(ideaLine(i, () => post({ cmd: "select", idea: i.name })));
+
+    const todos = (S.inbox && S.inbox.todos) || [];
+    $("todos-section").hidden = !todos.length;
+    const tbox = $("todos");
+    tbox.replaceChildren();
+    for (const t of todos) {
+      const row = el("div", "ab-line");
+      const m = el("span", "ab-muted"); m.append(glyph("wait"));
+      row.append(m, el("span", "id", t.id), el("span", "sep", "·"), el("span", "meta", (t.idea ? t.idea + " · " : "") + t.text),
+                 el("span", "when small", ago(t.when)));
+      tbox.append(row);
+    }
   }
+
+  function ideaLine(i, onClick) {
+    const row = el("div", "ab-line");
+    row.setAttribute("role", "option");
+    row.append(el("span", "name", i.name));
+    const runs = i.run_count ? ` · ${i.run_count} 个 run` : "";
+    row.append(el("span", "meta", (i.hypothesis || "") + runs));
+    row.addEventListener("click", onClick);
+    return row;
+  }
+
+  // ---------------------------------------------------------------- ⌘P
+  function openPalette() {
+    if (!S.project) return;
+    S.palette = true; S.sel = 0;
+    $("overlay").hidden = false;
+    $("q").value = "";
+    post({ cmd: "overlay", open: true });
+    renderBar(); renderPalette();
+    setTimeout(() => $("q").focus(), 0);
+  }
+  function closePalette() {
+    if (!S.palette) return;
+    S.palette = false;
+    $("overlay").hidden = true;
+    post({ cmd: "overlay", open: false });
+    renderBar();
+  }
+  function renderPalette() {
+    const q = $("q").value.trim().toLowerCase();
+    const list = (S.project.ideas || []).filter((i) => i.worktree && i.has_notebook);
+    S.hits = list.filter((i) => !q || i.name.toLowerCase().includes(q) || (i.hypothesis || "").toLowerCase().includes(q));
+    S.sel = Math.max(0, Math.min(S.sel, S.hits.length - 1));
+    const box = $("plist");
+    box.replaceChildren();
+    box.append(el("div", "ab-palette-group small", "idea"));
+    S.hits.forEach((i, k) => {
+      const row = ideaLine(i, () => choose(i.name));
+      row.setAttribute("aria-selected", k === S.sel ? "true" : "false");
+      if (i.name === S.current) row.append(el("span", "when small", "当前"));
+      box.append(row);
+    });
+    const home = el("div", "ab-line");
+    home.setAttribute("role", "option");
+    home.append(el("span", "name", "待你处理"), el("span", "meta", "回到首页"), el("span", "when small", "⌘0"));
+    home.addEventListener("click", () => { closePalette(); post({ cmd: "home" }); });
+    box.append(el("div", "ab-palette-group small", "页面"), home);
+  }
+  function choose(name) { closePalette(); post({ cmd: "select", idea: name }); }
+
+  $("q").addEventListener("input", () => { S.sel = 0; renderPalette(); });
+  document.addEventListener("keydown", (e) => {
+    if (!S.palette) return;
+    if (e.key === "Escape") { e.preventDefault(); closePalette(); post({ cmd: "focusNotebook" }); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); S.sel = Math.min(S.sel + 1, S.hits.length - 1); renderPalette(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); S.sel = Math.max(S.sel - 1, 0); renderPalette(); }
+    else if (e.key === "Enter") { e.preventDefault(); if (S.hits[S.sel]) choose(S.hits[S.sel].name); }
+  });
+  $("overlay").addEventListener("mousedown", (e) => { if (e.target === $("overlay")) closePalette(); });
+  $("crumb").addEventListener("click", openPalette);
+  $("needs").addEventListener("click", () => post({ cmd: "home" }));
+  $("agent").addEventListener("click", () => post({ cmd: "panel" }));
+  // dragging the window by the title bar's empty parts (the page sits under the title bar)
+  $("bar").addEventListener("mousedown", (e) => { if (e.target.closest("[data-drag]") && !e.target.closest("button")) post({ cmd: "drag" }); });
+  $("bar").addEventListener("dblclick", (e) => { if (!e.target.closest("button")) post({ cmd: "zoom" }); });
 
   window.arb = {
     render(state) {
-      if ("current" in state) current = state.current;
-      if (state.error) { $("status").textContent = state.error; return; }
-      if (state.status != null) $("status").textContent = state.status;
-      if (state.project) {
-        $("status").textContent = "";
-        $("title").textContent = state.project.name;
-        $("sub").textContent = state.project.project_id ? `项目 ${state.project.project_id}` : state.project.root;
-        renderTree(state.project.ideas);
-      }
+      if ("project" in state) S.project = state.project;
+      if ("inbox" in state) { S.inbox = state.inbox; S.inboxError = null; }
+      if ("inboxError" in state) S.inboxError = state.inboxError;
+      if ("current" in state) S.current = state.current;
+      if ("panel" in state) S.panel = state.panel;
+      if (state.error) { S.inboxError = state.error; }
+      renderBar();
+      if (!S.current) renderHome();
+      if (S.palette) renderPalette();
     },
+    palette() { S.palette ? closePalette() : openPalette(); },
+    active(on) { $("bar").classList.toggle("is-inactive", !on); },
   };
+  renderBar();
   post({ cmd: "ready" });
 })();

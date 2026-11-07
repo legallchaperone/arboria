@@ -1,21 +1,43 @@
 <!doctype html>
-<html><head><meta charset="utf-8">
+<html lang="zh"><head><meta charset="utf-8">
 <link rel="stylesheet" href="xterm.css">
-<link rel="stylesheet" href="arboria.css">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="bundle.css">
 <style>
-  html, body { background: #1f1d1a; height: 100%; margin: 0; overflow: hidden; }
-  #t { position: absolute; inset: 8px; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg-subtle); }
+  header { display: flex; align-items: center; gap: var(--col-1); height: var(--size-row); padding: 0 var(--col-2); color: var(--ink-muted); }
+  header .strong { color: var(--ink); }
+  #t { position: absolute; inset: var(--size-row) var(--col-1) var(--space-2) var(--col-2); }
+  .xterm .xterm-viewport { background: transparent !important; }
+  .xterm .xterm-viewport::-webkit-scrollbar { width: 6px; }
+  .xterm .xterm-viewport::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .xterm .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 </style></head>
-<body><div id="t"></div>
+<body class="body">
+<header><span class="strong">agent</span><span>·</span><span id="idea"></span><span class="ab-spacer"></span><span class="small">⌘J 收起</span></header>
+<div id="t"></div>
 <script src="xterm.js"></script>
 <script src="addon-fit.js"></script>
 <script>
   const post = (m) => window.webkit.messageHandlers.term.postMessage(m);
   window.b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-  window.ended = () => term.write("\r\n\x1b[2m[claude 已退出]\x1b[0m\r\n");
+  window.ended = () => term.write("\r\n\x1b[2m[agent 已退出]\x1b[0m\r\n");
+  window.setIdea = (name) => { document.getElementById("idea").textContent = name; };
+  // xterm's colours come from the design tokens and follow the system appearance.
+  function theme() {
+    const v = (n) => getComputedStyle(document.documentElement).getPropertyValue("--" + n).trim();
+    return {
+      background: v("bg-subtle"), foreground: v("ink"), cursor: v("accent"), cursorAccent: v("bg-subtle"),
+      selectionBackground: v("accent-fill-hover"),
+      black: v("ink-faint"), red: v("bad"), green: v("ok"), yellow: v("warn"), blue: v("accent-text"),
+      magenta: v("series-6"), cyan: v("series-4"), white: v("ink-muted"),
+      brightBlack: v("ink-muted"), brightRed: v("bad"), brightGreen: v("ok"), brightYellow: v("warn"),
+      brightBlue: v("accent"), brightMagenta: v("series-6"), brightCyan: v("series-4"), brightWhite: v("ink"),
+    };
+  }
   document.fonts.load('14px "Maple Mono CN"').finally(() => {
-    window.term = new Terminal({ fontFamily: '"Maple Mono CN", monospace', fontSize: 13, cursorBlink: true,
-      allowProposedApi: false, theme: { background: "#1f1d1a", foreground: "#ece6dc" } });
+    window.term = new Terminal({ fontFamily: '"Maple Mono CN", monospace', fontSize: 13, lineHeight: 1.15,
+      cursorBlink: true, theme: theme() });
     const fit = new FitAddon.FitAddon();
     term.loadAddon(fit);
     term.open(document.getElementById("t"));
@@ -23,6 +45,7 @@
     term.onData((d) => post({ kind: "data", data: d }));
     term.onResize(({ cols, rows }) => post({ kind: "resize", cols, rows }));
     new ResizeObserver(() => fit.fit()).observe(document.getElementById("t"));
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { term.options.theme = theme(); });
     window.fitNow = () => { fit.fit(); post({ kind: "resize", cols: term.cols, rows: term.rows }); };
     window.screenText = () => { const b = term.buffer.active, out = [];
       for (let i = 0; i < b.length; i++) { const l = b.getLine(i)?.translateToString(true); if (l && l.trim()) out.push(l); }

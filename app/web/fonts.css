@@ -1,5 +1,0 @@
-/* Fonts only, from the app bundle (P0 spike 3). Shared by our pages and the notebook. */
-@font-face { font-family: "Noto Sans SC"; src: url("arboria://fonts/NotoSansSC-VF.woff2") format("woff2"); font-weight: 100 900; }
-@font-face { font-family: "Maple Mono CN"; src: url("arboria://fonts/MapleMono-CN-Regular.woff2") format("woff2"); font-weight: 400; }
-@font-face { font-family: "Maple Mono CN"; src: url("arboria://fonts/MapleMono-CN-Bold.woff2") format("woff2"); font-weight: 700; }
-:root { --sans: "Noto Sans SC", -apple-system, sans-serif; --mono: "Maple Mono CN", ui-monospace, monospace; }

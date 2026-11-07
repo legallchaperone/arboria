@@ -1,0 +1,32 @@
+/* Our pages, on top of tokens.css + bundle.css (the design system, verbatim). Only token
+   variables here; type comes from the style classes. */
+html, body { height: 100%; }
+body { overflow: hidden; user-select: none; -webkit-user-select: none; }
+html.is-bar, html.is-bar body { background: transparent; }
+button { font: inherit; border: 0; background: none; padding: 0; cursor: default; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* the window's title bar: full width, square corners, the system buttons sit in the 76px */
+#bar.ab-titlebar { border-radius: 0; position: absolute; inset: 0 0 auto 0; z-index: 2; }
+#bar .ab-crumb .sep { color: var(--ink-muted); }
+#bar .tool:hover { background: var(--fill); }
+#bar .tool[hidden] { display: none; }
+#bar .ab-spacer { align-self: stretch; }
+
+/* home: 待你处理, then the open ideas (no idea open) */
+#home { position: absolute; inset: var(--size-titlebar) 0 0 0; overflow-y: auto; background: var(--bg); }
+#home[hidden] { display: none; }
+.home { max-width: var(--size-measure); margin: 0 auto; padding: var(--space-5) var(--col-4) var(--space-5); }
+.home h2 { margin: 0 0 var(--space-3); padding: 0 var(--col-2); }
+.home section + section { margin-top: var(--space-5); }
+.home .empty { padding: 0 var(--col-2); color: var(--ink-muted); }
+.ab-item .cmd { grid-column: 2 / 4; color: var(--ink-muted); user-select: text; -webkit-user-select: text; }
+.ab-item .cmd code { color: var(--ink); }
+.ab-line .name { color: var(--ink); }
+
+/* ⌘P: switch idea */
+#overlay { position: absolute; inset: 0; z-index: 3; background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding-top: calc(var(--size-titlebar) + var(--space-5)); }
+#overlay[hidden] { display: none; }
+#q { flex: 1; border: 0; outline: 0; background: none; padding: 0; color: var(--ink); }
+#q::placeholder { color: var(--ink-muted); }
+.ab-palette-list { max-height: 60vh; overflow-y: auto; }

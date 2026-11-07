@@ -1,9 +1,10 @@
 import AppKit
 import WebKit
 
-/// ARB_PROBE=1: drive the app headlessly for verification (like the P0 spikes). Selects up to
-/// two open ideas, records what each pane shows (text + PNG in ARB_PROBE_OUT), optionally
-/// types ARB_PROBE_PROMPT into the first idea's Claude terminal, then quits.
+/// ARB_PROBE=1: drive the app without a person, for verification and design review. Saves
+/// whole-window pictures (composited from each WebView's snapshot) to ARB_PROBE_OUT:
+/// home, the first idea's notebook (top and further down), the ⌘P switcher, the agent
+/// panel; prints what each page shows; then quits. ARB_PROBE_PROMPT is typed into the agent.
 final class Probe {
     let shell: Shell
     let out: String
@@ -28,68 +29,110 @@ final class Probe {
         }
     }
 
-    private func snap(_ w: WKWebView, _ name: String, then: @escaping () -> Void) {
-        w.takeSnapshot(with: nil) { img, _ in
-            if let img, let t = img.tiffRepresentation, let png = NSBitmapImageRep(data: t)?.representation(using: .png, properties: [:]) {
-                let p = (self.out as NSString).appendingPathComponent(name + ".png")
-                try? png.write(to: URL(fileURLWithPath: p)); self.say("snapshot \(p)")
-            }
-            then()
+    /// The window as the person sees it: each visible WebView's snapshot drawn at its frame,
+    /// bottom to top (the title bar page last; it is transparent where it shows the notebook).
+    private func shot(_ name: String, then: @escaping () -> Void) {
+        let root = shell.root
+        var all: [WKWebView] = [shell.notebook]
+        all.append(contentsOf: shell.panelHost.subviews.compactMap { $0 as? WKWebView })
+        all.append(shell.chrome)
+        let views = all.filter { v in
+            let hostHidden = v.superview?.isHidden ?? true
+            return !v.isHidden && !hostHidden && v.frame.width > 0
         }
+        let scale = shell.win.backingScaleFactor
+        let size = NSSize(width: root.bounds.width * scale, height: root.bounds.height * scale)
+        let canvas = NSImage(size: size)
+        var pictures: [(NSRect, NSImage)] = []
+        func next(_ i: Int) {
+            guard i < views.count else {
+                canvas.lockFocus()
+                for (r, img) in pictures {
+                    let frame = NSRect(x: r.minX * scale, y: (root.bounds.height - r.maxY) * scale, width: r.width * scale, height: r.height * scale)
+                    img.draw(in: frame)
+                }
+                canvas.unlockFocus()
+                if let t = canvas.tiffRepresentation, let png = NSBitmapImageRep(data: t)?.representation(using: .png, properties: [:]) {
+                    let p = (out as NSString).appendingPathComponent(name + ".png")
+                    try? png.write(to: URL(fileURLWithPath: p)); say("shot \(p)")
+                }
+                then(); return
+            }
+            let v = views[i]
+            let frame = v.convert(v.bounds, to: root)
+            v.takeSnapshot(with: nil) { img, _ in
+                if let img { pictures.append((frame, img)) }
+                next(i + 1)
+            }
+        }
+        next(0)
     }
 
     func run() {
-        after(3) {
-            self.eval(self.shell.sidebar, "return document.body.innerText", "sidebar") {
-                self.shell.arbd.call("project") { r in
-                    guard case .success(let v) = r, let p = v as? [String: Any], let ideas = p["ideas"] as? [[String: Any]] else {
-                        self.say("project failed: \(r)"); NSApp.terminate(nil); return
-                    }
-                    let names = ideas.filter { $0["has_notebook"] as? Bool == true }.compactMap { $0["name"] as? String }
-                    self.say("openable ideas: \(names)")
-                    self.visit(Array(names.prefix(2)), index: 0)
-                }
+        after(4) {
+            self.eval(self.shell.chrome, "return document.body.innerText.replace(/\\n+/g, ' | ')", "home") {
+                self.shot("1-home") { self.openIdea() }
             }
         }
     }
 
-    private func visit(_ names: [String], index: Int) {
-        guard index < names.count else { after(1) { NSApp.terminate(nil) }; return }
-        let idea = names[index]
-        say("select \(idea)")
-        shell.select(idea) { url in
-            self.say("notebook url for \(idea): \(url == nil ? "none" : "ok")")
-            self.after(10) {
-                let js = """
-                return JSON.stringify({url: location.pathname, title: document.title,
-                  cells: document.querySelectorAll('[data-cell-id]').length,
-                  injected: !!document.querySelector('link[href="arboria://app/marimo.css"]'),
-                  bodyFont: getComputedStyle(document.body).fontFamily,
-                  text: document.body.innerText.replace(/\\s+/g,' ').slice(0, 160)})
-                """
-                self.eval(self.shell.notebook, js, "notebook[\(idea)]") {
-                    let term = self.shell.terminals[idea]!.web
-                    let typeThen: (@escaping () -> Void) -> Void = { next in
-                        guard index == 0, let p = self.prompt else { next(); return }
-                        // A new worktree gets Claude Code's "trust this folder?" question first;
-                        // the probe answers it with Enter (the human does this in real use).
-                        self.say("typing prompt into \(idea)'s terminal")
-                        self.shell.terminals[idea]!.send("\u{1b}[B")  // ↓ to "Yes, I trust this folder"
-                        self.after(0.5) { self.shell.terminals[idea]!.send("\r") }
-                        self.after(4) { self.shell.terminals[idea]!.send(p) }
-                        self.after(4.5) { self.shell.terminals[idea]!.send("\r"); self.after(30, next) }
-                    }
-                    typeThen {
-                        self.eval(term, "return screenText().split('\\n').slice(-14).join('\\n')", "terminal[\(idea)]") {
-                            self.snap(self.shell.sidebar, "sidebar-\(index)") {
-                                self.snap(self.shell.notebook, "notebook-\(index)") {
-                                    self.snap(term, "terminal-\(index)") { self.visit(names, index: index + 1) }
-                                }
-                            }
+    private func openIdea() {
+        shell.arbd.call("project") { r in
+            guard case .success(let v) = r, let p = v as? [String: Any], let ideas = p["ideas"] as? [[String: Any]],
+                  let first = ideas.first(where: { $0["has_notebook"] as? Bool == true })?["name"] as? String else {
+                self.say("no idea to open"); NSApp.terminate(nil); return
+            }
+            self.say("select \(first)")
+            self.shell.select(first) { _ in
+                self.after(12) {
+                    let js = "return JSON.stringify({cells: document.querySelectorAll('[data-cell-id]').length, theme: document.body.className, font: getComputedStyle(document.body).fontFamily.slice(0, 40), shadows: [...document.querySelectorAll('*')].filter(e => e.shadowRoot && e.shadowRoot.querySelector('link[href=\"arboria://app/marimo.css\"]')).length})"
+                    self.eval(self.shell.notebook, js, "notebook") {
+                        self.shot("2-notebook") {
+                            self.shell.notebook.evaluateJavaScript("document.querySelector('marimo-table, [data-testid=\"cell-column\"] > *:nth-child(5)')?.scrollIntoView({block: 'center'})")
+                            self.after(2) { self.shot("3-notebook-lower") { self.palette() } }
                         }
                     }
                 }
             }
         }
     }
+
+    private func palette() {
+        shell.togglePalette()
+        after(1.5) {
+            self.shot("4-switcher") {
+                self.shell.chrome.evaluateJavaScript("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape'}))")
+                self.after(1) { self.panel() }
+            }
+        }
+    }
+
+    private func panel() {
+        // WebKit stops painting (requestAnimationFrame) in occluded windows, and xterm draws on
+        // animation frames: make sure the window is on screen before the agent starts.
+        NSApp.activate(ignoringOtherApps: true)
+        shell.win.orderFrontRegardless()
+        say("window occluded: \(!shell.win.occlusionState.contains(.visible))")
+        shell.togglePanel()
+        guard let idea = shell.current, let t = shell.terminals[idea] else { finish(); return }
+        after(8) {
+            if let p = self.prompt {
+                t.send("\u{1b}[B"); self.after(0.5) { t.send("\r") }  // a new worktree: "trust this folder?" → yes
+                self.after(4) { t.send(p) }
+                self.after(4.5) { t.send("\r") }
+                self.after(30) { self.panelShot(t) }
+            } else { self.panelShot(t) }
+        }
+    }
+
+    private func panelShot(_ t: Terminal) {
+        let js = "const r = document.querySelector('.xterm-rows > div'); const sp = document.elementFromPoint(60, 60); return JSON.stringify({fonts: [...document.fonts].map(f => f.weight + ':' + f.status), rows: document.querySelectorAll('.xterm-rows > div').length, first: r && r.textContent.slice(0, 40), top: sp && (sp.tagName + '.' + sp.className), screen: document.querySelector('.xterm-screen').getBoundingClientRect().width})"
+        eval(t.web, js, "agent-dom") {
+            self.eval(t.web, "return screenText().split('\\n').slice(-12).join('\\n')", "agent") {
+                self.shot("5-agent") { self.after(4) { self.shot("6-agent-later") { self.finish() } } }
+            }
+        }
+    }
+
+    private func finish() { after(1) { NSApp.terminate(nil) } }
 }

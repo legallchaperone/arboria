@@ -105,7 +105,8 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     assert not any("**/.arboria/**" in r or "commands" in r for r in deny)
     assert len(deny) == (len(install.CLUSTER_RULES) + len(install.APPROVAL_RULES)
                          + len(install.EDIT_TOOLS) * len(install.PROTECTED_PATHS)
-                         + len(install.SEED_RULES) + len(install.NOTEBOOK_RULES))
+                         + len(install.SEED_RULES) + len(install.NOTEBOOK_RULES)
+                         + len(install.MILESTONE_RULES))
     assert "Bash(arb key:*)" in deny and "Edit(**/approve-keys.json)" in deny
     assert "Bash(arb idea style:*)" in deny  # rewrites the human's notebooks
     # seed-only commands are denied in a project too (`arb idea plant` runs inside one)

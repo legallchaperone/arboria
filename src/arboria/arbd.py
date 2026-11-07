@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from . import analysis, approvekeys, submission
+from . import analysis, approvekeys, roadmap, submission
 from .config import project_config
 from .db import Ledger
 from .errors import ArbError
@@ -190,6 +190,19 @@ class Daemon:
             items.append({"kind": "lesson", "tone": "none", "id": lesson["id"], "idea": None,
                           "text": lesson["text"], "meta": "经验待确认", "when": lesson["created_at"],
                           "command": f"arb lesson accept {lesson['id']}"})
+        with self._ledger() as ledger:
+            for p in roadmap.roadmap(ledger):
+                if not p["flags"]:
+                    continue
+                words = {"late": lambda: f"已过截止 {-p['days_left']} 天",
+                         "soon": lambda: f"还有 {p['days_left']} 天截止",
+                         "over": lambda: f"超出算力预算 {-p['left_su']:g} SU",
+                         "tight": lambda: f"等签字的 ≈ {p['awaiting_su']:g} SU 超过剩余 {p['left_su']:g} SU"}
+                bad = {"late", "over"} & set(p["flags"])
+                items.append({"kind": "milestone", "tone": "bad" if bad else "warn", "id": p["name"],
+                              "idea": None, "text": p["title"],
+                              "meta": "，".join(words[f]() for f in p["flags"]),
+                              "when": p["updated_at"]})
         todos = [{"kind": "todo", "tone": "none", "id": t["id"], "idea": t["idea"],
                   "text": t["text"], "when": t["created_at"]} for t in board.todos]
         return {"needs_you": len(items), "items": items, "todos": todos}
@@ -225,6 +238,11 @@ class Daemon:
                 stride = len(pts) / MAX_POINTS
                 series[k] = [pts[int(j * stride)] for j in range(MAX_POINTS - 1)] + [pts[-1]]
         return series
+
+    def roadmap(self, all_: bool = False) -> dict[str, Any]:
+        """The human's milestones with spend, checklist and time left (the roadmap page)."""
+        with self._ledger() as ledger:
+            return {"milestones": roadmap.roadmap(ledger, all_=all_)}
 
     def runs(self, idea: str | None = None) -> dict[str, Any]:
         """The runs, newest first (one idea's, or all), for the experiment list."""
@@ -366,6 +384,7 @@ class Daemon:
             "runs": lambda: self.runs(params.get("idea")),
             "run": lambda: self.run(str(params["run"])),
             "compute": self.compute,
+            "roadmap": lambda: self.roadmap(bool(params.get("all"))),
             "keys": lambda: {"trusted": [k["fingerprint"] for k in approvekeys.load()]},
             "card": lambda: self.card(str(params["run"])),
             "approve.signed": lambda: self.approve_signed(

@@ -41,6 +41,11 @@ SECTIONS: list[tuple[str, str, list[str]]] = [
     ]),
     ("Touch ID 签字密钥", "Mac app 用 Secure Enclave 里的密钥给审核单签字；只有你在自己的终端里信任过的"
      "密钥签的字才算批准。", ["key trust", "key list", "key revoke"]),
+    ("路线图（里程碑）", "你定的里程碑：截止日期、算力预算、包含的 idea 和清单。改动只由你在自己的终端里做，"
+     "`list` / `show` 谁都能看。", [
+        "milestone list", "milestone show", "milestone new", "milestone set", "milestone check",
+        "milestone uncheck", "milestone done", "milestone reopen", "milestone drop",
+    ]),
     ("待办与 notebook 命令", "notebook 里 `lab.todo(...)`、`lab.<名字>(...)` 和 "
      "`lab.inspect(...)` 留下的活。", [
         "todo list", "todo done", "todo drop", "commands list", "commands guide",

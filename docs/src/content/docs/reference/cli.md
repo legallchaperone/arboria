@@ -46,6 +46,15 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb key trust`](#arb-key-trust) | (Human only) Trust the app's Touch ID key; you type the fingerprint the app shows. |
 | [`arb key list`](#arb-key-list) | List trusted Touch ID approval keys. |
 | [`arb key revoke`](#arb-key-revoke) | (Human only) Stop trusting a Touch ID approval key. |
+| [`arb milestone list`](#arb-milestone-list) | The roadmap: open milestones by deadline, with spend and checklist. |
+| [`arb milestone show`](#arb-milestone-show) | One milestone. |
+| [`arb milestone new`](#arb-milestone-new) | (Human only) Add a milestone to the roadmap. |
+| [`arb milestone set`](#arb-milestone-set) | (Human only) Change a milestone. |
+| [`arb milestone check`](#arb-milestone-check) | (Human only) Tick a checklist item. |
+| [`arb milestone uncheck`](#arb-milestone-uncheck) | (Human only) Untick a checklist item. |
+| [`arb milestone done`](#arb-milestone-done) | (Human only) Mark a milestone done. |
+| [`arb milestone reopen`](#arb-milestone-reopen) | (Human only) Reopen a done or dropped milestone. |
+| [`arb milestone drop`](#arb-milestone-drop) | (Human only) Drop a milestone (it stays in the history). |
 | [`arb todo list`](#arb-todo-list) | Todos of the current idea (in an idea worktree), of every open idea, or (in the seed home) of the seeds. |
 | [`arb todo done`](#arb-todo-done) | Mark a todo done with a short result for the human. |
 | [`arb todo drop`](#arb-todo-drop) | Drop a todo that will not be done. |
@@ -478,6 +487,150 @@ arb key revoke [OPTIONS] {fingerprint}
 | 参数 | 说明 | 默认 |
 | --- | --- | --- |
 | `fingerprint` | Fingerprint, as `arb key list` shows it. | 必填 |
+
+## 路线图（里程碑）
+
+你定的里程碑：截止日期、算力预算、包含的 idea 和清单。改动只由你在自己的终端里做，`list` / `show` 谁都能看。
+
+### arb milestone list
+
+The roadmap: open milestones by deadline, with spend and checklist.
+
+```text
+arb milestone list [OPTIONS]
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `--all` | Also done and dropped milestones. |  |
+| `--json` | Print machine-readable JSON. |  |
+
+### arb milestone show
+
+One milestone.
+
+```text
+arb milestone show [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` |  | 必填 |
+| `--json` | Print machine-readable JSON. |  |
+
+### arb milestone new
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Add a milestone to the roadmap.
+
+```text
+arb milestone new [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` | Short name (lowercase, digits, '-'). | 必填 |
+| `--title <str>` | What it is (≤80 chars). | 必填 |
+| `--deadline <str>` | YYYY-MM-DD. |  |
+| `--su <float>` | SU budget for the runs of its ideas. |  |
+| `--idea <str> …` | An idea of this project (repeatable). |  |
+| `--item <str> …` | A checklist item (≤120 chars, repeatable). |  |
+
+### arb milestone set
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Change a milestone.
+
+```text
+arb milestone set [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` |  | 必填 |
+| `--title <str>` |  |  |
+| `--deadline <str>` | YYYY-MM-DD. |  |
+| `--no-deadline` | Remove the deadline. |  |
+| `--su <float>` | SU budget. |  |
+| `--no-su` | Remove the SU budget. |  |
+| `--add-idea <str> …` |  |  |
+| `--remove-idea <str> …` |  |  |
+| `--add-item <str> …` |  |  |
+| `--remove-item <int> …` | Checklist item number. |  |
+
+### arb milestone check
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Tick a checklist item.
+
+```text
+arb milestone check [OPTIONS] {name} {item}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` |  | 必填 |
+| `item` | Checklist item number. | 必填 |
+
+### arb milestone uncheck
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Untick a checklist item.
+
+```text
+arb milestone uncheck [OPTIONS] {name} {item}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` |  | 必填 |
+| `item` | Checklist item number. | 必填 |
+
+### arb milestone done
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Mark a milestone done.
+
+```text
+arb milestone done [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` |  | 必填 |
+
+### arb milestone reopen
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Reopen a done or dropped milestone.
+
+```text
+arb milestone reopen [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` |  | 必填 |
+
+### arb milestone drop
+
+<span class="arb-tag">只由你</span>
+
+(Human only) Drop a milestone (it stays in the history).
+
+```text
+arb milestone drop [OPTIONS] {name}
+```
+
+| 参数 | 说明 | 默认 |
+| --- | --- | --- |
+| `name` |  | 必填 |
 
 ## 待办与 notebook 命令
 

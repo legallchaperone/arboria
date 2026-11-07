@@ -61,6 +61,9 @@ app.add_typer(claudemd_app, name="claudemd")
 app.add_typer(lesson_app, name="lesson")
 key_app = typer.Typer(help="(Human only) Touch ID approval keys of the Mac app.", no_args_is_help=True)
 app.add_typer(key_app, name="key")
+milestone_app = typer.Typer(help="The roadmap: your milestones (deadline, SU budget, ideas, checklist). Changes are human only.",
+                            no_args_is_help=True)
+app.add_typer(milestone_app, name="milestone")
 remote_app = typer.Typer(help="Read-only views of a run's files on the cluster.",
                          no_args_is_help=True)
 app.add_typer(remote_app, name="remote")
@@ -1246,6 +1249,166 @@ def key_revoke(
     typer.echo(f"revoked {hit['fingerprint']} ({hit['label']})")
 
 
+def _milestone_text(p: dict) -> list[str]:
+    head = f"{p['name']} · {p['title']}"
+    if p["status"] != "open":
+        head += f" · {'已完成' if p['status'] == 'done' else '已放弃'}"
+    lines = [head]
+    when = "无截止日期" if p["deadline"] is None else (
+        f"截止 {p['deadline']}（" + (f"已过 {-p['days_left']} 天" if p["days_left"] < 0
+                                    else f"还有 {p['days_left']} 天") + "）")
+    su = (f"已用 {p['spent_su']:g} SU" if p["su_budget"] is None
+          else f"已用 {p['spent_su']:g} / {p['su_budget']:g} SU，剩余 {p['left_su']:g}")
+    if p["awaiting_su"]:
+        su += f"，等签字 ≈ {p['awaiting_su']:g}"
+    lines.append(f"  {when} · {su}")
+    if p["idea_progress"]:
+        lines.append("  idea: " + "，".join(f"{i['name']}（{i['status']}，{i['runs']} 个 run，{i['su']:g} SU）"
+                                          for i in p["idea_progress"]))
+    for k, it in enumerate(p["items"], 1):
+        lines.append(f"  [{'x' if it['done'] else ' '}] {k}. {it['text']}")
+    return lines
+
+
+@milestone_app.command("list")
+@handle_errors
+def milestone_list(
+    all_: Annotated[bool, typer.Option("--all", help="Also done and dropped milestones.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """The roadmap: open milestones by deadline, with spend and checklist."""
+    from . import roadmap
+
+    _, ledger = _open()
+    with ledger:
+        rows = roadmap.roadmap(ledger, all_=all_)
+    if as_json:
+        _echo_json(rows)
+        return
+    if not rows:
+        typer.echo("no milestones (arb milestone new NAME --title … in your terminal)")
+    for p in rows:
+        typer.echo("\n".join(_milestone_text(p)))
+
+
+@milestone_app.command("show")
+@handle_errors
+def milestone_show(name: Annotated[str, typer.Argument()], as_json: JsonOpt = False) -> None:
+    """One milestone."""
+    from . import roadmap
+
+    _, ledger = _open()
+    with ledger:
+        p = roadmap.progress(ledger, roadmap.get(ledger, name))
+    if as_json:
+        _echo_json(p)
+    else:
+        typer.echo("\n".join(_milestone_text(p)))
+
+
+IdeaOpt = Annotated[Optional[list[str]], typer.Option("--idea", help="An idea of this project (repeatable).")]
+ItemOpt = Annotated[Optional[list[str]], typer.Option("--item", help="A checklist item (≤120 chars, repeatable).")]
+
+
+@milestone_app.command("new")
+@handle_errors
+def milestone_new(
+    name: Annotated[str, typer.Argument(help="Short name (lowercase, digits, '-').")],
+    title: Annotated[str, typer.Option("--title", help="What it is (≤80 chars).")],
+    deadline: Annotated[Optional[str], typer.Option("--deadline", help="YYYY-MM-DD.")] = None,
+    su: Annotated[Optional[float], typer.Option("--su", help="SU budget for the runs of its ideas.")] = None,
+    idea: IdeaOpt = None,
+    item: ItemOpt = None,
+) -> None:
+    """(Human only) Add a milestone to the roadmap."""
+    from . import roadmap
+
+    _, ledger = _open()
+    with ledger:
+        m = roadmap.new(ledger, name, title, deadline=deadline, su_budget=su, ideas=idea or [], items=item or [])
+    typer.echo(f"milestone {m.name} added")
+
+
+@milestone_app.command("set")
+@handle_errors
+def milestone_set(
+    name: Annotated[str, typer.Argument()],
+    title: Annotated[Optional[str], typer.Option("--title")] = None,
+    deadline: Annotated[Optional[str], typer.Option("--deadline", help="YYYY-MM-DD.")] = None,
+    no_deadline: Annotated[bool, typer.Option("--no-deadline", help="Remove the deadline.")] = False,
+    su: Annotated[Optional[float], typer.Option("--su", help="SU budget.")] = None,
+    no_su: Annotated[bool, typer.Option("--no-su", help="Remove the SU budget.")] = False,
+    add_idea: Annotated[Optional[list[str]], typer.Option("--add-idea")] = None,
+    remove_idea: Annotated[Optional[list[str]], typer.Option("--remove-idea")] = None,
+    add_item: Annotated[Optional[list[str]], typer.Option("--add-item")] = None,
+    remove_item: Annotated[Optional[list[int]], typer.Option("--remove-item", help="Checklist item number.")] = None,
+) -> None:
+    """(Human only) Change a milestone."""
+    from . import roadmap
+
+    _, ledger = _open()
+    with ledger:
+        roadmap.update(ledger, name, title=title, deadline=deadline, clear_deadline=no_deadline,
+                       su_budget=su, clear_budget=no_su, add_ideas=add_idea or [], remove_ideas=remove_idea or [],
+                       add_items=add_item or [], remove_items=remove_item or [])
+    typer.echo(f"milestone {name} updated")
+
+
+def _milestone_check(name: str, item: int, done: bool) -> None:
+    from . import roadmap
+
+    _, ledger = _open()
+    with ledger:
+        m = roadmap.check(ledger, name, item, done)
+    typer.echo(f"[{'x' if done else ' '}] {item}. {m.items[item - 1]['text']}")
+
+
+@milestone_app.command("check")
+@handle_errors
+def milestone_check(name: Annotated[str, typer.Argument()],
+                    item: Annotated[int, typer.Argument(help="Checklist item number.")]) -> None:
+    """(Human only) Tick a checklist item."""
+    _milestone_check(name, item, True)
+
+
+@milestone_app.command("uncheck")
+@handle_errors
+def milestone_uncheck(name: Annotated[str, typer.Argument()],
+                      item: Annotated[int, typer.Argument(help="Checklist item number.")]) -> None:
+    """(Human only) Untick a checklist item."""
+    _milestone_check(name, item, False)
+
+
+def _milestone_status(name: str, op: str) -> None:
+    from . import roadmap
+
+    _, ledger = _open()
+    with ledger:
+        m = roadmap.set_status(ledger, name, op)
+    typer.echo(f"milestone {name}: {m.status}")
+
+
+@milestone_app.command("done")
+@handle_errors
+def milestone_done(name: Annotated[str, typer.Argument()]) -> None:
+    """(Human only) Mark a milestone done."""
+    _milestone_status(name, "done")
+
+
+@milestone_app.command("reopen")
+@handle_errors
+def milestone_reopen(name: Annotated[str, typer.Argument()]) -> None:
+    """(Human only) Reopen a done or dropped milestone."""
+    _milestone_status(name, "reopen")
+
+
+@milestone_app.command("drop")
+@handle_errors
+def milestone_drop(name: Annotated[str, typer.Argument()]) -> None:
+    """(Human only) Drop a milestone (it stays in the history)."""
+    _milestone_status(name, "drop")
+
+
 @app.command("arbd", hidden=True)
 @handle_errors
 def arbd(
@@ -1410,7 +1573,7 @@ def claudemd_sync(
 # Kept in one table so the grouping reads at a glance; tests/test_cli_help.py checks that
 # every visible command is in exactly one panel.
 HELP_PANELS: dict[str, list[str]] = {
-    "你做的": ["idea", "submit", "card", "approve", "reject", "key", "note", "status", "ui"],
+    "你做的": ["idea", "milestone", "submit", "card", "approve", "reject", "key", "note", "status", "ui"],
     "集群": ["watch", "poll", "cancel", "logs", "remote", "machine", "doctor"],
     "agent 做的": ["todo", "commands", "inspect", "run", "lesson"],
     "安装与内部": ["init", "install-claude", "hook", "claudemd", "export"],

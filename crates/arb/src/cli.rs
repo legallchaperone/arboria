@@ -35,7 +35,16 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
     (
         "你做的",
         &[
-            "idea", "submit", "card", "approve", "reject", "key", "note", "status", "ui",
+            "idea",
+            "milestone",
+            "submit",
+            "card",
+            "approve",
+            "reject",
+            "key",
+            "note",
+            "status",
+            "ui",
         ],
     ),
     (
@@ -111,6 +120,9 @@ pub enum Cmd {
     /// (Human only) Touch ID approval keys of the Mac app.
     #[command(subcommand, arg_required_else_help = true)]
     Key(KeyCmd),
+    /// The roadmap: your milestones (deadline, SU budget, ideas, checklist). Changes are human only.
+    #[command(subcommand, arg_required_else_help = true)]
+    Milestone(MilestoneCmd),
     /// (Human only) add a note to the current idea (--confidence also updates the idea).
     Note {
         /// The note (≤1000 chars).
@@ -279,6 +291,91 @@ pub enum KeyCmd {
     Revoke {
         /// Fingerprint, as `arb key list` shows it.
         fingerprint: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MilestoneCmd {
+    /// (Human only) Tick a checklist item.
+    Check {
+        name: String,
+        /// Checklist item number.
+        item: u32,
+    },
+    /// (Human only) Mark a milestone done.
+    Done { name: String },
+    /// (Human only) Drop a milestone (it stays in the history).
+    Drop { name: String },
+    /// The roadmap: open milestones by deadline, with spend and checklist.
+    List {
+        /// Also done and dropped milestones.
+        #[arg(long)]
+        all: bool,
+        /// Print machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// (Human only) Add a milestone to the roadmap.
+    New {
+        /// Short name (lowercase, digits, '-').
+        name: String,
+        /// What it is (≤80 chars).
+        #[arg(long, required = true)]
+        title: String,
+        /// YYYY-MM-DD.
+        #[arg(long)]
+        deadline: Option<String>,
+        /// SU budget for the runs of its ideas.
+        #[arg(long)]
+        su: Option<f64>,
+        /// An idea of this project (repeatable).
+        #[arg(long)]
+        idea: Vec<String>,
+        /// A checklist item (≤120 chars, repeatable).
+        #[arg(long)]
+        item: Vec<String>,
+    },
+    /// (Human only) Reopen a done or dropped milestone.
+    Reopen { name: String },
+    /// (Human only) Change a milestone.
+    Set {
+        name: String,
+        #[arg(long)]
+        title: Option<String>,
+        /// YYYY-MM-DD.
+        #[arg(long)]
+        deadline: Option<String>,
+        /// Remove the deadline.
+        #[arg(long)]
+        no_deadline: bool,
+        /// SU budget.
+        #[arg(long)]
+        su: Option<f64>,
+        /// Remove the SU budget.
+        #[arg(long)]
+        no_su: bool,
+        #[arg(long)]
+        add_idea: Vec<String>,
+        #[arg(long)]
+        remove_idea: Vec<String>,
+        #[arg(long)]
+        add_item: Vec<String>,
+        /// Checklist item number.
+        #[arg(long)]
+        remove_item: Vec<u32>,
+    },
+    /// One milestone.
+    Show {
+        name: String,
+        /// Print machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// (Human only) Untick a checklist item.
+    Uncheck {
+        name: String,
+        /// Checklist item number.
+        item: u32,
     },
 }
 
@@ -1223,6 +1320,7 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         }
         Cmd::Probe(cmd) => probe_cmd(cmd, json)?,
         Cmd::Key(_) => todo!("port of arboria.cli key (frozen: ADR 0004)"),
+        Cmd::Milestone(_) => todo!("port of arboria.cli milestone (frozen: ADR 0004)"),
         Cmd::Arbd { .. } => todo!("port of arboria.arbd (frozen: ADR 0004)"),
     }
     Ok(0)

@@ -27,6 +27,7 @@ class Reader(Protocol):
     """What the card needs from a ledger: `Ledger` or the dashboard's read-only one."""
 
     def one(self, sql: str, params: tuple = ()) -> dict[str, Any] | None: ...
+    def all(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]: ...
 
 
 def request_of(run: dict[str, Any]) -> dict[str, Any]:
@@ -147,4 +148,9 @@ def build_card(ctx: RepoContext, ledger: Reader, run: dict[str, Any], idea: dict
         card.budget.append(f"项目已用 {used:.2f} SU（arboria.toml 未设 [budget] total_su）")
         card.checks.append((False, "未设项目预算（arboria.toml [budget] total_su = 0）"))
     card.budget.append(f"本 idea 已用 {idea_used:.2f} SU")
+    from . import roadmap  # the human's milestones this idea counts against
+
+    lines, warns = roadmap.card_lines(ledger, idea["name"], plan.est_su)
+    card.budget += lines
+    card.checks += [(False, w) for w in warns]
     return card

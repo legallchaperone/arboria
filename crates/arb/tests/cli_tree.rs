@@ -131,7 +131,7 @@ fn command_tree_matches_python() {
             .join("\n    ")
     );
     assert_eq!(rust, python, "same lines, same order");
-    assert_eq!(python.len(), 69, "python_commands.txt has every command");
+    assert_eq!(python.len(), 79, "python_commands.txt has every command");
 }
 
 #[test]

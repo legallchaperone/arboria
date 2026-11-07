@@ -44,6 +44,16 @@ lesson retire	command	visible	-	lesson_id
 logs	command	visible	集群	run_id --segment=V -n=V(100)
 machine	group	visible	集群
 machine init	command	visible	-	name --host=V --account=V --write --replace
+milestone	group	visible	你做的
+milestone check	command	visible	-	name item
+milestone done	command	visible	-	name
+milestone drop	command	visible	-	name
+milestone list	command	visible	-	--all
+milestone new	command	visible	-	name --title=V! --deadline=V --su=V --idea=V... --item=V...
+milestone reopen	command	visible	-	name
+milestone set	command	visible	-	name --title=V --deadline=V --no-deadline --su=V --no-su --add-idea=V... --remove-idea=V... --add-item=V... --remove-item=V...
+milestone show	command	visible	-	name
+milestone uncheck	command	visible	-	name item
 note	command	visible	你做的	text --run=V --confidence=V
 poll	command	visible	集群	run_id?
 reject	command	visible	你做的	run_id --reason=V

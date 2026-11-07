@@ -36,7 +36,12 @@ SEED_RULES = ["Bash(arb seed new:*)", "Bash(arb seed set:*)", "Bash(arb seed dro
 # `arb idea style` rewrites the App(...) line of the human's notebooks: refused inside
 # Claude Code in code, and denied here too.
 NOTEBOOK_RULES = ["Bash(arb idea style:*)"]
-DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES, *SEED_RULES, *NOTEBOOK_RULES]
+# The roadmap is the human's: changing a milestone refuses inside Claude Code in code
+# (roadmap._require_human), and is denied here too. `list` / `show` stay readable.
+MILESTONE_RULES = [f"Bash(arb milestone {c}:*)"
+                   for c in ("new", "set", "check", "uncheck", "done", "reopen", "drop")]
+DENY_RULES = [*CLUSTER_RULES, *APPROVAL_RULES, *FILE_RULES, *SEED_RULES, *NOTEBOOK_RULES,
+              *MILESTONE_RULES]
 # The seed home (`arb install-claude --home`): the seed notebooks and the whole state dir
 # are the human's (its commands are the global ones, outside the home). There `arb idea
 # new/drop` act on seeds too (in a repo they are the agent's to use), so they are denied

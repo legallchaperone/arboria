@@ -69,7 +69,7 @@ uv run python docs/scripts/gen_cli.py          # 或在 docs/ 里 npm run cli-re
 | [`arb ui`](#arb-ui) | Open the read-only dashboard (看板). |
 | [`arb machine init`](#arb-machine-init) | Measure a Slurm machine over your ssh master (read-only) and print its profile. |
 | [`arb doctor`](#arb-doctor) | Read-only checks of a machine profile, the ssh setup and the cluster side. |
-| [`arb install-claude`](#arb-install-claude) | Add the SessionStart hook and permission rules to .claude/settings.json (the machine-specific global commands dir goes into .claude/settings.local.json). |
+| [`arb install-claude`](#arb-install-claude) | Add the hooks and permission rules to .claude/settings.json (the machine-specific global commands dir goes into .claude/settings.local.json) and the arboria Skill to .claude/skills/arboria/SKILL.md. |
 | [`arb hook session-start`](#arb-hook-session-start) | SessionStart hook: reads hook JSON on stdin, prints additionalContext JSON. |
 | [`arb hook prompt-submit`](#arb-hook-prompt-submit) | UserPromptSubmit hook: one line of context when the ledger changed since the last prompt. |
 | [`arb claudemd sync`](#arb-claudemd-sync) | Write the arboria block (rules + accepted lessons) into the main worktree's CLAUDE.md. |
@@ -100,6 +100,7 @@ arb idea new [OPTIONS] {name} [gist]
 | `--hypothesis <str>` | What you expect and why (≤300 chars); required in a repo. |  |
 | `--metric <str>` | How success is measured (≤200 chars); required in a repo. |  |
 | `--parent <str>` | Branch off this open idea (in a repo). |  |
+| `--json` | Print machine-readable JSON. |  |
 
 ### arb idea list
 
@@ -261,6 +262,7 @@ arb run summary [OPTIONS] {run_id} {text}
 | --- | --- | --- |
 | `run_id` | Run id, e.g. r001. | 必填 |
 | `text` | Result summary (≤10 lines, ≤1500 chars). | 必填 |
+| `--json` | Print machine-readable JSON. |  |
 
 ### arb note
 
@@ -461,6 +463,7 @@ arb remote ls [OPTIONS] {run_id} [subpath]
 | `run_id` | Run id, e.g. r001. | 必填 |
 | `subpath` | Relative path inside the run dir. |  |
 | `--out` | List ARBORIA\_OUT instead of the run dir. |  |
+| `--json` | Print machine-readable JSON. |  |
 
 ## Touch ID 签字密钥
 
@@ -680,6 +683,7 @@ arb todo done [OPTIONS] {task_id}
 | --- | --- | --- |
 | `task_id` | Todo id, e.g. t001. | 必填 |
 | `--result <str>` | What was done / found (≤600 chars). | 必填 |
+| `--json` | Print machine-readable JSON. |  |
 
 ### arb todo drop
 
@@ -693,6 +697,7 @@ arb todo drop [OPTIONS] {task_id}
 | --- | --- | --- |
 | `task_id` | Todo id, e.g. t001. | 必填 |
 | `--reason <str>` | Why (≤600 chars). |  |
+| `--json` | Print machine-readable JSON. |  |
 
 ### arb commands list
 
@@ -760,6 +765,7 @@ arb inspect check [OPTIONS] {task_id}
 | --- | --- | --- |
 | `task_id` | Todo id, e.g. t007. | 必填 |
 | `--file <str>` | The answer as JSON: a file, or - for stdin. | 必填 |
+| `--json` | Print machine-readable JSON. |  |
 
 ### arb inspect done
 
@@ -773,6 +779,7 @@ arb inspect done [OPTIONS] {task_id}
 | --- | --- | --- |
 | `task_id` | Todo id, e.g. t007. | 必填 |
 | `--file <str>` | The answer as JSON: a file, or - for stdin. | 必填 |
+| `--json` | Print machine-readable JSON. |  |
 
 ## 看板
 
@@ -828,7 +835,7 @@ arb doctor [OPTIONS] [name]
 
 ### arb install-claude
 
-Add the SessionStart hook and permission rules to .claude/settings.json (the machine-specific global commands dir goes into .claude/settings.local.json).
+Add the hooks and permission rules to .claude/settings.json (the machine-specific global commands dir goes into .claude/settings.local.json) and the arboria Skill to .claude/skills/arboria/SKILL.md.
 
 ```text
 arb install-claude [OPTIONS]
@@ -881,6 +888,7 @@ arb lesson propose [OPTIONS] {text}
 | `text` | One line, ≤200 chars: a reusable project pitfall. | 必填 |
 | `--idea <str>` | Source idea (default: current idea). |  |
 | `--run <str>` | Source run id. |  |
+| `--json` | Print machine-readable JSON. |  |
 
 ### arb lesson list
 

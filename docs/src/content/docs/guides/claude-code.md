@@ -38,6 +38,12 @@ arb tree --depth 1 --json
 
 两个 hook 都绝不让会话失败：任何错误都只写进 `.arboria/hook.log`，以退出码 0 结束、不输出内容。在不是 arboria 的仓库里它们什么都不输出，所以 `--user` 全局安装是安全的。
 
+## Skill
+
+`arb install-claude` 还写一个 Claude Code Skill：`.claude/skills/arboria/SKILL.md`（`--user` 时是 `~/.claude/skills/arboria/`）。Claude 只在任务碰到 idea、run、待办、集群或账本时才加载它，所以平时不占上下文。里面是 Claude 能用的命令（读的都带 `--json`；它写的 `idea new`、`run summary`、`todo done/drop`、`lesson propose`、`inspect check/done`、`remote ls` 也带）、提交和批准的流程、训练代码的约定，以及遇到“只由人”时该怎么做：把命令告诉你，不要绕。
+
+Skill 只是说明，不给任何权限：拒绝靠代码和权限规则。它和 settings.json 一样应该提交进仓库。重新运行 `install-claude` 会把它更新到当前版本；如果你想自己改它，删掉第一行注释（arboria 的标记），之后 arb 就不再覆盖。
+
 ## 权限规则
 
 ```json

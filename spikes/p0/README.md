@@ -13,7 +13,7 @@
 | ⑦ | 后台 `claude -p` 用量从哪扣 | ✅ | 和交互共用 five_hour / seven_day 窗口，没看到单独额度。默认加载全部 MCP/skills（回个 ok 用了 17 万 token），后台必须带 `--strict-mcp-config --disable-slash-commands --setting-sources ""`（约 3 千）；`--bare` 订阅下不能用。见 `7-claude-p/` |
 | 并行 | DeltaAI 上第一个真实 run | 人做 | `arb approve` 只在人的终端里，ssh 对 Claude 是 deny |
 
-## 需要改 ADR 0004 的地方（等人确认）
+## 已并入 ADR 0004 的修改（2026-11-06）
 1. “`WKUserStyleSheet` 注入 marimo”→“`WKUserScript`（document start）插 `<link href="arboria://app/marimo.css">`”。
 2. 批准密钥：CryptoKit `SecureEnclave.P256.Signing.PrivateKey`，SE blob 存文件，不用钥匙串。
 3. Python 核心新增运行时依赖 `cryptography`。

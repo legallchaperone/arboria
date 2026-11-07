@@ -1,0 +1,53 @@
+/* The agent drawer (drawer.html). Tokens and shared classes come from the design system. */
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg-subtle); color: var(--ink); }
+body { display: flex; flex-direction: column; }
+header { flex: none; display: flex; align-items: center; gap: var(--col-1); height: var(--size-row); padding: 0 var(--col-2); }
+.tabs { display: flex; gap: 2px; }
+.tab { font: inherit; border: 0; background: none; color: var(--ink-muted); padding: 0 var(--col-1); border-radius: var(--radius-sm); cursor: default; }
+.tab:hover { background: var(--fill); }
+.tab.is-on { color: var(--ink); background: var(--fill); }
+select { font: inherit; color: var(--ink-muted); background: var(--fill); border: 0; border-radius: var(--radius-sm); padding: 0 var(--col-1); }
+
+main { flex: 1 1 auto; overflow-y: auto; padding: var(--space-2) var(--col-2) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+main::-webkit-scrollbar { width: 6px; }
+main::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.empty { color: var(--ink-muted); margin: auto 0; text-align: center; }
+
+.msg { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.msg .who { color: var(--ink-muted); }
+.msg .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg.you .text { background: var(--fill); border-radius: var(--radius-md); padding: var(--space-2) var(--col-2); align-self: flex-end; max-width: 90%; }
+.msg.you .who { align-self: flex-end; }
+.msg.agent .who { color: var(--accent-text); }
+.text code { font-family: inherit; background: var(--fill); border-radius: var(--radius-sm); padding: 0 3px; }
+.text pre { margin: var(--space-1) 0; padding: var(--space-2) var(--col-1); background: var(--bg-raised); border-radius: var(--radius-sm); overflow-x: auto; white-space: pre; }
+
+details.thought { color: var(--ink-muted); }
+details.thought summary { cursor: default; }
+details.thought .text { white-space: pre-wrap; padding-left: var(--col-2); }
+
+.tool { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-1) var(--col-1); border-radius: var(--radius-sm); }
+.tool .line { display: flex; align-items: center; gap: var(--col-1); min-width: 0; }
+.tool .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tool .kind { color: var(--ink-faint); }
+.tool details summary { color: var(--ink-muted); cursor: default; }
+.tool pre { margin: var(--space-1) 0 0; padding: var(--space-2) var(--col-1); background: var(--bg-raised); border-radius: var(--radius-sm); overflow-x: auto; max-height: 18em; }
+.tool .add { color: var(--ok); }
+.tool .del { color: var(--bad); }
+
+.plan { display: flex; flex-direction: column; gap: 2px; padding-left: var(--col-1); }
+.plan .done { color: var(--ink-faint); text-decoration: line-through; }
+
+.ask-card { background: var(--bg-raised); border-radius: var(--radius-md); padding: var(--space-3) var(--col-2); display: flex; flex-direction: column; gap: var(--space-2); box-shadow: inset 0 0 0 1px var(--warn); }
+.ask-card .what { overflow-wrap: anywhere; }
+.ask-card .buttons { display: flex; flex-wrap: wrap; gap: var(--col-1); }
+.ask-card.is-answered { box-shadow: none; color: var(--ink-muted); }
+
+.note { color: var(--ink-muted); }
+.note.bad { color: var(--bad); }
+
+footer { flex: none; padding: var(--space-2) var(--col-2) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); }
+.ask { display: flex; gap: var(--col-1); align-items: flex-end; }
+textarea { flex: 1 1 auto; resize: none; font: inherit; color: var(--ink); background: var(--bg-raised); border: 0; border-radius: var(--radius-md); padding: var(--space-2) var(--col-1); box-shadow: inset 0 0 0 1px var(--line); max-height: 12em; }
+textarea:focus { outline: 2px solid var(--focus); outline-offset: 0; }

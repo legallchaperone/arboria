@@ -6,7 +6,10 @@
 <style>
   html, body { height: 100%; overflow: hidden; background: var(--bg-subtle); }
   header { display: flex; align-items: center; gap: var(--col-1); height: var(--size-row); padding: 0 var(--col-2); color: var(--ink-muted); }
-  header .strong { color: var(--ink); }
+  .tabs { display: flex; gap: 2px; }
+  .tab { font: inherit; border: 0; background: none; color: var(--ink-muted); padding: 0 var(--col-1); border-radius: var(--radius-sm); cursor: default; }
+  .tab:hover { background: var(--fill); }
+  .tab.is-on { color: var(--ink); background: var(--fill); }
   #t { position: absolute; inset: var(--size-row) var(--col-1) var(--space-2) var(--col-2); }
   .xterm .xterm-viewport { background: transparent !important; }
   .xterm .xterm-viewport::-webkit-scrollbar { width: 6px; }
@@ -14,7 +17,7 @@
   .xterm .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 </style></head>
 <body class="body">
-<header><span class="strong">agent</span><span>·</span><span id="idea"></span><span class="ab-spacer"></span><span class="small">⌘J 收起</span></header>
+<header><nav class="tabs" aria-label="agent 面板"><button class="tab" id="to-agent" aria-pressed="false">对话</button><button class="tab is-on" aria-pressed="true">终端</button></nav><span id="idea" class="ab-clip"></span><span class="ab-spacer"></span><span class="small">⌘J 收起</span></header>
 <div id="t"></div>
 <script src="xterm.js"></script>
 <script src="addon-fit.js"></script>
@@ -22,6 +25,7 @@
   const post = (m) => window.webkit.messageHandlers.term.postMessage(m);
   window.b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
   window.ended = () => term.write("\r\n\x1b[2m[agent 已退出]\x1b[0m\r\n");
+  document.getElementById("to-agent").addEventListener("click", () => post({ kind: "tab", tab: "agent" }));
   window.setIdea = (name) => { document.getElementById("idea").textContent = name; };
   // xterm's colours come from the design tokens and follow the system appearance.
   function theme() {

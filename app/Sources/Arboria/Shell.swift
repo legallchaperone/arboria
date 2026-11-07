@@ -50,6 +50,7 @@ final class RootView: NSView {
 final class Terminal: NSObject, WKScriptMessageHandler {
     let idea: String, cwd: String
     let web: WKWebView
+    var onTab: ((String) -> Void)?
     private var pty: Pty?
 
     init(idea: String, cwd: String, config: WKWebViewConfiguration) {
@@ -69,6 +70,7 @@ final class Terminal: NSObject, WKScriptMessageHandler {
         case "ready": web.evaluateJavaScript("setIdea(\(jsString(idea)))"); start(cols: cols, rows: rows)
         case "data": pty?.write(msg["data"] as? String ?? "")
         case "resize": pty?.resize(cols: cols, rows: rows)
+        case "tab": if let t = msg["tab"] as? String { onTab?(t) }
         default: break
         }
     }
@@ -90,6 +92,71 @@ final class Terminal: NSObject, WKScriptMessageHandler {
     func stop() { pty?.terminate(); web.configuration.userContentController.removeScriptMessageHandler(forName: "term") }
 }
 
+/// One agent drawer per idea: our page (drawer.html) drawing an ACP session with the
+/// user's own `claude` in the idea's worktree. Started the first time the panel shows it.
+/// The page only relays the person's input; what it may cause is decided in Acp.
+final class Drawer: NSObject, WKScriptMessageHandler {
+    let idea: String, cwd: String
+    let web: WKWebView
+    var onTab: ((String) -> Void)?
+    private var acp: Acp?
+
+    init(idea: String, cwd: String, config: WKWebViewConfiguration) {
+        self.idea = idea; self.cwd = cwd
+        let c = config.copy() as! WKWebViewConfiguration
+        c.userContentController = WKUserContentController()
+        web = WKWebView(frame: .zero, configuration: c)
+        super.init()
+        c.userContentController.add(self, name: "drawer")
+        if #available(macOS 13.3, *) { web.isInspectable = true }
+        web.load(URLRequest(url: URL(string: "arboria://app/drawer.html")!))
+    }
+
+    func userContentController(_ u: WKUserContentController, didReceive m: WKScriptMessage) {
+        guard let msg = m.body as? [String: Any], let kind = msg["kind"] as? String else { return }
+        switch kind {
+        case "ready": emit(["type": "idea", "idea": idea, "cwd": cwd]); start()
+        case "prompt": acp?.prompt(msg["text"] as? String ?? "")
+        case "cancel": acp?.cancel()
+        case "mode": if let id = msg["id"] as? String { acp?.setMode(id) }
+        case "permission": if let id = msg["id"] as? Int { acp?.answer(id, option: msg["option"] as? String) }
+        case "restart": acp?.stop(); acp = nil; start()
+        case "tab": if let t = msg["tab"] as? String { onTab?(t) }
+        default: break
+        }
+    }
+
+    private func start() {
+        do {
+            let a = try Acp(cwd: cwd)
+            a.onEvent = { [weak self] e in self?.relay(e) }
+            acp = a
+            a.start()
+        } catch { emit(["type": "failed", "text": "\(error)"]) }
+    }
+
+    private func relay(_ e: Acp.Event) {
+        switch e {
+        case .status(let t): emit(["type": "status", "text": t])
+        case .session(let modes, let current): emit(["type": "session", "modes": modes, "current": current])
+        case .update(let u): emit(["type": "update", "update": u])
+        case .permission(let id, let tool, let options): emit(["type": "permission", "id": id, "toolCall": tool, "options": options])
+        case .done(let reason, let usage): emit(["type": "done", "stopReason": reason, "usage": usage])
+        case .failed(let t): emit(["type": "failed", "text": t])
+        case .exited: emit(["type": "exited"])
+        }
+    }
+
+    private func emit(_ obj: [String: Any]) {
+        guard let d = try? JSONSerialization.data(withJSONObject: obj) else { return }
+        web.evaluateJavaScript("window.drawer && drawer.on(\(String(decoding: d, as: UTF8.self)))")
+    }
+
+    /// For the probe: type a prompt as the person would.
+    func send(_ text: String) { web.evaluateJavaScript("drawer.ask(\(jsString(text)))") }
+    func stop() { acp?.stop(); web.configuration.userContentController.removeScriptMessageHandler(forName: "drawer") }
+}
+
 final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     var arbd: Arbd!
     var win: AppWindow!
@@ -98,6 +165,8 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
     var notebook: WKWebView!
     let panelHost = NSView()
     var terminals: [String: Terminal] = [:]
+    var drawers: [String: Drawer] = [:]
+    var panelTab = "agent"  // "agent" (the drawer) or "terminal" (full Claude Code)
     var current: String?
     var worktrees: [String: String] = [:]
     var overlayOpen = false
@@ -131,6 +200,7 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
 
     func applicationWillTerminate(_ n: Notification) {
         terminals.values.forEach { $0.stop() }
+        drawers.values.forEach { $0.stop() }
         arbd?.stop()
     }
 
@@ -384,8 +454,8 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
         guard let idea = current else { return }
         panelOpen.toggle()
         layoutChrome(); render([:])
-        if panelOpen { showTerminal(idea) }  // after layout: xterm measures its pane once it loads
-        if panelOpen, let t = terminals[idea] { win.makeFirstResponder(t.web) } else { win.makeFirstResponder(notebook) }
+        if panelOpen { showPanel(idea) }  // after layout: xterm measures its pane once it loads
+        if !panelOpen { win.makeFirstResponder(notebook) }
     }
 
     func select(_ idea: String, done: ((String?) -> Void)? = nil) {
@@ -400,7 +470,7 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
                 self.notebookOrigin = "http://\(host):\(port)"
                 self.notebook.load(URLRequest(url: u))
                 self.layoutChrome(); self.render([:])
-                if self.panelOpen { self.showTerminal(idea) }
+                if self.panelOpen { self.showPanel(idea) }
                 self.win.makeFirstResponder(self.notebook)
                 done?(url)
             case .failure(let e):
@@ -410,15 +480,31 @@ final class Shell: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMe
         }
     }
 
-    func showTerminal(_ idea: String) {
+    /// The panel shows the idea's drawer or its terminal (panelTab); each starts on first show.
+    func showPanel(_ idea: String) {
         guard let wt = worktrees[idea] else { return }
-        let t = terminals[idea] ?? Terminal(idea: idea, cwd: wt, config: appConfig)
-        terminals[idea] = t
+        let web: WKWebView
+        if panelTab == "terminal" {
+            let t = terminals[idea] ?? Terminal(idea: idea, cwd: wt, config: appConfig)
+            t.onTab = { [weak self] tab in self?.switchTab(tab) }
+            terminals[idea] = t; web = t.web
+        } else {
+            let d = drawers[idea] ?? Drawer(idea: idea, cwd: wt, config: appConfig)
+            d.onTab = { [weak self] tab in self?.switchTab(tab) }
+            drawers[idea] = d; web = d.web
+        }
         panelHost.subviews.forEach { $0.removeFromSuperview() }
         root.layoutSubtreeIfNeeded()
-        t.web.frame = panelHost.bounds
-        t.web.autoresizingMask = [.width, .height]
-        panelHost.addSubview(t.web)
+        web.frame = panelHost.bounds
+        web.autoresizingMask = [.width, .height]
+        panelHost.addSubview(web)
+        win.makeFirstResponder(web)
+    }
+
+    func switchTab(_ tab: String) {
+        guard ["agent", "terminal"].contains(tab), let idea = current else { return }
+        panelTab = tab
+        showPanel(idea)
     }
 
     // MARK: navigation policy: our pages stay on arboria://app, the notebook on its marimo server

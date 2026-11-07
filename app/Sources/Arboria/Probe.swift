@@ -115,6 +115,8 @@ final class Probe {
         NSApp.activate(ignoringOtherApps: true)
         shell.win.orderFrontRegardless()
         say("window occluded: \(!shell.win.occlusionState.contains(.visible))")
+        if ProcessInfo.processInfo.environment["ARB_PROBE"] == "drawer" { drawer(); return }
+        shell.panelTab = "terminal"
         shell.togglePanel()
         guard let idea = shell.current, let t = shell.terminals[idea] else { finish(); return }
         after(8) {
@@ -133,6 +135,51 @@ final class Probe {
             self.eval(t.web, "return screenText().split('\\n').slice(-12).join('\\n')", "agent") {
                 self.shot("5-agent") { self.after(4) { self.shot("6-agent-later") { self.finish() } } }
             }
+        }
+    }
+
+    /// ARB_PROBE=drawer: the agent drawer: wait for the session, ask ARB_PROBE_PROMPT, answer
+    /// every permission request with the page's primary button (allow once; a picture of the first), then the
+    /// terminal tab and back.
+    private func drawer() {
+        shell.panelTab = "agent"
+        shell.togglePanel()
+        guard let idea = shell.current, let d = shell.drawers[idea] else { finish(); return }
+        let text = "return document.getElementById('log').innerText.replace(/\\n+/g, ' | ').slice(-1500)"
+        after(12) {
+            self.eval(d.web, "return [...document.getElementById('mode').options].map(o => o.value + '=' + o.text).join(',') + ' / ' + document.getElementById('status').innerText", "drawer-modes") {
+                self.shot("5-drawer") {
+                    d.send(self.prompt ?? "用一句话说说这个 idea 在研究什么。")
+                    self.waitDrawer(d, tries: 30, clicked: false) {
+                        self.eval(d.web, text, "drawer") {
+                            self.shot("6-drawer-answer") {
+                                self.shell.switchTab("terminal")
+                                self.after(3) { self.shot("7-terminal-tab") { self.shell.switchTab("agent"); self.after(1) { self.finish() } } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func waitDrawer(_ d: Drawer, tries: Int, clicked: Bool, then: @escaping () -> Void) {
+        let js = "const c = document.querySelector('.ask-card:not(.is-answered) .ab-btn-primary'); return JSON.stringify({ask: !!c, busy: !document.getElementById('stop').hidden})"
+        d.web.callAsyncJavaScript(js, arguments: [:], in: nil, in: .page) { r in
+            guard case .success(let v) = r, let s = v as? String, let o = try? JSONSerialization.jsonObject(with: Data(s.utf8)) as? [String: Bool] else {
+                self.say("drawer wait: \(r)"); then(); return
+            }
+            self.say("drawer wait \(tries): \(s)")
+            if o["ask"] == true {
+                let allow = {
+                    d.web.evaluateJavaScript("document.querySelector('.ask-card:not(.is-answered) .ab-btn-primary').click()")
+                    self.say("drawer: allowed once")
+                    self.after(2) { self.waitDrawer(d, tries: tries - 1, clicked: true, then: then) }
+                }
+                if clicked { allow() } else { self.shot("6-drawer-permission") { allow() } }
+            } else if o["busy"] == true && tries > 0 {
+                self.after(3) { self.waitDrawer(d, tries: tries - 1, clicked: clicked, then: then) }
+            } else { then() }
         }
     }
 

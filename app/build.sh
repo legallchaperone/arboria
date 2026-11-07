@@ -6,6 +6,10 @@ cd "$(dirname "$0")"
 NPM=.build/npm
 [ -f $NPM/node_modules/@xterm/addon-fit/lib/addon-fit.js ] || \
   npm install --silent --no-save --prefix $NPM @xterm/xterm@5.5.0 @xterm/addon-fit@0.10.0
+# the agent drawer's ACP adapter, pinned in acp/package-lock.json; --omit=optional leaves out
+# the agent SDK's bundled claude binary (the drawer runs the user's own claude)
+[ -f acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/index.js ] || \
+  (cd acp && npm ci --silent --omit=optional --ignore-scripts --no-audit --no-fund)
 swift build -c release
 APP=build/Arboria.app
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/fonts"
@@ -15,6 +19,7 @@ python3 design/derive.py "$APP/Contents/Resources/web"   # tokens.css, ab-tokens
 cp design/bundle.css "$APP/Contents/Resources/web/bundle.css"
 cp $NPM/node_modules/@xterm/xterm/lib/xterm.js $NPM/node_modules/@xterm/xterm/css/xterm.css \
    $NPM/node_modules/@xterm/addon-fit/lib/addon-fit.js "$APP/Contents/Resources/web/"
+mkdir -p "$APP/Contents/Resources/acp" && cp -R acp/node_modules "$APP/Contents/Resources/acp/node_modules"
 cp ../src/arboria/ui/fonts/MapleMono-CN-*.woff2 "$APP/Contents/Resources/fonts/"   # the design system uses only Maple Mono CN
 cat > "$APP/Contents/Info.plist" <<PL
 <?xml version="1.0" encoding="UTF-8"?>
@@ -29,6 +34,6 @@ cat > "$APP/Contents/Info.plist" <<PL
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PL
-xattr -cr "$APP"
+chflags -R nohidden "$APP"; xattr -cr "$APP"
 codesign -s - --force "$APP"
 echo "built $APP"

@@ -1,0 +1,8 @@
+{
+  "name": "arboria-acp",
+  "private": true,
+  "description": "The agent drawer's ACP adapter, pinned. Installed by app/build.sh with --omit=optional so the SDK's bundled claude binary is not installed; the user's own claude runs (CLAUDE_CODE_EXECUTABLE).",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.94.0"
+  }
+}

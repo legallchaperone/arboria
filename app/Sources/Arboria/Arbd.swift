@@ -102,8 +102,11 @@ enum ArbdError: Error, CustomStringConvertible {
 
 func shellQuote(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 
-/// Our environment minus any Claude Code session we may have been started from
-/// (CLAUDE_CODE_CHILD_SESSION turns transcripts off, so --resume would break).
+/// Our environment minus any Claude Code session we may have been started from: CLAUDECODE,
+/// CLAUDE_CODE_*, CLAUDE_AGENT_SDK_*, … (CLAUDE_CODE_CHILD_SESSION turns transcripts off, so
+/// --resume would break). The user's CLAUDE_CONFIG_DIR stays (same rule as agent.clean_env).
 func cleanEnvironment() -> [String: String] {
-    ProcessInfo.processInfo.environment.filter { $0.key != "CLAUDECODE" && !$0.key.hasPrefix("CLAUDE_CODE_") && !$0.key.hasPrefix("ARB_PROBE") }
+    ProcessInfo.processInfo.environment.filter {
+        (!$0.key.hasPrefix("CLAUDE") || $0.key == "CLAUDE_CONFIG_DIR") && !$0.key.hasPrefix("ARB_PROBE")
+    }
 }

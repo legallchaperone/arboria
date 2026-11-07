@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="bundle.css">
+<link rel="stylesheet" href="drawer.css">
+</head>
+<body class="body">
+<header>
+  <nav class="tabs" aria-label="agent 面板">
+    <button class="tab is-on" aria-pressed="true">对话</button>
+    <button class="tab" id="to-terminal" aria-pressed="false" title="完整的 Claude Code">终端</button>
+  </nav>
+  <span class="ab-muted ab-clip" id="idea"></span>
+  <span class="ab-spacer"></span>
+  <select id="mode" class="small" title="权限模式" disabled></select>
+  <span class="small ab-muted">⌘J 收起</span>
+</header>
+<main id="log" aria-live="polite"></main>
+<footer>
+  <div id="status" class="small ab-muted"></div>
+  <div class="ask">
+    <textarea id="q" class="body" rows="2" placeholder="问 agent，或让它做点什么（⏎ 发送，⇧⏎ 换行）" disabled></textarea>
+    <button id="send" class="ab-btn ab-btn-primary body" disabled>发送</button>
+    <button id="stop" class="ab-btn body" hidden>停止</button>
+  </div>
+</footer>
+<script src="drawer.js"></script>
+</body></html>

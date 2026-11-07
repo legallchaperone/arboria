@@ -1197,6 +1197,18 @@ def ui(
     raise typer.Exit(code)
 
 
+@app.command("arbd", hidden=True)
+@handle_errors
+def arbd(
+    socket_path: Annotated[Path, typer.Option("--socket", help="Unix socket to listen on.")],
+    project: Annotated[Path, typer.Option("--project", help="A worktree of the project (default: here).")] = Path("."),
+) -> None:
+    """The Mac app's core process: JSON over a Unix socket; exits when stdin closes."""
+    from . import arbd as arbd_mod
+
+    arbd_mod.serve(socket_path, project)
+
+
 # ---------------------------------------------------------------- machines
 
 

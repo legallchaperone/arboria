@@ -237,7 +237,7 @@ def test_install_claude_home(arb, tmp_path: Path, isolated_home: Path, repo: Pat
         {"hooks": [{"type": "command", "command": "arb hook session-start"}]}]
     deny = settings["permissions"]["deny"]
     assert deny == install.HOME_DENY_RULES
-    for tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
+    for tool in ("Edit",):
         assert f"{tool}(**/seeds/**)" in deny and f"{tool}(**/.arboria/**)" in deny
     # every seed write, under both spellings: in the home `arb idea new/drop` act on seeds
     for rule in ("Bash(arb approve:*)", "Bash(sbatch:*)", "Bash(arb seed plant:*)",

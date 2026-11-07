@@ -25,7 +25,11 @@ APPROVAL_KEY_PATHS = ["**/approve-keys.json", "**/Library/Application Support/Ar
 PROTECTED_PATHS = ["**/.arboria/notebooks/**", "**/.arboria/ledger.db*", "**/.arboria/backup/**",
                    "**/.arboria/*.toml", "**/.arboria/sessions/**", "**/notebook.py",
                    *APPROVAL_KEY_PATHS]
-EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"]
+# Claude Code matches file deny rules only as `Edit(path)`, which covers every
+# file-editing tool (and Bash redirects into the path); `Write(…)`/`MultiEdit(…)`/
+# `NotebookEdit(…)` rules are ignored with a startup warning (checked with claude 2.1.318).
+EDIT_TOOLS = ["Edit"]
+LEGACY_EDIT_TOOLS = ("Write", "MultiEdit", "NotebookEdit")  # what older arb wrote; removed
 FILE_RULES = [f"{tool}({path})" for path in PROTECTED_PATHS for tool in EDIT_TOOLS]
 # Seeds are the human's: every command that writes one refuses inside Claude Code in
 # code (seeds.require_human), under either spelling. The commands that only ever write
@@ -98,6 +102,11 @@ def merge_settings(settings: dict[str, Any], where: str = "settings.json",
         if rule not in deny:
             deny.append(rule)
             changes.append(f"permissions.deny += {rule}")
+    legacy = {f"{tool}({path})" for tool in LEGACY_EDIT_TOOLS
+              for path in (*PROTECTED_PATHS, *HOME_PROTECTED_PATHS)}
+    for rule in [r for r in deny if r in legacy]:
+        deny.remove(rule)
+        changes.append(f"permissions.deny -= {rule} (ignored by Claude Code; Edit covers it)")
     if add_dirs:
         changes += add_directories(settings, add_dirs, where)
     ask = perms.get("ask")

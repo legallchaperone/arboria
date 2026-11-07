@@ -95,7 +95,7 @@ def test_install_claude_creates_and_merges(idea: Path, initialized: Path, arb) -
     assert deny[:9] == [
         "Bash(sbatch:*)", "Bash(srun:*)", "Bash(salloc:*)", "Bash(scancel:*)", "Bash(ssh:*)",
         "Bash(scp:*)", "Bash(rsync:*)", "Bash(arb approve:*)", "Bash(arb lesson accept:*)"]
-    for tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
+    for tool in ("Edit",):
         for pattern in ("**/.arboria/notebooks/**", "**/.arboria/ledger.db*",
                         "**/.arboria/backup/**", "**/.arboria/*.toml",
                         "**/.arboria/sessions/**", "**/notebook.py"):
@@ -230,7 +230,7 @@ def test_install_claude_turns_on_the_sandbox(idea: Path, initialized: Path, arb)
     state = initialized.absolute() / ".arboria"
     assert fs["denyWrite"][:2] == [str(state / "notebooks"), str(idea.absolute() / "notebook.py")]
     assert str(approvekeys.keys_path().absolute()) in fs["denyWrite"]
-    assert fs["allowWrite"] == [str(state / "commands")]
+    assert fs["allowWrite"] == [str(state / "commands")] and (state / "commands").is_dir()
     assert all(Path(p).is_absolute() for p in fs["denyWrite"])  # machine paths, not committed
     assert "sandbox.enabled = true" in out
     assert "sandbox" not in arb(idea, "install-claude").stdout  # idempotent
@@ -249,3 +249,18 @@ def test_user_install_leaves_the_sandbox_alone(initialized: Path, arb, tmp_path:
     monkeypatch.setenv("HOME", str(tmp_path))
     arb(initialized, "install-claude", "--user")
     assert "sandbox" not in json.loads((tmp_path / ".claude" / "settings.json").read_text())
+
+
+def test_install_drops_the_file_rules_claude_code_ignores() -> None:
+    """Claude Code matches file deny rules only as Edit(path) (it covers every file tool and
+    Bash redirects); the Write/MultiEdit/NotebookEdit rules an older arb added only warn."""
+    old = ["Write(**/notebook.py)", "MultiEdit(**/.arboria/notebooks/**)", "Write(my/own/rule)"]
+    settings = {"permissions": {"deny": list(old)}}
+    changes = install.merge_settings(settings)
+    deny = settings["permissions"]["deny"]
+    assert "Write(**/notebook.py)" not in deny and "MultiEdit(**/.arboria/notebooks/**)" not in deny
+    assert "Write(my/own/rule)" in deny  # not ours: kept
+    assert "Edit(**/notebook.py)" in deny
+    assert any(c.startswith("permissions.deny -= Write(**/notebook.py)") for c in changes)
+    assert not any(r.split("(")[0] in install.LEGACY_EDIT_TOOLS
+                   for r in install.DENY_RULES + install.HOME_DENY_RULES)

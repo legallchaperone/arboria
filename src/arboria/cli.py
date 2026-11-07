@@ -1594,6 +1594,8 @@ def install_claude(
         if root is None:
             raise ArbError("not inside a worktree")
     box = None if user else install_mod.sandbox_paths(ctx.main, root)
+    if box is not None and ctx.initialized:  # allowWrite only covers a dir that exists
+        commands_mod.project_dir(ctx.state_dir).mkdir(parents=True, exist_ok=True)
     path, changes = install_mod.install(root, local=not user, sandbox=box)
     skill_change = skill_mod.install(root)
     if skill_change:

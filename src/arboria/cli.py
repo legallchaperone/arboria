@@ -11,6 +11,7 @@ from typing import Annotated, Any, Callable, Optional
 import typer
 import typer.core
 
+from . import agent as agent_mod
 from . import claudemd, human, slurm
 from . import commands as commands_mod
 from . import hook as hook_mod
@@ -81,6 +82,9 @@ app.add_typer(commands_app, name="commands")
 inspect_app = typer.Typer(help="读代码 todos from lab.inspect(...): the agent gives locations and "
                           "notes, arb extracts the code from git.", no_args_is_help=True)
 app.add_typer(inspect_app, name="inspect")
+agent_app = typer.Typer(help="The background agent: `claude -p` works through one todo "
+                        "(started by you; limited tools, sandbox, daily limit).", no_args_is_help=True)
+app.add_typer(agent_app, name="agent")
 seed_app = typer.Typer(help="Alias of the seed side of `arb idea` (works from any directory): "
                        "seeds (种子) are ideas without a repo yet, kept in ~/arboria "
                        "(or $ARBORIA_HOME).",
@@ -1646,10 +1650,60 @@ def claudemd_sync(
 # The top-level commands and groups, grouped for `arb --help` (Typer's rich_help_panel).
 # Kept in one table so the grouping reads at a glance; tests/test_cli_help.py checks that
 # every visible command is in exactly one panel.
+# ---------------------------------------------------------------- agent
+
+
+@agent_app.command("run")
+@handle_errors
+def agent_run(
+    task_id: Annotated[Optional[str], typer.Argument(
+        help="Todo id (default: the oldest open todo it can do, in this idea when in its worktree).")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the prompt and the claude "
+                                          "command line; start nothing.")] = False,
+    as_json: JsonOpt = False,
+) -> None:
+    """Hand one todo to `claude -p` (your own claude) and wait for it. Refused inside Claude Code."""
+    ctx = locate().require_initialized()
+    cfg = project_config(ctx).agent
+    if dry_run:
+        with Ledger(ctx.state_dir) as ledger:
+            p = agent_mod.plan(ctx, ledger, agent_mod.pick(ctx, ledger, task_id))
+        argv = p.argv("claude", cfg)
+        if as_json:
+            _echo_json({"task": p.task["id"], "cwd": str(p.cwd), "argv": argv})
+        else:
+            typer.echo(f"# {p.task['id']} in {p.cwd}\n{p.prompt}\n# argv")
+            typer.echo(json.dumps(argv, ensure_ascii=False, indent=1))
+        return
+    out = agent_mod.run(ctx, cfg, task_id, echo=(lambda s: None) if as_json else typer.echo)
+    _done(out, agent_mod.describe(out), as_json)
+    if out["status"] != "done":
+        raise typer.Exit(1)
+
+
+@agent_app.command("list")
+@handle_errors
+def agent_list(
+    limit: Annotated[int, typer.Option("-n", help="How many.")] = 20,
+    as_json: JsonOpt = False,
+) -> None:
+    """The background agent's recent runs (newest first): outcome, tokens, five_hour window."""
+    ctx, ledger = _open()
+    with ledger:
+        rows = agent_mod.history(ledger, limit)
+    if as_json:
+        _echo_json(rows)
+        return
+    if not rows:
+        typer.echo("no background agent runs yet (`arb agent run`)")
+    for r in rows:
+        typer.echo(f"{r['ts'][:16].replace('T', ' ')}  {agent_mod.describe(r)}")
+
+
 HELP_PANELS: dict[str, list[str]] = {
     "你做的": ["idea", "milestone", "submit", "card", "approve", "reject", "key", "note", "status", "tree", "ui"],
     "集群": ["watch", "poll", "cancel", "logs", "remote", "machine", "doctor"],
-    "agent 做的": ["todo", "commands", "inspect", "run", "lesson"],
+    "agent 做的": ["agent", "todo", "commands", "inspect", "run", "lesson"],
     "安装与内部": ["init", "install-claude", "hook", "claudemd", "export"],
 }
 

@@ -56,7 +56,7 @@ pub const HELP_PANELS: &[(&str, &[&str])] = &[
     ),
     (
         "agent 做的",
-        &["todo", "commands", "inspect", "run", "lesson"],
+        &["agent", "todo", "commands", "inspect", "run", "lesson"],
     ),
     (
         "安装与内部",
@@ -229,6 +229,9 @@ pub enum Cmd {
     },
 
     // ------------------------------------------------ agent 做的
+    /// The background agent: `claude -p` works through one todo (started by you; limited tools, sandbox, daily limit).
+    #[command(subcommand, arg_required_else_help = true)]
+    Agent(AgentCmd),
     /// Todos from the idea notebooks (written by you, done by the agent).
     #[command(subcommand, arg_required_else_help = true)]
     Todo(TodoCmd),
@@ -311,6 +314,25 @@ pub enum KeyCmd {
     Revoke {
         /// Fingerprint, as `arb key list` shows it.
         fingerprint: String,
+    },
+}
+
+/// `arb agent` (ADR 0004 P4; the Rust core is frozen, so these stay unported).
+#[derive(Debug, Subcommand)]
+pub enum AgentCmd {
+    /// Hand one todo to `claude -p` (your own claude) and wait for it. Refused inside Claude Code.
+    Run {
+        /// Todo id (default: the oldest open todo it can do, in this idea when in its worktree).
+        task_id: Option<String>,
+        /// Print the prompt and the claude command line; start nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// The background agent's recent runs (newest first): outcome, tokens, five_hour window.
+    List {
+        /// How many.
+        #[arg(short = 'n', default_value_t = 20)]
+        n: usize,
     },
 }
 
@@ -1348,6 +1370,7 @@ pub fn run(cli: Cli) -> anyhow::Result<i32> {
         Cmd::Key(_) => todo!("port of arboria.cli key (frozen: ADR 0004)"),
         Cmd::Milestone(_) => todo!("port of arboria.cli milestone (frozen: ADR 0004)"),
         Cmd::Tree { .. } => todo!("port of arboria.cli tree (frozen: ADR 0004)"),
+        Cmd::Agent(_) => todo!("port of arboria.agent (frozen: ADR 0004)"),
         Cmd::Arbd { .. } => todo!("port of arboria.arbd (frozen: ADR 0004)"),
     }
     Ok(0)

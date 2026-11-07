@@ -62,6 +62,16 @@ class ClaudeConfig:
 
 
 @dataclass(frozen=True)
+class AgentConfig:
+    """`[agent]`: the background `claude -p` (agent.py)."""
+    model: str = ""  # "" = claude's default
+    max_turns: int = 30
+    timeout_minutes: int = 30
+    daily_limit: int = 10  # background runs per rolling 24 hours
+    pause_above: float = 0.7  # five_hour utilization at which background runs stop
+
+
+@dataclass(frozen=True)
 class ProjectConfig:
     default_machine: str
     total_su: float  # 0 = no budget set
@@ -72,6 +82,7 @@ class ProjectConfig:
     claude: ClaudeConfig = ClaudeConfig()
     metric: str = ""  # [project] metric: the metrics.jsonl key results are read from ("" = infer)
     goal: str = ""  # [project] goal: "min" or "max" ("" = infer from the idea's metric text)
+    agent: AgentConfig = AgentConfig()
 
 
 def load_toml(path, what: str) -> dict[str, Any]:
@@ -190,6 +201,27 @@ def _claude(cfg: dict[str, Any], path) -> ClaudeConfig:
     return ClaudeConfig(push=push)
 
 
+_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,63}$")
+
+
+def _agent(cfg: dict[str, Any], path) -> AgentConfig:
+    table = _table(cfg, "agent", path)
+    model = table.get("model", "")
+    if not isinstance(model, str) or (model and not _MODEL_RE.match(model)):
+        raise ArbError(f"{path}: [agent] model must be a model name like \"sonnet\"")
+    ints = {}
+    for key, low, high in (("max_turns", 1, 200), ("timeout_minutes", 1, 600),
+                           ("daily_limit", 0, 1000)):
+        v = table.get(key, getattr(AgentConfig, key))
+        if isinstance(v, bool) or not isinstance(v, int) or not low <= v <= high:
+            raise ArbError(f"{path}: [agent] {key} must be an integer from {low} to {high}")
+        ints[key] = v
+    pause = table.get("pause_above", AgentConfig.pause_above)
+    if isinstance(pause, bool) or not isinstance(pause, (int, float)) or not 0 < pause <= 1:
+        raise ArbError(f"{path}: [agent] pause_above must be a number in (0, 1]")
+    return AgentConfig(model=model, pause_above=float(pause), **ints)
+
+
 def project_config(ctx: RepoContext) -> ProjectConfig:
     path = ctx.config_path
     cfg = load_toml(path, "project config") if path.is_file() else {}
@@ -206,7 +238,8 @@ def project_config(ctx: RepoContext) -> ProjectConfig:
     return ProjectConfig(default_machine=machine.strip(), total_su=float(total),
                          project_id=_project_id(cfg, path), watch=_watch(cfg, path),
                          wandb=_wandb(cfg, path), run=_run(cfg, path),
-                         claude=_claude(cfg, path), metric=metric, goal=goal)
+                         claude=_claude(cfg, path), metric=metric, goal=goal,
+                         agent=_agent(cfg, path))
 
 
 def require_project_id(ctx: RepoContext) -> str:
